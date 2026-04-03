@@ -41,9 +41,9 @@ Other untracked:
 ## Decision matrix (a cocher)
 
 ### Keep and track now
-- [ ] Code in `crates/api/migrations/`
-- [ ] Code in `crates/api/src/auth/`
-- [ ] UI files in `crates/web/src/pages/portal.rs` and `crates/web/src/styles/`
+- [x] Code in `crates/api/migrations/`
+- [x] Code in `crates/api/src/auth/`
+- [x] UI files in `crates/web/src/pages/portal.rs` and `crates/web/src/styles/`
 
 ### Archive docs (keep history, reduce root noise)
 - [x] Move old docs to `docs/archive/2026-04-clean-2/`

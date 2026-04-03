@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight
 
 help:
 	@echo "Targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make status"
 	@echo "  make test"
 	@echo "  make snapshot"
+	@echo "  make preflight"
 
 devtools:
 	./scripts/devtools.sh
@@ -49,3 +50,6 @@ test:
 
 snapshot:
 	./scripts/project-snapshot.sh
+
+preflight:
+	./scripts/deploy-preflight.sh

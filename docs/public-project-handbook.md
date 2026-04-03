@@ -35,6 +35,7 @@ Commandes:
 
 ```bash
 export ADMIN_DASH_PASSWORD='change-me'
+make preflight
 make launch-all
 ```
 

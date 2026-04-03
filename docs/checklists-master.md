@@ -32,6 +32,7 @@ make snapshot
 - [x] `cargo check -p rev0auth-web`
 - [ ] `cargo test -p rev0auth-api`
 - [ ] Smoke test login admin
+- [ ] `make preflight`
 - [ ] Smoke test demande acces member
 - [ ] Smoke test toggle acces admin
 - [ ] Smoke test profil complet admin (precedent/suivant)
@@ -41,6 +42,7 @@ Template validation rapide:
 ```bash
 ~/.cargo/bin/cargo check -p rev0auth-web
 ~/.cargo/bin/cargo test -p rev0auth-api
+make preflight
 curl http://localhost:8080/health
 curl http://localhost:3000/status
 ```
