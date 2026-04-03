@@ -19,6 +19,21 @@ Passer d'une installation locale ou VPS a un lancement lisible, avec reverse pro
 - changement de l'architecture reseau
 - installation de la brique media elle-meme
 
+## Ports sans conflit (recommande)
+
+Si `:8080` est deja utilise par un autre service (ex: Songsurf), decale l'API rev0auth:
+
+```bash
+export API_BIND_ADDR='0.0.0.0:18080'
+export REV0AUTH_API_UPSTREAM='127.0.0.1:18080'
+```
+
+Et cote Caddy:
+
+```env
+API_UPSTREAM=127.0.0.1:18080
+```
+
 ## Preparation du reverse proxy
 
 Si tu prepares Caddy ou un autre reverse proxy avant de deployer:

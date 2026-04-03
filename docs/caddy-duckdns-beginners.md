@@ -105,6 +105,31 @@ Si ca ne repond pas:
 - verifier ACL tailnet
 - verifier firewall NAS
 
+## Cas conflit de port (Songsurf deja sur 8080)
+
+Si `8080` est deja utilise sur la machine du projet, ne force pas de partage de port.
+
+Utilise une separation simple:
+
+1. API rev0auth sur un autre port local (ex: `18080`)
+2. Songsurf garde son port actuel via Tailscale/NAS
+3. Caddy route chaque domaine vers le bon upstream
+
+Exemple variables:
+
+```bash
+# API process
+export API_BIND_ADDR='0.0.0.0:18080'
+
+# Web process (checks internes)
+export REV0AUTH_API_UPSTREAM='127.0.0.1:18080'
+
+# Caddy env
+API_UPSTREAM=127.0.0.1:18080
+```
+
+Resultat: pas de collision avec Songsurf, et rev0auth reste stable.
+
 ## Etape 6 - Tests finaux
 
 ```bash

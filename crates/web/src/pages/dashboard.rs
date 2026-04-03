@@ -364,7 +364,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 <article class="card">
                     <div class="label">API Auth</div>
                     <div class="state" id="api-state">Chargement...</div>
-                    <div class="meta">Connectivite web -> API Rust (port 8080).</div>
+                    <div class="meta">Connectivite web -> API Rust (upstream configurable).</div>
                 </article>
             </div>
 

@@ -359,7 +359,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/auth/password-check", post(password_check))
         .merge(protected_routes)
         .with_state(state);
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = web_bind_addr();
 
     info!(%addr, "Web app listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -408,9 +408,10 @@ async fn members_profile_page() -> impl axum::response::IntoResponse {
 // ============================================================================
 
 async fn status() -> Json<StatusResponse> {
+    let api_upstream = api_upstream_addr();
     let api_ok = timeout(
         Duration::from_millis(500),
-        tokio::net::TcpStream::connect("127.0.0.1:8080"),
+        tokio::net::TcpStream::connect(api_upstream.as_str()),
     )
     .await
     .map(|r| r.is_ok())
@@ -446,9 +447,10 @@ async fn admin_auth_check() -> Json<ActionResponse> {
 }
 
 async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
+    let api_upstream = api_upstream_addr();
     let api_ok = timeout(
         Duration::from_millis(500),
-        tokio::net::TcpStream::connect("127.0.0.1:8080"),
+        tokio::net::TcpStream::connect(api_upstream.as_str()),
     )
     .await
     .map(|r| r.is_ok())
@@ -711,9 +713,10 @@ async fn admin_tests_history(State(state): State<WebState>) -> Json<Vec<Dashboar
 }
 
 async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<DashboardTestRun> {
+    let api_upstream = api_upstream_addr();
     let api_ok = timeout(
         Duration::from_millis(500),
-        tokio::net::TcpStream::connect("127.0.0.1:8080"),
+        tokio::net::TcpStream::connect(api_upstream.as_str()),
     )
     .await
     .map(|r| r.is_ok())
@@ -727,9 +730,9 @@ async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<Dashboard
             name: "api_health_socket",
             ok: api_ok,
             detail: if api_ok {
-                "127.0.0.1:8080 reachable".to_string()
+                format!("{api_upstream} reachable")
             } else {
-                "cannot reach 127.0.0.1:8080".to_string()
+                format!("cannot reach {api_upstream}")
             },
         },
         DashboardTestCase {
@@ -1438,6 +1441,21 @@ fn now_epoch() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+fn web_bind_addr() -> SocketAddr {
+    std::env::var("WEB_BIND_ADDR")
+        .ok()
+        .and_then(|raw| raw.parse::<SocketAddr>().ok())
+        .unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], 3000)))
+}
+
+fn api_upstream_addr() -> String {
+    std::env::var("REV0AUTH_API_UPSTREAM")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "127.0.0.1:8080".to_string())
 }
 
 fn parse_member_status(raw: &str) -> Option<UserStatus> {

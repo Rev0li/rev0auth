@@ -11,7 +11,10 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let app = build_router().await?;
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let addr = std::env::var("API_BIND_ADDR")
+        .ok()
+        .and_then(|raw| raw.parse::<SocketAddr>().ok())
+        .unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], 8080)));
 
     info!(%addr, "API listening");
     let listener = tokio::net::TcpListener::bind(addr).await?;
