@@ -583,6 +583,10 @@ Routes:
 **Livrable**:
 - mini inventaire de consolidation avec priorites.
 
+Precondition validee pour la suite:
+- NEST-001 est deja traite avant AUTH-012.
+- Le rapport d'audit sert de base de controle avant toute installation media.
+
 ---
 
 ### 09h00 - 10h30: Refactor HTML (1h30)
@@ -683,7 +687,11 @@ Routes:
 
 ## JOUR 8-9 - Media Streaming (Ready NAS)
 
-**Objective**: Intégration DldeMedia + NAS via Tailscale
+**Objective**: Installation et integration DldeMedia sur infra deja disponible
+
+Contrainte de scope:
+- L'infra est deja en place.
+- AUTH-012 se limite a l'installation, au branchement et aux verifications, sans chantier infra supplementaire.
 
 Cette partie necessite:
 - Metadata DB pour videos
