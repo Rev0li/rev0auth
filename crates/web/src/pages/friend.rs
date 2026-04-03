@@ -146,6 +146,46 @@ pub async fn friend() -> Html<&'static str> {
             color: #ef4e24;
             border: 1px solid #f3c2b4;
         }
+        .services {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 220px));
+            justify-content: center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+        .service-card {
+            border: 1px solid rgba(19, 35, 49, 0.12);
+            border-radius: 12px;
+            background: #fff;
+            padding: 14px;
+        }
+        .service-card h3 {
+            margin: 0 0 6px;
+            font-size: 1rem;
+        }
+        .service-card p {
+            margin: 0 0 10px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .service-btn {
+            width: 100%;
+            border: 1px solid rgba(19, 35, 49, 0.2);
+            border-radius: 8px;
+            background: rgba(13, 155, 115, 0.08);
+            color: #0d9b73;
+            font-weight: 700;
+            padding: 9px 10px;
+            cursor: pointer;
+        }
+        .service-btn:hover {
+            background: rgba(13, 155, 115, 0.18);
+        }
+        @media (max-width: 900px) {
+            .services {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -183,6 +223,28 @@ pub async fn friend() -> Html<&'static str> {
         </article>
 
         <article class="card">
+            <h2>Premium - Services intégrés</h2>
+            <p style="margin-top: 0; opacity: 0.8;">Acces rapide vers tes services externes.</p>
+            <div class="services">
+                <div class="service-card">
+                    <h3>Songsurf</h3>
+                    <p>Accès au service musique.</p>
+                    <button class="service-btn" data-url="https://revoli-songsurf.duckdns.org">Ouvrir Songsurf</button>
+                </div>
+                <div class="service-card">
+                    <h3>Jellyfin</h3>
+                    <p>Accès streaming media.</p>
+                    <button class="service-btn" data-url="https://revoli-jellyfin.duckdns.org">Ouvrir Jellyfin</button>
+                </div>
+                <div class="service-card">
+                    <h3>GitHub</h3>
+                    <p>Accès au repo/profil GitHub.</p>
+                    <button class="service-btn" data-url="https://github.com/Rev0li">Ouvrir GitHub</button>
+                </div>
+            </div>
+        </article>
+
+        <article class="card">
             <h2>Statistiques</h2>
             <div class="stats">
                 <div class="stat-box">
@@ -204,6 +266,7 @@ pub async fn friend() -> Html<&'static str> {
     <script>
         // Get logged-in pseudo from localStorage
         const pseudo = localStorage.getItem('logged_pseudo');
+
         if (!pseudo) {
             window.location.href = '/';
         } else {
@@ -268,6 +331,14 @@ pub async fn friend() -> Html<&'static str> {
                 statusMsg.style.display = 'block';
             }
         }
+
+        document.querySelectorAll('.service-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const baseUrl = button.getAttribute('data-url');
+                if (!baseUrl) return;
+                window.location.href = baseUrl;
+            });
+        });
 
         document.getElementById('logout-btn').addEventListener('click', logout);
         document.getElementById('busy-btn').addEventListener('click', () => setStatus('busy'));
