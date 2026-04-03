@@ -209,6 +209,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/portal/signup-request", post(portal_signup_request))
         .route("/portal/login", post(portal_login))
         .route("/dashboard", get(dashboard))
+        .route("/admin/tdd", get(tdd_dashboard))
         .route("/status", get(status))
         .route("/status/all", get(status_all))
         .route("/admin/signup-requests", get(admin_signup_requests))
@@ -261,6 +262,10 @@ async fn portal() -> impl axum::response::IntoResponse {
 
 async fn dashboard() -> impl axum::response::IntoResponse {
     pages::dashboard().await
+}
+
+async fn tdd_dashboard() -> impl axum::response::IntoResponse {
+    pages::tdd_dashboard().await
 }
 
 async fn friend_home() -> impl axum::response::IntoResponse {
