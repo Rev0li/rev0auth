@@ -10,5 +10,6 @@ Regroupe les documents d'exploitation et de deploiement.
 - `docs/install-to-launch.md`
 - `docs/public-project-handbook.md`
 - `docs/cheatsheet-complet.md`
+- `docs/checklists-master.md`
 - `docs/polish-finalisation.md`
 - `docs/clean-fixpoints-saas-roadmap.md`

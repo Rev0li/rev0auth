@@ -39,6 +39,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/install-to-launch.md`
 - `docs/public-project-handbook.md`
 - `docs/cheatsheet-complet.md`
+- `docs/checklists-master.md`
 - `docs/polish-finalisation.md`
 - `docs/clean-fixpoints-saas-roadmap.md`
 - `docs/auth-012-media-install.md`

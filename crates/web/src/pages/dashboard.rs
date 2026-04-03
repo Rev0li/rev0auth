@@ -510,10 +510,12 @@ pub async fn dashboard() -> Html<&'static str> {
                 <ul>
                     <li><code>docs/public-project-handbook.md</code> (document unique public)</li>
                     <li><code>docs/cheatsheet-complet.md</code> (debug rapide / tests)</li>
+                    <li><code>docs/checklists-master.md</code> (checklists pre-remplies)</li>
                     <li><code>docs/polish-finalisation.md</code> (etat polish)</li>
                     <li><code>docs/clean-fixpoints-saas-roadmap.md</code> (plan clean + SaaS)</li>
                     <li><code>docs/install-to-launch.md</code> (runbook deployment)</li>
                     <li><code>docs/caddy-duckdns-beginners.md</code> (proxy pour debutants)</li>
+                    <li><code>make snapshot</code> (copie projet locale)</li>
                     <li><code>docs/README.md</code> (index principal docs)</li>
                 </ul>
             </div>
