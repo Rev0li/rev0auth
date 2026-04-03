@@ -157,6 +157,41 @@ pub async fn friend() -> Html<&'static str> {
         .service-btn:hover {
             background: rgba(13, 155, 115, 0.18);
         }
+        .service-btn.locked {
+            background: #f3f7fa;
+            color: #4b5f71;
+            border-color: rgba(19, 35, 49, 0.16);
+        }
+        .service-state {
+            font-size: 0.84rem;
+            margin: 8px 0;
+            opacity: 0.84;
+        }
+        .service-input {
+            width: 100%;
+            border: 1px solid rgba(19, 35, 49, 0.2);
+            border-radius: 8px;
+            padding: 8px;
+            box-sizing: border-box;
+            margin-bottom: 8px;
+        }
+        .service-msg {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .service-msg.ok {
+            background: #e8fff5;
+            color: #0d9b73;
+            border: 1px solid #b3ecd1;
+        }
+        .service-msg.error {
+            background: #fff0ec;
+            color: #ef4e24;
+            border: 1px solid #f3c2b4;
+        }
         @media (max-width: 900px) {
             .services {
                 grid-template-columns: 1fr;
@@ -207,24 +242,29 @@ pub async fn friend() -> Html<&'static str> {
 
         <article class="card">
             <h2>Premium - Services intégrés</h2>
-            <p style="margin-top: 0; opacity: 0.8;">Acces rapide vers tes services externes.</p>
+            <p style="margin-top: 0; opacity: 0.8;">Par defaut tu n'as acces a rien. Demande l'acces service par service.</p>
             <div class="services">
                 <div class="service-card">
                     <h3>Songsurf</h3>
-                    <p>Accès au service musique.</p>
-                    <button class="service-btn" data-url="https://revoli-songsurf.duckdns.org">Ouvrir Songsurf</button>
+                    <p>Acces au service musique.</p>
+                    <div class="service-state" id="songsurf-state">Etat: verrouille</div>
+                    <button class="service-btn locked" id="songsurf-btn">Demander acces Songsurf</button>
                 </div>
                 <div class="service-card">
                     <h3>Jellyfin</h3>
-                    <p>Accès streaming media.</p>
-                    <button class="service-btn" data-url="https://revoli-jellyfin.duckdns.org">Ouvrir Jellyfin</button>
+                    <p>Acces streaming media.</p>
+                    <div class="service-state" id="jellyfin-state">Etat: verrouille</div>
+                    <button class="service-btn locked" id="jellyfin-btn">Demander acces Jellyfin</button>
                 </div>
                 <div class="service-card">
                     <h3>GitHub</h3>
-                    <p>Accès au repo/profil GitHub.</p>
-                    <button class="service-btn" data-url="https://github.com/Rev0li">Ouvrir GitHub</button>
+                    <p>Acces conditionne: compte cree + star sur ce projet.</p>
+                    <div class="service-state" id="github-state">Etat: verrouille</div>
+                    <input id="github-username" class="service-input" placeholder="Ton username GitHub" />
+                    <button class="service-btn locked" id="github-btn">J'ai mis une star, demander acces GitHub</button>
                 </div>
             </div>
+            <div id="service-msg" class="service-msg"></div>
         </article>
 
     </main>
@@ -239,6 +279,15 @@ pub async fn friend() -> Html<&'static str> {
             document.getElementById('welcome-pseudo').textContent = pseudo;
             document.getElementById('pseudo-display').textContent = pseudo;
         }
+
+        const accessState = {
+            github: false,
+            jellyfin: false,
+            songsurf: false,
+            requestGithub: false,
+            requestJellyfin: false,
+            requestSongsurf: false
+        };
 
         // Logout function
         async function logout() {
@@ -259,6 +308,102 @@ pub async fn friend() -> Html<&'static str> {
         // Status management
         const statusMsg = document.getElementById('status-msg');
         const commentaryInput = document.getElementById('commentary');
+        const serviceMsg = document.getElementById('service-msg');
+
+        function setServiceMsg(ok, message) {
+            serviceMsg.className = 'service-msg ' + (ok ? 'ok' : 'error');
+            serviceMsg.textContent = message;
+            serviceMsg.style.display = 'block';
+        }
+
+        function renderServiceButtons() {
+            const songsurfBtn = document.getElementById('songsurf-btn');
+            const jellyfinBtn = document.getElementById('jellyfin-btn');
+            const githubBtn = document.getElementById('github-btn');
+
+            const songsurfState = document.getElementById('songsurf-state');
+            const jellyfinState = document.getElementById('jellyfin-state');
+            const githubState = document.getElementById('github-state');
+
+            if (accessState.songsurf) {
+                songsurfState.textContent = 'Etat: ACCES OUVERT';
+                songsurfBtn.textContent = 'Ouvrir Songsurf';
+                songsurfBtn.classList.remove('locked');
+            } else if (accessState.requestSongsurf) {
+                songsurfState.textContent = 'Etat: demande envoyee, en attente admin';
+                songsurfBtn.textContent = 'Demande Songsurf envoyee';
+                songsurfBtn.classList.add('locked');
+            } else {
+                songsurfState.textContent = 'Etat: verrouille';
+                songsurfBtn.textContent = 'Demander acces Songsurf';
+                songsurfBtn.classList.add('locked');
+            }
+
+            if (accessState.jellyfin) {
+                jellyfinState.textContent = 'Etat: ACCES OUVERT';
+                jellyfinBtn.textContent = 'Ouvrir Jellyfin';
+                jellyfinBtn.classList.remove('locked');
+            } else if (accessState.requestJellyfin) {
+                jellyfinState.textContent = 'Etat: demande envoyee, en attente admin';
+                jellyfinBtn.textContent = 'Demande Jellyfin envoyee';
+                jellyfinBtn.classList.add('locked');
+            } else {
+                jellyfinState.textContent = 'Etat: verrouille';
+                jellyfinBtn.textContent = 'Demander acces Jellyfin';
+                jellyfinBtn.classList.add('locked');
+            }
+
+            if (accessState.github) {
+                githubState.textContent = 'Etat: ACCES OUVERT';
+                githubBtn.textContent = 'Ouvrir GitHub';
+                githubBtn.classList.remove('locked');
+            } else if (accessState.requestGithub) {
+                githubState.textContent = 'Etat: demande envoyee, en attente admin';
+                githubBtn.textContent = 'Demande GitHub envoyee';
+                githubBtn.classList.add('locked');
+            } else {
+                githubState.textContent = 'Etat: verrouille';
+                githubBtn.textContent = 'J\'ai mis une star, demander acces GitHub';
+                githubBtn.classList.add('locked');
+            }
+        }
+
+        async function loadMemberAccessState() {
+            try {
+                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+                const data = await res.json();
+                accessState.github = !!data.access_github;
+                accessState.jellyfin = !!data.access_jellyfin;
+                accessState.songsurf = !!data.access_songsurf;
+                accessState.requestGithub = !!data.request_github;
+                accessState.requestJellyfin = !!data.request_jellyfin;
+                accessState.requestSongsurf = !!data.request_songsurf;
+
+                if (data.github_username) {
+                    document.getElementById('github-username').value = data.github_username;
+                }
+                renderServiceButtons();
+            } catch (err) {
+                setServiceMsg(false, 'Impossible de charger l\'etat des acces: ' + err.message);
+            }
+        }
+
+        async function requestService(service, extraPayload) {
+            try {
+                const res = await fetch('/members/access/request', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ pseudo, service }, extraPayload || {}))
+                });
+                const data = await res.json();
+                setServiceMsg(!!data.ok, data.message || 'Reponse recue.');
+                if (data.ok) {
+                    await loadMemberAccessState();
+                }
+            } catch (err) {
+                setServiceMsg(false, 'Erreur: ' + err.message);
+            }
+        }
 
         async function setStatus(status) {
             try {
@@ -287,11 +432,37 @@ pub async fn friend() -> Html<&'static str> {
             }
         }
 
-        document.querySelectorAll('.service-btn').forEach((button) => {
-            button.addEventListener('click', () => {
-                const baseUrl = button.getAttribute('data-url');
-                if (!baseUrl) return;
-                window.location.href = baseUrl;
+        document.getElementById('songsurf-btn').addEventListener('click', async () => {
+            if (accessState.songsurf) {
+                window.location.href = 'https://revoli-songsurf.duckdns.org';
+                return;
+            }
+            await requestService('songsurf');
+        });
+
+        document.getElementById('jellyfin-btn').addEventListener('click', async () => {
+            if (accessState.jellyfin) {
+                window.location.href = 'https://revoli-jellyfin.duckdns.org';
+                return;
+            }
+            await requestService('jellyfin');
+        });
+
+        document.getElementById('github-btn').addEventListener('click', async () => {
+            if (accessState.github) {
+                window.location.href = 'https://github.com/Rev0li';
+                return;
+            }
+
+            const githubUsername = document.getElementById('github-username').value.trim();
+            if (!githubUsername) {
+                setServiceMsg(false, 'Renseigne ton username GitHub avant la demande.');
+                return;
+            }
+
+            await requestService('github', {
+                github_username: githubUsername,
+                starred: true
             });
         });
 
@@ -299,6 +470,7 @@ pub async fn friend() -> Html<&'static str> {
         document.getElementById('happy-btn').addEventListener('click', () => setStatus('content'));
         document.getElementById('meh-btn').addEventListener('click', () => setStatus('bof'));
         document.getElementById('question-btn').addEventListener('click', () => setStatus('question'));
+        loadMemberAccessState();
     </script>
 </body>
 </html>

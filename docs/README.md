@@ -37,6 +37,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/auth-009-health-checks.md`
 - `docs/auth-009-secrets.md`
 - `docs/install-to-launch.md`
+- `docs/public-project-handbook.md`
 - `docs/cheatsheet-complet.md`
 - `docs/polish-finalisation.md`
 - `docs/auth-012-media-install.md`

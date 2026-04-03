@@ -59,6 +59,14 @@ struct User {
     status: UserStatus,
     bio: String,
     commentary: String,
+    access_github: bool,
+    access_jellyfin: bool,
+    access_songsurf: bool,
+    request_github: bool,
+    request_jellyfin: bool,
+    request_songsurf: bool,
+    github_star_claimed: bool,
+    github_username: Option<String>,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
     created_at_epoch: u64,
@@ -117,6 +125,17 @@ struct CreateUserInput {
 #[derive(Debug, Deserialize)]
 struct UpdateUserInput {
     status: Option<String>,
+    access_github: Option<bool>,
+    access_jellyfin: Option<bool>,
+    access_songsurf: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AccessRequestInput {
+    pseudo: String,
+    service: String,
+    github_username: Option<String>,
+    starred: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -191,6 +210,14 @@ struct MemberProfileResponse {
     status: UserStatus,
     bio: String,
     commentary: String,
+    access_github: bool,
+    access_jellyfin: bool,
+    access_songsurf: bool,
+    request_github: bool,
+    request_jellyfin: bool,
+    request_songsurf: bool,
+    github_star_claimed: bool,
+    github_username: Option<String>,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
     created_at_epoch: u64,
@@ -325,6 +352,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/members/profile/data", put(member_update_profile))
         .route("/members/password", put(member_update_password))
         .route("/members/status", put(member_set_status))
+        .route("/members/access/request", post(member_request_access))
         .route("/members/account", delete(member_delete_account))
         .route("/members/avatar", post(member_upload_avatar))
         .route("/auth/password-check", post(password_check))
@@ -621,6 +649,14 @@ async fn admin_approve_signup_request(
             status: UserStatus::Actif,
             bio: String::new(),
             commentary: String::new(),
+            access_github: false,
+            access_jellyfin: false,
+            access_songsurf: false,
+            request_github: false,
+            request_jellyfin: false,
+            request_songsurf: false,
+            github_star_claimed: false,
+            github_username: None,
             avatar_filename: None,
             avatar_size_bytes: None,
             created_at_epoch: now_epoch(),
@@ -756,6 +792,7 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
         EndpointInfo { method: "GET", path: "/members/profile/data", scope: "member" },
         EndpointInfo { method: "PUT", path: "/members/profile/data", scope: "member" },
         EndpointInfo { method: "PUT", path: "/members/password", scope: "member" },
+        EndpointInfo { method: "POST", path: "/members/access/request", scope: "member" },
         EndpointInfo { method: "PUT", path: "/members/status", scope: "member" },
         EndpointInfo { method: "DELETE", path: "/members/account", scope: "member" },
         EndpointInfo { method: "POST", path: "/members/avatar", scope: "member" },
@@ -947,6 +984,14 @@ async fn admin_create_user(
         status: UserStatus::Actif,
         bio: String::new(),
         commentary: String::new(),
+        access_github: false,
+        access_jellyfin: false,
+        access_songsurf: false,
+        request_github: false,
+        request_jellyfin: false,
+        request_songsurf: false,
+        github_star_claimed: false,
+        github_username: None,
         avatar_filename: None,
         avatar_size_bytes: None,
         created_at_epoch: now_epoch(),
@@ -980,6 +1025,33 @@ async fn admin_update_user(
                 }),
             };
             user.status = new_status;
+        }
+
+        if let Some(access) = payload.access_jellyfin {
+            user.access_jellyfin = access;
+            if access {
+                user.request_jellyfin = false;
+            }
+        }
+
+        if let Some(access) = payload.access_songsurf {
+            user.access_songsurf = access;
+            if access {
+                user.request_songsurf = false;
+            }
+        }
+
+        if let Some(access) = payload.access_github {
+            if access && !user.github_star_claimed {
+                return Json(ActionResponse {
+                    ok: false,
+                    message: "User doit confirmer sa star GitHub avant activation.",
+                });
+            }
+            user.access_github = access;
+            if access {
+                user.request_github = false;
+            }
         }
         
         info!(target: "rev0auth", "Admin updated user {}", pseudo);
@@ -1034,6 +1106,14 @@ async fn member_profile_data(
             status: user.status,
             bio: user.bio.clone(),
             commentary: user.commentary.clone(),
+            access_github: user.access_github,
+            access_jellyfin: user.access_jellyfin,
+            access_songsurf: user.access_songsurf,
+            request_github: user.request_github,
+            request_jellyfin: user.request_jellyfin,
+            request_songsurf: user.request_songsurf,
+            github_star_claimed: user.github_star_claimed,
+            github_username: user.github_username.clone(),
             avatar_filename: user.avatar_filename.clone(),
             avatar_size_bytes: user.avatar_size_bytes,
             created_at_epoch: user.created_at_epoch,
@@ -1047,6 +1127,14 @@ async fn member_profile_data(
         status: UserStatus::Inactif,
         bio: String::new(),
         commentary: String::new(),
+        access_github: false,
+        access_jellyfin: false,
+        access_songsurf: false,
+        request_github: false,
+        request_jellyfin: false,
+        request_songsurf: false,
+        github_star_claimed: false,
+        github_username: None,
         avatar_filename: None,
         avatar_size_bytes: None,
         created_at_epoch: 0,
@@ -1112,6 +1200,79 @@ async fn member_set_status(
         ok: false,
         message: "Utilisateur introuvable.",
     })
+}
+
+async fn member_request_access(
+    State(state): State<WebState>,
+    Json(payload): Json<AccessRequestInput>,
+) -> Json<ActionResponse> {
+    let pseudo = payload.pseudo.trim();
+    if pseudo.is_empty() {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Pseudo manquant.",
+        });
+    }
+
+    let service = payload.service.trim().to_ascii_lowercase();
+    let mut users = state.users.write().await;
+    let Some(user) = users
+        .iter_mut()
+        .find(|u| u.pseudo.eq_ignore_ascii_case(pseudo))
+    else {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Utilisateur introuvable.",
+        });
+    };
+
+    match service.as_str() {
+        "jellyfin" => {
+            user.request_jellyfin = true;
+            Json(ActionResponse {
+                ok: true,
+                message: "Demande Jellyfin envoyee a l'admin.",
+            })
+        }
+        "songsurf" => {
+            user.request_songsurf = true;
+            Json(ActionResponse {
+                ok: true,
+                message: "Demande Songsurf envoyee a l'admin.",
+            })
+        }
+        "github" => {
+            let Some(true) = payload.starred else {
+                return Json(ActionResponse {
+                    ok: false,
+                    message: "Confirme la star GitHub avant de demander l'acces.",
+                });
+            };
+
+            let username = payload
+                .github_username
+                .map(|u| u.trim().to_string())
+                .filter(|u| !u.is_empty());
+            if username.is_none() {
+                return Json(ActionResponse {
+                    ok: false,
+                    message: "GitHub username requis.",
+                });
+            }
+
+            user.request_github = true;
+            user.github_star_claimed = true;
+            user.github_username = username;
+            Json(ActionResponse {
+                ok: true,
+                message: "Demande GitHub envoyee, en attente de validation admin.",
+            })
+        }
+        _ => Json(ActionResponse {
+            ok: false,
+            message: "Service invalide.",
+        }),
+    }
 }
 
 async fn member_update_password(

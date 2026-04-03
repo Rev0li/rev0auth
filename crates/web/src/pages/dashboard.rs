@@ -209,6 +209,17 @@ pub async fn dashboard() -> Html<&'static str> {
 
         .btn-small.danger:hover { background: #fff0ed; }
 
+        .btn-small.grant {
+            color: #0d9b73;
+            border-color: #a9e2ce;
+        }
+
+        .btn-small.warn {
+            color: #8a5a00;
+            border-color: #f6d08a;
+            background: #fff9ea;
+        }
+
         .form-group {
             margin-bottom: 10px;
         }
@@ -257,6 +268,12 @@ pub async fn dashboard() -> Html<&'static str> {
         }
 
         .endpoint-grid {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .chain-grid {
             margin-top: 10px;
             display: grid;
             gap: 8px;
@@ -439,6 +456,11 @@ pub async fn dashboard() -> Html<&'static str> {
                 <ul id="timeline" class="timeline"></ul>
             </div>
             <div class="row">
+                <strong>Verification de chaine (leger, maillons critiques)</strong>
+                <div class="mini">Web -> API, Admin ping, User ping, registry endpoints.</div>
+                <div id="chain-checks" class="chain-grid">Chargement...</div>
+            </div>
+            <div class="row">
                 <strong>Tous les endpoints (visuel sante, non cliquable)</strong>
                 <div class="mini">Cette vue ne navigue pas vers les pages. Elle indique juste si chaque scope est considere OK.</div>
                 <div id="endpoints-system-list" class="endpoint-grid">Chargement...</div>
@@ -462,6 +484,12 @@ pub async fn dashboard() -> Html<&'static str> {
     <script>
         const monitorState = { adminOk: false, userOk: false, apiOk: false };
         const dashboardStats = { users: [], pendingSignups: 0, lastRun: null, endpoints: [] };
+        const chainState = {
+            webToApi: false,
+            adminPing: false,
+            userPing: false,
+            endpointRegistry: false
+        };
 
         function paint(el, ok, label) {
             el.textContent = ok ? label + ' OK' : label + ' DOWN';
@@ -494,6 +522,26 @@ pub async fn dashboard() -> Html<&'static str> {
                     + '<div class="endpoint-meta">scope: ' + ep.scope + '</div></div>'
                     + badge
                     + '</div>';
+            }).join('');
+        }
+
+        function renderChainChecks() {
+            const panel = document.getElementById('chain-checks');
+            if (!panel) return;
+
+            const items = [
+                { key: 'webToApi', label: 'Web -> API health' },
+                { key: 'adminPing', label: 'Admin ping endpoint' },
+                { key: 'userPing', label: 'User ping endpoint' },
+                { key: 'endpointRegistry', label: 'Endpoint registry' }
+            ];
+
+            panel.innerHTML = items.map((item) => {
+                const ok = !!chainState[item.key];
+                const badge = ok
+                    ? '<span class="badge-ok">OK</span>'
+                    : '<span class="badge-ko">KO</span>';
+                return '<div class="endpoint-item"><div><strong>' + item.label + '</strong></div>' + badge + '</div>';
             }).join('');
         }
 
@@ -587,11 +635,16 @@ pub async fn dashboard() -> Html<&'static str> {
                 monitorState.userOk = userOk;
                 monitorState.apiOk = !!data.api_ok;
 
+                chainState.webToApi = !!data.api_ok;
+                chainState.adminPing = admin.status === 'ok';
+                chainState.userPing = user.status === 'ok';
+
                 paint(document.getElementById('admin-state'), adminOk, 'ADMIN');
                 paint(document.getElementById('admin-state-2'), adminOk, 'ADMIN');
                 paint(document.getElementById('user-state'), userOk, 'USER');
                 paint(document.getElementById('user-state-2'), userOk, 'USER');
                 paint(document.getElementById('api-state'), data.api_ok, 'API');
+                renderChainChecks();
                 renderEndpointsSystem();
 
                 document.getElementById('sprint').textContent = all.sprint;
@@ -614,6 +667,10 @@ pub async fn dashboard() -> Html<&'static str> {
                 paint(document.getElementById('user-state'), false, 'USER');
                 paint(document.getElementById('user-state-2'), false, 'USER');
                 paint(document.getElementById('api-state'), false, 'API');
+                chainState.webToApi = false;
+                chainState.adminPing = false;
+                chainState.userPing = false;
+                renderChainChecks();
                 pushTimeline(new Date().toLocaleTimeString() + ' | erreur de monitoring');
             }
         }
@@ -672,8 +729,12 @@ pub async fn dashboard() -> Html<&'static str> {
                 const res = await fetch('/japprends/endpoints', { cache: 'no-store' });
                 const data = await res.json();
                 dashboardStats.endpoints = Array.isArray(data) ? data : [];
+                chainState.endpointRegistry = Array.isArray(data) && data.length > 0;
+                renderChainChecks();
                 renderEndpointsSystem();
             } catch (_err) {
+                chainState.endpointRegistry = false;
+                renderChainChecks();
                 panel.textContent = 'Erreur chargement endpoints.';
             }
         }
@@ -713,12 +774,28 @@ pub async fn dashboard() -> Html<&'static str> {
                 else if (user.status === 'occupe') statusDisplay = '🟡 Occupe';
                 
                 const role = user.role.charAt(0).toUpperCase() + user.role.slice(1);
+                const reqBadges = [];
+                if (user.request_github) reqBadges.push('GitHub');
+                if (user.request_jellyfin) reqBadges.push('Jellyfin');
+                if (user.request_songsurf) reqBadges.push('Songsurf');
+                const reqLabel = reqBadges.length > 0
+                    ? '<div class="user-meta" style="margin-top:4px;color:#8a5a00">Demandes: ' + reqBadges.join(', ') + '</div>'
+                    : '';
+
+                const ghLabel = user.access_github ? 'GitHub ON' : 'GitHub OFF';
+                const jfLabel = user.access_jellyfin ? 'Jellyfin ON' : 'Jellyfin OFF';
+                const ssLabel = user.access_songsurf ? 'Songsurf ON' : 'Songsurf OFF';
+
                 return '<div class="user-card">'
                     + '<div class="user-info">'
                     + '<div class="user-name">' + user.pseudo + '</div>'
                     + '<div class="user-meta">' + role + ' • ' + dt + ' • ' + statusDisplay + '</div>'
+                    + reqLabel
                     + '</div>'
                     + '<div class="user-actions">'
+                    + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
+                    + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
+                    + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
                     + '<button class="btn-small" onclick="deleteUser(\'' + user.pseudo + '\')">🗑 Supprimer</button>'
                     + '</div>'
                     + '</div>';
@@ -727,6 +804,29 @@ pub async fn dashboard() -> Html<&'static str> {
             dashboardStats.users = list;
             renderAdminStats();
             panel.innerHTML = html;
+        }
+
+        async function toggleServiceAccess(pseudo, service, nextValue) {
+            const payload = {};
+            if (service === 'github') payload.access_github = !!nextValue;
+            if (service === 'jellyfin') payload.access_jellyfin = !!nextValue;
+            if (service === 'songsurf') payload.access_songsurf = !!nextValue;
+
+            try {
+                const res = await fetch('/japprends/users/' + pseudo, {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert('Erreur: ' + data.message);
+                    return;
+                }
+                await loadUsers();
+            } catch (err) {
+                alert('Erreur: ' + err.message);
+            }
         }
 
         // User management functions

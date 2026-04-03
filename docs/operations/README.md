@@ -8,5 +8,6 @@ Regroupe les documents d'exploitation et de deploiement.
 - `docs/auth-009-health-checks.md`
 - `docs/auth-009-secrets.md`
 - `docs/install-to-launch.md`
+- `docs/public-project-handbook.md`
 - `docs/cheatsheet-complet.md`
 - `docs/polish-finalisation.md`
