@@ -135,6 +135,15 @@ pub async fn friend() -> Html<&'static str> {
             background: #fff;
             padding: 14px;
         }
+        .service-media {
+            width: 100%;
+            height: 110px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid rgba(19, 35, 49, 0.12);
+            margin-bottom: 10px;
+            background: #f3f7fa;
+        }
         .service-card h3 {
             margin: 0 0 6px;
             font-size: 1rem;
@@ -210,21 +219,18 @@ pub async fn friend() -> Html<&'static str> {
         </div>
 
         <article class="card">
-            <h2>Espace personnel</h2>
+            <h2>Presentation du projet</h2>
             <p class="greeting">
-                Salut <strong id="pseudo-display">ami</strong> ! 
-                <br>Tu es maintenant connecté à la plateforme. Bienvenue dans la communauté rev0auth !
+                Bienvenue <strong id="pseudo-display">ami</strong>.
+                <br>rev0auth est un projet self-host Rust pour apprendre, construire et partager un systeme auth clair.
             </p>
             <p class="greeting">
-                This page is your member home.
-                <br>Tu peux acceder a tes services, mettre a jour ton profil et partager ton feedback.
+                Si le projet t'aide, tu peux soutenir son evolution via un don.
+                <br>Chaque contribution aide a maintenir l'infra, les tests et la documentation publique.
             </p>
-            <ul class="feature-list">
-                <li>Consulter ton profil et tes données</li>
-                <li>Accéder à l'espace membres</li>
-                <li>Participer aux discussions</li>
-                <li>Gérer tes préférences</li>
-            </ul>
+            <div class="actions">
+                <a class="profile-btn" href="https://github.com/sponsors/Rev0li" target="_blank" rel="noopener noreferrer">Faire un don</a>
+            </div>
         </article>
 
         <article class="card">
@@ -246,18 +252,21 @@ pub async fn friend() -> Html<&'static str> {
             <div class="services">
                 <div class="service-card">
                     <h3>Songsurf</h3>
+                    <img class="service-media" src="https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80" alt="Songsurf - musique" />
                     <p>Acces au service musique.</p>
                     <div class="service-state" id="songsurf-state">Etat: verrouille</div>
                     <button class="service-btn locked" id="songsurf-btn">Demander acces Songsurf</button>
                 </div>
                 <div class="service-card">
                     <h3>Jellyfin</h3>
+                    <img class="service-media" src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80" alt="Jellyfin - streaming video" />
                     <p>Acces streaming media.</p>
                     <div class="service-state" id="jellyfin-state">Etat: verrouille</div>
                     <button class="service-btn locked" id="jellyfin-btn">Demander acces Jellyfin</button>
                 </div>
                 <div class="service-card">
                     <h3>GitHub</h3>
+                    <img class="service-media" src="https://images.unsplash.com/photo-1618401479427-c8ef9465fccd?auto=format&fit=crop&w=900&q=80" alt="GitHub - code et collaboration" />
                     <p>Acces conditionne: compte cree + star sur ce projet.</p>
                     <div class="service-state" id="github-state">Etat: verrouille</div>
                     <input id="github-username" class="service-input" placeholder="Ton username GitHub" />
