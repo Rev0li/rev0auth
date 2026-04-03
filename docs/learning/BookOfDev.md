@@ -24,7 +24,8 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 ## Parcours learning Git (branche reconstruction)
 
 - `STEP-000` backend minimal health
-- `STEP-001+` routes auth et tests
+- `STEP-001` signup route (validation + duplicate check in-memory)
+- `STEP-002+` tests signup puis login/refresh
 - `STEP-00X` hardening, DB, ops
 
 ## Cible d'organisation finale
