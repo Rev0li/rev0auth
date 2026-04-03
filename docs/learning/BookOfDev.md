@@ -30,9 +30,36 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - `STEP-000` backend minimal health
 - `STEP-001` signup route (validation + duplicate check in-memory)
 - `STEP-002` tests signup (200 / 400 / 409)
-- `STEP-003` login route + tests (paire avec STEP-004 si besoin)
-- `STEP-004+` refresh puis hardening
+- `STEP-003/004` login route + tests
+- `STEP-005/006` refresh route + tests
 - `STEP-00X` hardening, DB, ops
+
+## Branch graph (reading order)
+
+```text
+master
+	└── NEST-001A/B stable backend snapshot
+
+learning/devbook-story
+	└── DOC-000 -> DOC-001 -> DOC-002 -> DOC-003
+
+learning/static-step0
+	└── STEP-000 commented health baseline
+
+feature/step-001-signup-route
+	└── STEP-001 commented signup route
+
+feature/step-002-signup-tests
+	└── STEP-002 commented signup tests
+
+feature/step-003-login-pair
+	└── STEP-003/004 commented login route + tests
+
+feature/step-005-refresh-pair
+	└── STEP-005/006 commented refresh route + tests
+```
+
+The graph is intentionally linear for onboarding: one branch, one feature, one clear lesson.
 
 ## Cible d'organisation finale
 
