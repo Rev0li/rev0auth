@@ -79,5 +79,6 @@ Puis verifier:
 ## Liens utiles
 
 - [Operations Index](operations/README.md)
+- [Caddy + DuckDNS (pour les nuls)](caddy-duckdns-beginners.md)
 - [AUTH-009 VPS setup](auth-009-vps-setup.md)
 - [AUTH-012 Media install-only](auth-012-media-install.md)
