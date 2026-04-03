@@ -246,3 +246,16 @@ Definition of done:
 - Route `PUT /members/profile/data` disponible
 - Route `POST /members/avatar` disponible (multipart)
 - Build web compile (`cargo check -p rev0auth-web`)
+
+## Ticket AUTH-012-MEDIA
+
+Statut: NEXT
+
+Objectif:
+- Installer et brancher la brique media sur l'infra deja disponible
+- Valider l'acces NAS/Tailscale et le flux media attendu
+
+Definition of done:
+- Procedure d'installation documentee dans `docs/auth-012-media-install.md`
+- Verifications de branchement notees
+- Infra existante non remaniee
