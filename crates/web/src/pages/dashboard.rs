@@ -793,6 +793,7 @@ pub async fn dashboard() -> Html<&'static str> {
                     + reqLabel
                     + '</div>'
                     + '<div class="user-actions">'
+                    + '<button class="btn-small warn" onclick="openUserProfile(\'' + user.pseudo + '\')">Profil complet</button>'
                     + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
                     + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
                     + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
@@ -827,6 +828,11 @@ pub async fn dashboard() -> Html<&'static str> {
             } catch (err) {
                 alert('Erreur: ' + err.message);
             }
+        }
+
+        function openUserProfile(pseudo) {
+            const target = '/members/profile?pseudo=' + encodeURIComponent(pseudo) + '&admin=1';
+            window.location.href = target;
         }
 
         // User management functions

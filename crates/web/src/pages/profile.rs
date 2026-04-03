@@ -70,6 +70,16 @@ pub async fn profile() -> Html<&'static str> {
         .ok { display: block; background: #e8fff5; border: 1px solid #b3ecd1; color: #0d9b73; }
         .down { display: block; background: #fff0ec; border: 1px solid #f3c2b4; color: #ef4e24; }
         .meta { font-size: 0.9rem; opacity: 0.82; }
+        .admin-note {
+            margin-top: 10px;
+            padding: 9px 10px;
+            border-radius: 10px;
+            border: 1px solid #f6d08a;
+            background: #fff9ea;
+            color: #6d4b00;
+            font-size: 0.88rem;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -77,8 +87,9 @@ pub async fn profile() -> Html<&'static str> {
         <article class="card">
             <h1>Profil membre</h1>
             <p class="meta">Ici tu retrouves toutes tes infos. You can update or delete your account anytime.</p>
+            <div id="admin-note" class="admin-note">Mode admin actif: tu modifies le profil complet de cet utilisateur.</div>
             <div class="actions">
-                <a class="btn secondary" href="/members/dashboard">Retour dashboard</a>
+                <a class="btn secondary" id="back-link" href="/members/dashboard">Retour dashboard</a>
             </div>
         </article>
 
@@ -140,9 +151,20 @@ pub async fn profile() -> Html<&'static str> {
     </main>
 
     <script>
-        const pseudo = localStorage.getItem('logged_pseudo');
+        const params = new URLSearchParams(window.location.search);
+        const adminMode = params.get('admin') === '1';
+        const queryPseudo = (params.get('pseudo') || '').trim();
+        const localPseudo = localStorage.getItem('logged_pseudo');
+        const pseudo = queryPseudo || localPseudo;
+
         if (!pseudo) {
             window.location.href = '/';
+        }
+
+        if (adminMode) {
+            const note = document.getElementById('admin-note');
+            note.style.display = 'block';
+            document.getElementById('back-link').setAttribute('href', '/dashboard');
         }
 
         function setMsg(id, ok, text) {
@@ -217,15 +239,21 @@ pub async fn profile() -> Html<&'static str> {
             }
 
             try {
-                const res = await fetch('/members/password', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        pseudo,
-                        current_password: currentPassword,
-                        new_password: newPassword
+                const res = adminMode
+                    ? await fetch('/japprends/set-password/' + encodeURIComponent(pseudo), {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ password: newPassword })
                     })
-                });
+                    : await fetch('/members/password', {
+                        method: 'PUT',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                            pseudo,
+                            current_password: currentPassword,
+                            new_password: newPassword
+                        })
+                    });
                 const data = await res.json();
                 setMsg('password-msg', !!data.ok, data.message || 'Mot de passe mis a jour.');
                 if (data.ok) {
