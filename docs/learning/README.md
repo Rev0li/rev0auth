@@ -37,3 +37,16 @@ Voir aussi: `docs/learning/BookOfDev.md`
 - `feature/step-008-rbac` contient maintenant un decoupage plus modulaire de l'API dans `crates/api/src/app/`.
 - Le commit cible doit rester aligne avec cette phase: routes dans `handlers`, logique partagee dans `services`, types et state dans `domain`, tests dans `tests`.
 - Le prochain jalon doit conserver le lien avec `docs/README.md`, `docs/Next-Work.md` et `docs/roadmap-detailed.md` pour garder l'histoire lisible.
+
+## Sequence validee (etat reel)
+
+1. `STEP-008` refactor modulaire API
+2. `AUTH-009` hardening deploy (VPS + Caddy + secrets + health)
+3. `AUTH-010` web public
+4. `AUTH-011` members zone
+
+## Next step verrouille
+
+- `AUTH-012` est traite en mode install-only.
+- L'infra n'est pas a reconstruire.
+- La sortie attendue: procedure d'installation reproductible + verifications + doc learning mise a jour.

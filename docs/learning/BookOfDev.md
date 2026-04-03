@@ -1,11 +1,11 @@
-# BookOfDev - Index de formation (phase transitoire)
+# BookOfDev - Index de formation
 
-Objectif: transformer une documentation actuellement dispersee en parcours de dev lisible, commit par commit.
+Objectif: garder un parcours de dev lisible, commit par commit, tout en pointant vers les index de reference du projet.
 
 ## Etat actuel
 
-Les documents existent, mais sont repartis dans plusieurs fichiers et themes.
-Cette phase est volontaire: on garde les feuilles en place pendant la reconstruction, puis on organise proprement en fin de cycle.
+La documentation est maintenant repartie par theme, mais l'acces reste simple via les index racines.
+Ce fichier sert de guide de lecture pour la formation, pas de copie de la roadmap.
 
 ## Regle de travail pendant la reconstruction
 
@@ -17,13 +17,17 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - si un ticket demande du test avant code, on le respecte sans forcer un ordre artificiel
 - les commentaires sont ecrits en anglais et expliquent l'intention, la securite et l'architecture
 
-## Liens de base (source actuelle)
+## Liens de base (sources de reference)
 
+- `docs/README.md`
+- `docs/learning/README.md`
 - `docs/roadmap-detailed.md`
 - `docs/Next-Work.md`
 - `docs/tickets-auth.md`
 - `docs/dev-book-auth.md`
 - `docs/nest-001-audit-backend.md`
+- `docs/operations/README.md`
+- `docs/tickets/README.md`
 
 ## Parcours learning Git (branche reconstruction)
 
@@ -32,7 +36,12 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - `STEP-002` tests signup (200 / 400 / 409)
 - `STEP-003/004` login route + tests
 - `STEP-005/006` refresh route + tests
-- `STEP-00X` hardening, DB, ops
+- `STEP-007` bearer guard + `/auth/me`
+- `STEP-008` RBAC modularisation + tests
+- `STEP-009` hardening deploy (VPS, DuckDNS, secrets, health checks)
+- `STEP-010` web public (landing + portal + dashboard)
+- `STEP-011` members zone (dashboard/profile/avatar)
+- `STEP-012` media install-only sur infra deja disponible (prochaine etape)
 
 ## Branch graph (reading order)
 
@@ -57,6 +66,14 @@ feature/step-003-login-pair
 
 feature/step-005-refresh-pair
 	└── STEP-005/006 commented refresh route + tests
+
+feature/step-007-auth-guard
+	└── STEP-007 bearer auth + /auth/me
+
+feature/step-008-rbac
+	└── STEP-008 modular auth app + tests
+	└── AUTH-009 infra hardening + docs
+	└── AUTH-010/011 web public + members zone
 ```
 
 The graph is intentionally linear for onboarding: one branch, one feature, one clear lesson.
@@ -67,8 +84,15 @@ The graph is intentionally linear for onboarding: one branch, one feature, one c
 - `docs/tickets/` -> execution ticket par ticket
 - `docs/operations/` -> runbook deploy/exploitation
 - `docs/README.md` -> point d'entree unique
+- `docs/learning/BookOfDev.md` -> chemin de lecture learning
 
 ## Note
 
 Ce fichier est la colonne vertebrale de la formation pendant la phase de refonte.
-On accepte la dispersion temporaire, mais chaque etape rapproche vers une structure claire.
+La dispersion existe encore par theme, mais les index racines doivent rendre la lecture et la modification rapides.
+
+## Etat valide au 2026-04-03
+
+- Commit `26a6e61`: AUTH-009 (infra, scripts, caddy, health, secrets)
+- Commit `692e959`: AUTH-010/011 (web public + members zone)
+- Commit `89b2850`: roadmap recadree (NEST-001 precondition, AUTH-012 install-only)
