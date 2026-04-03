@@ -1,0 +1,34 @@
+# rev0auth dynamic Caddy template
+# Variables are resolved by Caddy at runtime from environment.
+# Required:
+#   API_DOMAIN (e.g. api.revoli.duckdns.org)
+# Optional:
+#   API_UPSTREAM (default: 127.0.0.1:8080)
+#   ACME_EMAIL (for Let's Encrypt account)
+#   CADDY_LOG_LEVEL (default: INFO)
+
+{
+	email {$ACME_EMAIL:admin@example.com}
+	log {
+		level {$CADDY_LOG_LEVEL:INFO}
+	}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+	}
+
+	@health path /health
+	handle @health {
+		reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
+	}
+
+	handle {
+		reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
+	}
+}
