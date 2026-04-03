@@ -67,16 +67,66 @@ pub async fn admin_login() -> Html<&'static str> {
         }
         .ok { display: block; background: #e8fff5; border: 1px solid #b3ecd1; }
         .down { display: block; background: #fff0ec; border: 1px solid #f3c2b4; }
+        .challenge-grid {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .challenge-btn {
+            border: 1px solid rgba(19, 35, 49, 0.18);
+            background: #fff;
+            color: #132331;
+            border-radius: 10px;
+            padding: 8px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .challenge-btn.selected {
+            border-color: #ef4e24;
+            background: #fff0ec;
+        }
+        .trap-zone {
+            position: absolute;
+            left: -10000px;
+            top: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
     <main class="page">
         <article class="card">
             <h1>Admin Access</h1>
-            <p class="hint">Connexion requise pour acceder au dashboard admin.</p>
+            <p class="hint">Connexion admin renforcee: pseudo + seed + mot de passe + bouton challenge.</p>
+
+            <label for="pseudo">Pseudo admin</label>
+            <input id="pseudo" type="text" placeholder="admin pseudo" />
+
+            <label for="seed">Seed admin</label>
+            <input id="seed" type="password" placeholder="admin seed" />
 
             <label for="password">Mot de passe admin</label>
             <input id="password" type="password" placeholder="admin password" />
+
+            <div class="trap-zone" aria-hidden="true">
+                <label for="website">website</label>
+                <input id="website" type="text" autocomplete="off" />
+                <button id="fake-invisible-btn" type="button">fake</button>
+            </div>
+
+            <label style="margin-top:12px;">Challenge fun: clique uniquement sur 🔒 Lock</label>
+            <div class="challenge-grid">
+                <button class="challenge-btn" data-choice="spark" type="button">✨ Spark</button>
+                <button class="challenge-btn" data-choice="rocket" type="button">🚀 Rocket</button>
+                <button class="challenge-btn" data-choice="secure-lock" type="button">🔒 Lock</button>
+                <button class="challenge-btn" data-choice="sun" type="button">☀ Sun</button>
+                <button class="challenge-btn" data-choice="moon" type="button">🌙 Moon</button>
+                <button class="challenge-btn" data-choice="star" type="button">⭐ Star</button>
+            </div>
+
             <button class="btn" id="login-btn">Se connecter</button>
             <div id="login-result" class="result"></div>
         </article>
@@ -88,19 +138,64 @@ pub async fn admin_login() -> Html<&'static str> {
             el.textContent = text;
         }
 
+        let challengeChoice = '';
+        let trapTouched = false;
+
+        document.querySelectorAll('.challenge-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                challengeChoice = btn.getAttribute('data-choice') || '';
+                document.querySelectorAll('.challenge-btn').forEach((node) => node.classList.remove('selected'));
+                btn.classList.add('selected');
+            });
+        });
+
+        document.getElementById('fake-invisible-btn').addEventListener('click', () => {
+            trapTouched = true;
+        });
+
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        bindEnterToClick('pseudo', 'login-btn');
+        bindEnterToClick('seed', 'login-btn');
+        bindEnterToClick('password', 'login-btn');
+
         document.getElementById('login-btn').addEventListener('click', async () => {
+            const pseudo = document.getElementById('pseudo').value.trim();
+            const seed = document.getElementById('seed').value.trim();
             const password = document.getElementById('password').value.trim();
+            const website = document.getElementById('website').value.trim();
             const output = document.getElementById('login-result');
 
-            if (!password) {
-                setResult(output, false, 'Entre le mot de passe admin.');
+            if (!pseudo || !seed || !password) {
+                setResult(output, false, 'Entre pseudo, seed et mot de passe admin.');
+                return;
+            }
+
+            if (!challengeChoice) {
+                setResult(output, false, 'Clique un bouton challenge.');
                 return;
             }
 
             const res = await fetch('/japprends/login', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ password })
+                body: JSON.stringify({
+                    pseudo,
+                    seed,
+                    password,
+                    challenge_choice: challengeChoice,
+                    trap_value: trapTouched ? 'clicked' : website
+                })
             });
 
             const data = await res.json();

@@ -27,12 +27,44 @@ pub async fn friend() -> Html<&'static str> {
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 32px;
             gap: 16px;
             flex-wrap: wrap;
         }
         .header h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.5rem); }
+        .header-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .header-status {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .header-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        .header-avatar {
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            border: 2px solid rgba(19, 35, 49, 0.16);
+            background: #f3f7fa;
+            object-fit: cover;
+            box-shadow: 0 6px 14px rgba(19, 35, 49, 0.16);
+        }
+        .header-action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
         .logout-btn {
             padding: 8px 14px;
             background: rgba(255, 107, 59, 0.9);
@@ -57,6 +89,89 @@ pub async fn friend() -> Html<&'static str> {
             display: inline-block;
         }
         .profile-btn:hover { background: rgba(10, 132, 98, 1); }
+        .chat-card {
+            margin-bottom: 20px;
+            border: 1px solid rgba(19, 35, 49, 0.14);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 16px;
+            box-shadow: 0 12px 24px rgba(19, 35, 49, 0.09);
+        }
+        .chat-card h2 {
+            margin: 0 0 10px;
+            font-size: 1.1rem;
+        }
+        .chat-card label {
+            display: block;
+            margin: 10px 0 6px;
+            font-weight: 700;
+        }
+        .chat-card input,
+        .chat-card textarea {
+            width: 100%;
+            border: 1px solid rgba(19, 35, 49, 0.2);
+            border-radius: 8px;
+            padding: 9px;
+            box-sizing: border-box;
+            font: inherit;
+            background: #fff;
+        }
+        .chat-card textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+        .chat-msg {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: none;
+        }
+        .chat-msg.ok {
+            background: #e8fff5;
+            color: #0d9b73;
+            border: 1px solid #b3ecd1;
+            display: block;
+        }
+        .chat-msg.error {
+            background: #fff0ec;
+            color: #ef4e24;
+            border: 1px solid #f3c2b4;
+            display: block;
+        }
+        .chat-history {
+            margin-top: 12px;
+            max-height: 300px;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+            padding-right: 4px;
+        }
+        .chat-bubble {
+            max-width: 86%;
+            padding: 9px 11px;
+            border-radius: 12px;
+            border: 1px solid rgba(19, 35, 49, 0.12);
+            white-space: pre-wrap;
+            line-height: 1.4;
+            font-size: 0.9rem;
+            box-shadow: 0 6px 14px rgba(19, 35, 49, 0.07);
+        }
+        .chat-bubble.mine {
+            justify-self: end;
+            background: #e8fff5;
+            border-color: #b3ecd1;
+        }
+        .chat-bubble.theirs {
+            justify-self: start;
+            background: #fff;
+        }
+        .chat-meta {
+            display: block;
+            margin-top: 4px;
+            font-size: 0.78rem;
+            opacity: 0.72;
+        }
         .card {
             background: rgba(255, 255, 255, 0.92);
             border: 1px solid rgba(19, 35, 49, 0.1);
@@ -122,11 +237,18 @@ pub async fn friend() -> Html<&'static str> {
             color: #ef4e24;
             border: 1px solid #f3c2b4;
         }
+        .remark-panel {
+            display: none;
+            margin-top: 14px;
+            padding: 12px;
+            border: 1px dashed rgba(19, 35, 49, 0.2);
+            border-radius: 12px;
+            background: rgba(243, 247, 250, 0.8);
+        }
         .services {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(180px, 220px));
-            justify-content: center;
-            gap: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
             margin-top: 14px;
         }
         .service-card {
@@ -134,14 +256,19 @@ pub async fn friend() -> Html<&'static str> {
             border-radius: 12px;
             background: #fff;
             padding: 14px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         .service-media {
             width: 100%;
-            height: 110px;
+            aspect-ratio: 16 / 9;
+            height: auto;
             object-fit: cover;
             border-radius: 10px;
             border: 1px solid rgba(19, 35, 49, 0.12);
-            margin-bottom: 10px;
             background: #f3f7fa;
         }
         .service-card h3 {
@@ -202,19 +329,106 @@ pub async fn friend() -> Html<&'static str> {
             border: 1px solid #f3c2b4;
         }
         @media (max-width: 900px) {
-            .services {
-                grid-template-columns: 1fr;
+            .container {
+                padding: 18px;
             }
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-actions {
+                align-items: flex-start;
+            }
+            .header-action-row {
+                justify-content: flex-start;
+            }
+            .service-card {
+                aspect-ratio: 1 / 1;
+                overflow: hidden;
+            }
+            .service-media {
+                aspect-ratio: 1 / 1;
+            }
+        }
+        .onboarding-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 20, 30, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 90;
+            padding: 16px;
+        }
+        .onboarding-card {
+            width: 100%;
+            max-width: 520px;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid rgba(19, 35, 49, 0.16);
+            padding: 16px;
+        }
+        .onboarding-msg {
+            margin-top: 10px;
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .onboarding-msg.ok {
+            display: block;
+            background: #e8fff5;
+            color: #0d9b73;
+            border: 1px solid #b3ecd1;
+        }
+        .onboarding-msg.error {
+            display: block;
+            background: #fff0ec;
+            color: #ef4e24;
+            border: 1px solid #f3c2b4;
         }
     </style>
 </head>
 <body>
+    <div id="onboarding-modal" class="onboarding-modal">
+        <div class="onboarding-card">
+            <h2>Premiere connexion</h2>
+            <p style="margin-top:0;opacity:.85;">Change ton mot de passe temporaire avant de continuer.</p>
+
+            <label for="onboarding-new-password" style="display:block;font-weight:700;margin-top:10px;">Nouveau mot de passe</label>
+            <input id="onboarding-new-password" type="password" placeholder="nouveau mot de passe" style="width:100%;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+
+            <label for="onboarding-confirm-password" style="display:block;font-weight:700;margin-top:10px;">Confirmer le nouveau mot de passe</label>
+            <input id="onboarding-confirm-password" type="password" placeholder="retape le nouveau mot de passe" style="width:100%;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+
+            <label for="onboarding-message" style="display:block;font-weight:700;margin-top:10px;">Message de presentation</label>
+            <textarea id="onboarding-message" placeholder="Presente-toi rapidement..." style="width:100%;min-height:110px;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></textarea>
+
+            <div class="actions" style="margin-top:10px;">
+                <button id="onboarding-submit" class="profile-btn">Valider</button>
+            </div>
+            <div id="onboarding-msg" class="onboarding-msg"></div>
+        </div>
+    </div>
+
     <main class="container">
         <div class="header">
-            <h1>Bienvenue <span id="welcome-pseudo">!</span></h1>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <a class="profile-btn" href="/members/profile">Mon profil</a>
-                <button class="logout-btn" id="logout-btn">Déconnexion</button>
+            <div class="header-meta">
+                <h1>Bienvenue <span id="welcome-pseudo">!</span></h1>
+                <div class="header-status">
+                    <span style="font-weight:700;opacity:.8;">Humeur rapide:</span>
+                    <button class="status-btn" id="happy-btn">😀 Content</button>
+                    <button class="status-btn" id="meh-btn">😐 Bof</button>
+                    <button class="status-btn" id="question-btn">❓ Besoin d'aide</button>
+                </div>
+                <div id="status-msg" class="status-msg"></div>
+            </div>
+            <div class="header-actions">
+                <img id="header-avatar" class="header-avatar" alt="Photo de profil" />
+                <div class="header-action-row">
+                    <a class="profile-btn" href="/members/profile">Mon profil</a>
+                    <button class="logout-btn" id="logout-btn">Déconnexion</button>
+                </div>
             </div>
         </div>
 
@@ -234,20 +448,7 @@ pub async fn friend() -> Html<&'static str> {
         </article>
 
         <article class="card">
-            <h2>Mon humeur / My status</h2>
-            <p style="margin-top: 0; opacity: 0.8;">Choisis un smiley puis laisse un commentaire si tu veux une amelioration.</p>
-            <div class="status-buttons">
-                <button class="status-btn" id="happy-btn">😀 Content</button>
-                <button class="status-btn" id="meh-btn">😐 Bof</button>
-                <button class="status-btn" id="question-btn">❓ Question / Amelioration</button>
-            </div>
-            <label for="commentary" style="display:block;margin-top:12px;font-weight:700;">Commentary</label>
-            <textarea id="commentary" placeholder="Une idee, une question, une amelioration..." style="width:100%;min-height:86px;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></textarea>
-            <div id="status-msg" class="status-msg"></div>
-        </article>
-
-        <article class="card">
-            <h2>Premium - Services intégrés</h2>
+            <h2>Services intégrés</h2>
             <p style="margin-top: 0; opacity: 0.8;">Par defaut tu n'as acces a rien. Demande l'acces service par service.</p>
             <div class="services">
                 <div class="service-card">
@@ -266,7 +467,7 @@ pub async fn friend() -> Html<&'static str> {
                 </div>
                 <div class="service-card">
                     <h3>GitHub</h3>
-                    <img class="service-media" src="https://images.unsplash.com/photo-1618401479427-c8ef9465fccd?auto=format&fit=crop&w=900&q=80" alt="GitHub - code et collaboration" />
+                    <img class="service-media" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 400'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop stop-color='%23142331'/%3E%3Cstop offset='1' stop-color='%230d9b73'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='400' rx='26' fill='url(%23g)'/%3E%3Ccircle cx='165' cy='160' r='88' fill='%23ffffff' fill-opacity='.12'/%3E%3Ccircle cx='165' cy='145' r='48' fill='%23ffffff'/%3E%3Cpath d='M95 275c24-42 57-61 70-61s46 19 70 61' fill='%23ffffff'/%3E%3Ctext x='305' y='175' fill='%23ffffff' font-family='Space Grotesk, Arial, sans-serif' font-size='62' font-weight='700'%3EGitHub Profile%3C/text%3E%3Ctext x='305' y='238' fill='%23d9f0ff' font-family='Space Grotesk, Arial, sans-serif' font-size='28'%3EAcces conditionne par star + demande%3C/text%3E%3C/svg%3E" alt="GitHub profile" />
                     <p>Acces conditionne: compte cree + star sur ce projet.</p>
                     <div class="service-state" id="github-state">Etat: verrouille</div>
                     <input id="github-username" class="service-input" placeholder="Ton username GitHub" />
@@ -274,6 +475,25 @@ pub async fn friend() -> Html<&'static str> {
                 </div>
             </div>
             <div id="service-msg" class="service-msg"></div>
+
+        </article>
+
+        <article class="chat-card">
+            <h2>Start message with me</h2>
+            <p style="margin:0 0 8px;opacity:.82;">Conversation directe avec l'admin.</p>
+
+            <div id="chat-history" class="chat-history">Chargement de l'historique...</div>
+
+            <label for="chat-subject">Sujet</label>
+            <input id="chat-subject" placeholder="Sujet" />
+
+            <label for="chat-body">Message</label>
+            <textarea id="chat-body" placeholder="Ton message..."></textarea>
+
+            <div class="actions" style="margin-top:10px;">
+                <button id="chat-send-btn" class="profile-btn">Envoyer message</button>
+            </div>
+            <div id="chat-msg" class="chat-msg"></div>
         </article>
 
     </main>
@@ -297,6 +517,94 @@ pub async fn friend() -> Html<&'static str> {
             requestJellyfin: false,
             requestSongsurf: false
         };
+        const needsOnboarding = localStorage.getItem('needs_onboarding') === '1';
+
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        bindEnterToClick('onboarding-new-password', 'onboarding-submit');
+        bindEnterToClick('onboarding-confirm-password', 'onboarding-submit');
+
+        function setOnboardingMsg(ok, message) {
+            const el = document.getElementById('onboarding-msg');
+            el.className = 'onboarding-msg ' + (ok ? 'ok' : 'error');
+            el.textContent = message;
+        }
+
+        function openOnboardingModal() {
+            const modal = document.getElementById('onboarding-modal');
+            modal.style.display = 'flex';
+        }
+
+        function closeOnboardingModal() {
+            const modal = document.getElementById('onboarding-modal');
+            modal.style.display = 'none';
+        }
+
+        async function submitOnboarding() {
+            const newPassword = document.getElementById('onboarding-new-password').value.trim();
+            const confirmPassword = document.getElementById('onboarding-confirm-password').value.trim();
+            const message = document.getElementById('onboarding-message').value.trim();
+
+            if (!newPassword || !confirmPassword) {
+                setOnboardingMsg(false, 'Entre le nouveau mot de passe et sa confirmation.');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                setOnboardingMsg(false, 'Les deux mots de passe ne correspondent pas.');
+                return;
+            }
+
+            try {
+                const profileDataRes = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+                const profileData = await profileDataRes.json();
+
+                const passwordRes = await fetch('/members/password', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo,
+                        new_password: newPassword
+                    })
+                });
+                const passwordData = await passwordRes.json();
+                if (!passwordData.ok) {
+                    setOnboardingMsg(false, passwordData.message || 'Impossible de changer le mot de passe.');
+                    return;
+                }
+
+                const profileRes = await fetch('/members/profile/data', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo,
+                        bio: profileData && typeof profileData.bio === 'string' ? profileData.bio : '',
+                        commentary: message || null
+                    })
+                });
+                const profileUpdate = await profileRes.json();
+                if (!profileUpdate.ok) {
+                    setOnboardingMsg(false, profileUpdate.message || 'Mot de passe change mais message non enregistre.');
+                    return;
+                }
+
+                localStorage.removeItem('needs_onboarding');
+                setOnboardingMsg(true, 'Onboarding valide. Bienvenue.');
+                setTimeout(closeOnboardingModal, 450);
+            } catch (err) {
+                setOnboardingMsg(false, 'Erreur: ' + err.message);
+            }
+        }
 
         // Logout function
         async function logout() {
@@ -316,8 +624,40 @@ pub async fn friend() -> Html<&'static str> {
 
         // Status management
         const statusMsg = document.getElementById('status-msg');
-        const commentaryInput = document.getElementById('commentary');
         const serviceMsg = document.getElementById('service-msg');
+        const headerAvatar = document.getElementById('header-avatar');
+
+        const chatSubjectInput = document.getElementById('chat-subject');
+        const chatBodyInput = document.getElementById('chat-body');
+        const chatMsg = document.getElementById('chat-msg');
+        const chatHistory = document.getElementById('chat-history');
+
+        function fallbackAvatar(pseudoValue) {
+            const first = (pseudoValue || '?').charAt(0).toUpperCase() || '?';
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
+                <defs>
+                    <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+                        <stop offset='0%' stop-color='#0d9b73'/>
+                        <stop offset='100%' stop-color='#132331'/>
+                    </linearGradient>
+                </defs>
+                <rect width='100' height='100' rx='50' fill='url(#g)'/>
+                <text x='50' y='61' text-anchor='middle' font-size='44' font-family='Space Grotesk, Arial, sans-serif' fill='#ffffff'>${first}</text>
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        }
+
+        function setHeaderAvatarSrc(hasAvatar) {
+            if (hasAvatar) {
+                headerAvatar.src = '/members/avatar/' + encodeURIComponent(pseudo) + '?t=' + Date.now();
+                headerAvatar.onerror = () => {
+                    headerAvatar.onerror = null;
+                    headerAvatar.src = fallbackAvatar(pseudo);
+                };
+                return;
+            }
+            headerAvatar.src = fallbackAvatar(pseudo);
+        }
 
         function setServiceMsg(ok, message) {
             serviceMsg.className = 'service-msg ' + (ok ? 'ok' : 'error');
@@ -387,12 +727,14 @@ pub async fn friend() -> Html<&'static str> {
                 accessState.requestGithub = !!data.request_github;
                 accessState.requestJellyfin = !!data.request_jellyfin;
                 accessState.requestSongsurf = !!data.request_songsurf;
+                setHeaderAvatarSrc(!!data.avatar_present);
 
                 if (data.github_username) {
                     document.getElementById('github-username').value = data.github_username;
                 }
                 renderServiceButtons();
             } catch (err) {
+                setHeaderAvatarSrc(false);
                 setServiceMsg(false, 'Impossible de charger l\'etat des acces: ' + err.message);
             }
         }
@@ -421,23 +763,118 @@ pub async fn friend() -> Html<&'static str> {
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify({
                         pseudo,
-                        status,
-                        commentary: commentaryInput ? commentaryInput.value : ''
+                        status
                     })
                 });
                 const data = await res.json();
-                
+
                 statusMsg.className = 'status-msg ' + (data.ok ? 'ok' : 'error');
                 statusMsg.textContent = data.message;
                 statusMsg.style.display = 'block';
-                
+
                 setTimeout(() => {
                     statusMsg.style.display = 'none';
                 }, 3000);
+                return data.ok;
             } catch (err) {
                 statusMsg.className = 'status-msg error';
                 statusMsg.textContent = 'Erreur: ' + err.message;
                 statusMsg.style.display = 'block';
+                return false;
+            }
+        }
+
+        function setChatMsg(ok, message) {
+            chatMsg.className = 'chat-msg ' + (ok ? 'ok' : 'error');
+            chatMsg.textContent = message;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        async function loadChatHistory() {
+            if (!chatHistory) return;
+            try {
+                const [inboxRes, sentRes] = await Promise.all([
+                    fetch('/members/messages/inbox?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' }),
+                    fetch('/members/messages/sent?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' })
+                ]);
+                const inbox = await inboxRes.json();
+                const sent = await sentRes.json();
+                const merged = [];
+                if (Array.isArray(inbox)) merged.push(...inbox.map((m) => Object.assign({}, m, { mine: false })));
+                if (Array.isArray(sent)) merged.push(...sent.map((m) => Object.assign({}, m, { mine: true })));
+
+                merged.sort((a, b) => {
+                    if (a.created_at_epoch === b.created_at_epoch) return a.id - b.id;
+                    return a.created_at_epoch - b.created_at_epoch;
+                });
+
+                const unreadInbound = merged.filter((m) => !m.mine && !m.is_read);
+                if (unreadInbound.length > 0) {
+                    await Promise.all(unreadInbound.map((m) =>
+                        fetch('/members/messages/' + m.id + '/read', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ pseudo })
+                        })
+                    ));
+                }
+
+                if (merged.length === 0) {
+                    chatHistory.textContent = 'Aucun message pour le moment.';
+                    return;
+                }
+
+                chatHistory.innerHTML = merged.map((m) => {
+                    const dt = new Date(m.created_at_epoch * 1000).toLocaleString();
+                    const who = m.mine ? 'To admin' : 'Admin';
+                    return '<div class="chat-bubble ' + (m.mine ? 'mine' : 'theirs') + '">'
+                        + '<strong>' + escapeHtml(m.subject || 'Sans sujet') + '</strong><br>'
+                        + escapeHtml(m.body || '')
+                        + '<span class="chat-meta">' + who + ' • ' + dt + '</span>'
+                        + '</div>';
+                }).join('');
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } catch (err) {
+                chatHistory.textContent = 'Historique indisponible: ' + err.message;
+            }
+        }
+
+        async function sendQuickChat() {
+            const subject = chatSubjectInput.value.trim();
+            const body = chatBodyInput.value.trim();
+
+            if (!subject || !body) {
+                setChatMsg(false, 'Remplis sujet et message.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/members/messages/send', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        from_pseudo: pseudo,
+                        subject,
+                        body
+                    })
+                });
+                const data = await res.json();
+                setChatMsg(!!data.ok, data.message || 'Message envoye.');
+                if (data.ok) {
+                    chatSubjectInput.value = '';
+                    chatBodyInput.value = '';
+                    await loadChatHistory();
+                }
+            } catch (err) {
+                setChatMsg(false, 'Erreur: ' + err.message);
             }
         }
 
@@ -476,10 +913,31 @@ pub async fn friend() -> Html<&'static str> {
         });
 
         document.getElementById('logout-btn').addEventListener('click', logout);
-        document.getElementById('happy-btn').addEventListener('click', () => setStatus('content'));
-        document.getElementById('meh-btn').addEventListener('click', () => setStatus('bof'));
-        document.getElementById('question-btn').addEventListener('click', () => setStatus('question'));
+        document.getElementById('chat-send-btn').addEventListener('click', sendQuickChat);
+        document.querySelector('a[href="/members/profile"]').addEventListener('click', (event) => {
+            if (localStorage.getItem('needs_onboarding') === '1') {
+                event.preventDefault();
+                openOnboardingModal();
+                setOnboardingMsg(false, 'Termine d\'abord le changement de mot de passe initial.');
+            }
+        });
+        document.getElementById('happy-btn').addEventListener('click', async () => {
+            await setStatus('content');
+        });
+        document.getElementById('meh-btn').addEventListener('click', async () => {
+            await setStatus('bof');
+        });
+        document.getElementById('question-btn').addEventListener('click', async () => {
+            await setStatus('question');
+        });
+        document.getElementById('onboarding-submit').addEventListener('click', submitOnboarding);
+        setHeaderAvatarSrc(false);
+        if (needsOnboarding) {
+            openOnboardingModal();
+        }
         loadMemberAccessState();
+        loadChatHistory();
+        setInterval(loadChatHistory, 8000);
     </script>
 </body>
 </html>

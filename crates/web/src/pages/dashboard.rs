@@ -1,6 +1,9 @@
 use axum::response::Html;
 
-pub async fn dashboard() -> Html<&'static str> {
+use crate::admin_pseudo_from_env;
+
+pub async fn dashboard() -> Html<String> {
+    let admin_pseudo = admin_pseudo_from_env();
     Html(
         r##"<!doctype html>
 <html lang="fr">
@@ -224,6 +227,29 @@ pub async fn dashboard() -> Html<&'static str> {
             border-color: #a9e2ce;
         }
 
+        .onboarding-panel {
+            display: none;
+            margin: 0 0 16px;
+            border: 2px solid rgba(237, 86, 42, 0.22);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 245, 240, 0.96));
+            box-shadow: 0 14px 28px rgba(237, 86, 42, 0.12);
+        }
+
+        .onboarding-panel h2 {
+            margin-top: 0;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            min-height: 110px;
+            padding: 8px;
+            border: 1px solid rgba(17, 33, 48, 0.16);
+            border-radius: 8px;
+            font: inherit;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
         .btn-small.warn {
             color: #8a5a00;
             border-color: #f6d08a;
@@ -325,10 +351,123 @@ pub async fn dashboard() -> Html<&'static str> {
             background: #ffe8e1;
             border: 1px solid #f6b7a6;
         }
+        .chat-admin-wrap {
+            margin-top: 10px;
+            border: 1px solid rgba(17, 33, 48, 0.12);
+            border-radius: 12px;
+            background: #fff;
+            padding: 10px;
+        }
+        .chat-admin-layout {
+            display: grid;
+            grid-template-columns: 240px minmax(0, 1fr);
+            gap: 10px;
+        }
+        .chat-admin-threads {
+            border: 1px solid rgba(17, 33, 48, 0.12);
+            border-radius: 10px;
+            background: #f8fbfe;
+            padding: 8px;
+            max-height: 520px;
+            overflow: auto;
+        }
+        .chat-admin-thread {
+            width: 100%;
+            border: 1px solid rgba(17, 33, 48, 0.12);
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            text-align: left;
+        }
+        .chat-admin-thread.active {
+            border-color: rgba(13, 155, 115, 0.35);
+            background: #e8fff5;
+        }
+        .chat-admin-thread-name {
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+        .chat-admin-thread-meta {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            opacity: 0.8;
+            line-height: 1.35;
+        }
+        .chat-admin-history {
+            max-height: 340px;
+            overflow: auto;
+            display: grid;
+            gap: 8px;
+            padding-right: 4px;
+        }
+        .chat-admin-item {
+            border: 1px solid rgba(17, 33, 48, 0.12);
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px;
+        }
+        .chat-admin-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 0.84rem;
+            opacity: 0.82;
+        }
+        .chat-admin-body {
+            margin-top: 6px;
+            white-space: pre-wrap;
+            line-height: 1.45;
+            font-size: 0.9rem;
+        }
+        .chat-admin-compose {
+            margin-top: 10px;
+            border-top: 1px dashed rgba(17, 33, 48, 0.18);
+            padding-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+        .chat-admin-compose input,
+        .chat-admin-compose textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid rgba(17, 33, 48, 0.16);
+            border-radius: 8px;
+            font: inherit;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .chat-admin-compose textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+        .chat-admin-msg {
+            font-size: 0.88rem;
+            display: none;
+        }
+        .chat-admin-panel {
+            border: 1px solid rgba(17, 33, 48, 0.12);
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px;
+        }
 
         @media (max-width: 900px) {
             .grid { grid-template-columns: 1fr; }
             .stats-strip { grid-template-columns: 1fr 1fr; }
+            .chat-admin-layout { grid-template-columns: 1fr; }
+            .chat-admin-threads { max-height: 180px; }
+            .service-card {
+                aspect-ratio: 1 / 1;
+                overflow: hidden;
+            }
+            .service-media {
+                height: auto;
+                aspect-ratio: 1 / 1;
+                margin-bottom: 8px;
+            }
         }
     </style>
 </head>
@@ -339,12 +478,32 @@ pub async fn dashboard() -> Html<&'static str> {
             <div class="chip" id="last-check">Derniere verification: --</div>
         </header>
 
+        <section class="row onboarding-panel" id="onboarding-panel">
+            <strong>Onboarding initial</strong>
+            <div class="mini">Change ton mot de passe temporaire, puis laisse un message de présentation pour l'admin.</div>
+            <div class="form-group" style="margin-top: 10px;">
+                <label for="onboarding-current-password">Mot de passe temporaire</label>
+                <input type="password" id="onboarding-current-password" placeholder="mot de passe temporaire" />
+            </div>
+            <div class="form-group">
+                <label for="onboarding-new-password">Nouveau mot de passe</label>
+                <input type="password" id="onboarding-new-password" placeholder="nouveau mot de passe" />
+            </div>
+            <div class="form-group">
+                <label for="onboarding-message">Message de présentation</label>
+                <textarea id="onboarding-message" placeholder="Présente-toi, explique pourquoi tu es là..."></textarea>
+            </div>
+            <div class="actions">
+                <button class="btn-small grant" id="onboarding-submit">Valider l'onboarding</button>
+            </div>
+            <div id="onboarding-msg" style="margin-top: 8px; font-size: 0.9rem; display: none;"></div>
+        </section>
+
         <nav class="tabs">
             <button class="tab-btn active" data-tab-btn="overview">Overview</button>
             <button class="tab-btn" data-tab-btn="admin">Admin</button>
             <button class="tab-btn" data-tab-btn="user">User</button>
             <button class="tab-btn" data-tab-btn="system">System</button>
-            <button class="tab-btn" data-tab-btn="docs">Docs</button>
         </nav>
 
         <section class="tab-page active" id="tab-overview">
@@ -442,17 +601,43 @@ pub async fn dashboard() -> Html<&'static str> {
                 </div>
                 <div class="mini">Idees utiles: ajouter uptime 24h, latence moyenne API et taux d'erreur login.</div>
             </div>
+
+            <div class="row">
+                <strong>Messages membres (pseudo chat)</strong>
+                <div class="mini">Vue par conversation avec chaque membre, réponse persistante dans l'historique.</div>
+                <div class="chat-admin-wrap">
+                    <div class="chat-admin-layout">
+                        <aside id="admin-thread-list" class="chat-admin-threads">Chargement...</aside>
+                        <div class="chat-admin-panel">
+                            <div id="admin-messages" class="chat-admin-history">Sélectionne une conversation...</div>
+                            <div class="chat-admin-compose">
+                                <label for="admin-reply-to">Destinataire</label>
+                                <input id="admin-reply-to" placeholder="pseudo membre" />
+                                <label for="admin-reply-subject">Sujet</label>
+                                <input id="admin-reply-subject" placeholder="Re: ..." />
+                                <label for="admin-reply-body">Message</label>
+                                <textarea id="admin-reply-body" placeholder="Ta reponse..."></textarea>
+                                <div class="actions" style="margin-top:0;">
+                                    <button class="btn-small grant" id="admin-reply-send">Envoyer reponse</button>
+                                </div>
+                                <div id="admin-reply-msg" class="chat-admin-msg"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <strong>Preuves donations (crypto / PCS)</strong>
+                <div class="mini">Validation manuelle des preuves avec photo + code.</div>
+                <div id="admin-donations" class="mini">Chargement...</div>
+            </div>
         </section>
 
         <section class="tab-page" id="tab-user">
             <div class="row">
-                <strong>Créer un nouvel utilisateur</strong>
-                <div class="form-group" style="margin-top: 10px;">
-                    <label for="new-pseudo">Pseudo:</label>
-                    <input type="text" id="new-pseudo" placeholder="nouveau_pseudo" />
-                    <button class="btn-small" style="margin-top: 8px;" id="create-user-btn">+ Créer</button>
-                    <div id="create-msg" style="margin-top: 8px; font-size: 0.9rem; display: none;"></div>
-                </div>
+                <strong>Creation utilisateur</strong>
+                <div class="mini">Desactivee: comptes auto-crees via inscription publique pour eviter les collisions.</div>
             </div>
 
             <div class="row">
@@ -504,33 +689,302 @@ pub async fn dashboard() -> Html<&'static str> {
             </div>
         </section>
 
-        <section class="tab-page" id="tab-docs">
-            <div class="row">
-                <strong>Documentation projet</strong>
-                <ul>
-                    <li><code>docs/public-project-handbook.md</code> (document unique public)</li>
-                    <li><code>docs/cheatsheet-complet.md</code> (debug rapide / tests)</li>
-                    <li><code>docs/checklists-master.md</code> (checklists pre-remplies)</li>
-                    <li><code>docs/polish-finalisation.md</code> (etat polish)</li>
-                    <li><code>docs/clean-fixpoints-saas-roadmap.md</code> (plan clean + SaaS)</li>
-                    <li><code>docs/install-to-launch.md</code> (runbook deployment)</li>
-                    <li><code>docs/caddy-duckdns-beginners.md</code> (proxy pour debutants)</li>
-                    <li><code>make snapshot</code> (copie projet locale)</li>
-                    <li><code>docs/README.md</code> (index principal docs)</li>
-                </ul>
-            </div>
-        </section>
     </main>
 
     <script>
+        const adminPseudo = "%%ADMIN_PSEUDO%%";
+        const currentPseudo = localStorage.getItem('logged_pseudo') || '';
         const monitorState = { adminOk: false, userOk: false, apiOk: false };
         const dashboardStats = { users: [], pendingSignups: 0, lastRun: null, endpoints: [] };
+        const onboardingState = { bio: '' };
+        const adminChatState = {
+            messages: [],
+            selectedThread: localStorage.getItem('dashboard_chat_thread') || ''
+        };
         const chainState = {
             webToApi: false,
             adminPing: false,
             userPing: false,
             endpointRegistry: false
         };
+
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        function setAdminReplyMsg(ok, message) {
+            const output = document.getElementById('admin-reply-msg');
+            if (!output) return;
+            output.style.display = 'block';
+            output.style.color = ok ? '#0d9b73' : '#dc4f2f';
+            output.textContent = message;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getChatCounterpart(msg) {
+            const from = String(msg.from_pseudo || '');
+            const to = String(msg.to_pseudo || '');
+            if (from.toLowerCase() === adminPseudo.toLowerCase()) {
+                return to;
+            }
+            return from;
+        }
+
+        function groupAdminThreads(messages) {
+            const threads = new Map();
+            (Array.isArray(messages) ? messages : []).forEach((msg) => {
+                const counterpart = getChatCounterpart(msg).trim();
+                if (!counterpart) return;
+                const key = counterpart.toLowerCase();
+                if (!threads.has(key)) {
+                    threads.set(key, {
+                        pseudo: counterpart,
+                        messages: [],
+                        lastEpoch: 0,
+                        unread: 0
+                    });
+                }
+                const thread = threads.get(key);
+                thread.messages.push(msg);
+                thread.lastEpoch = Math.max(thread.lastEpoch, Number(msg.created_at_epoch || 0));
+                if (msg.to_pseudo && msg.to_pseudo.toLowerCase() === adminPseudo.toLowerCase() && !msg.is_read) {
+                    thread.unread += 1;
+                }
+            });
+            return Array.from(threads.values()).sort((a, b) => b.lastEpoch - a.lastEpoch);
+        }
+
+        function startAdminReply(toPseudo, subject) {
+            const toInput = document.getElementById('admin-reply-to');
+            const subjectInput = document.getElementById('admin-reply-subject');
+            const bodyInput = document.getElementById('admin-reply-body');
+            if (!toInput || !subjectInput || !bodyInput) return;
+            toInput.value = toPseudo || '';
+            subjectInput.value = subject || '';
+            bodyInput.focus();
+            bodyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function renderAdminThreadList() {
+            const list = document.getElementById('admin-thread-list');
+            if (!list) return;
+            const threads = groupAdminThreads(adminChatState.messages);
+            if (threads.length === 0) {
+                list.textContent = 'Aucune conversation.';
+                return;
+            }
+
+            if (!adminChatState.selectedThread || !threads.some((t) => t.pseudo.toLowerCase() === adminChatState.selectedThread.toLowerCase())) {
+                adminChatState.selectedThread = threads[0].pseudo;
+                localStorage.setItem('dashboard_chat_thread', adminChatState.selectedThread);
+            }
+
+            list.innerHTML = threads.map((thread) => {
+                const active = thread.pseudo.toLowerCase() === adminChatState.selectedThread.toLowerCase();
+                const lastMessage = thread.messages[thread.messages.length - 1];
+                const dt = lastMessage ? new Date(lastMessage.created_at_epoch * 1000).toLocaleString() : '';
+                const preview = lastMessage ? escapeHtml((lastMessage.subject || 'Sans sujet') + ' - ' + (lastMessage.body || '').slice(0, 70)) : '';
+                return '<button class="chat-admin-thread ' + (active ? 'active' : '') + '" data-thread="' + escapeHtml(thread.pseudo) + '">'
+                    + '<div class="chat-admin-thread-name">' + escapeHtml(thread.pseudo) + (thread.unread > 0 ? ' • ' + thread.unread + ' non lu' : '') + '</div>'
+                    + '<div class="chat-admin-thread-meta">' + preview + (lastMessage && lastMessage.body && lastMessage.body.length > 70 ? '...' : '') + '<br>' + dt + '</div>'
+                    + '</button>';
+            }).join('');
+
+            list.querySelectorAll('button[data-thread]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    adminChatState.selectedThread = btn.getAttribute('data-thread') || '';
+                    localStorage.setItem('dashboard_chat_thread', adminChatState.selectedThread);
+                    renderAdminThreadList();
+                    renderAdminConversation();
+                });
+            });
+        }
+
+        function renderAdminConversation() {
+            const panel = document.getElementById('admin-messages');
+            if (!panel) return;
+            if (!adminChatState.selectedThread) {
+                panel.textContent = 'Sélectionne une conversation.';
+                return;
+            }
+
+            const selected = adminChatState.selectedThread.toLowerCase();
+            const messages = adminChatState.messages
+                .filter((msg) => getChatCounterpart(msg).toLowerCase() === selected)
+                .slice()
+                .sort((a, b) => {
+                    if (a.created_at_epoch === b.created_at_epoch) return a.id - b.id;
+                    return a.created_at_epoch - b.created_at_epoch;
+                });
+
+            if (messages.length === 0) {
+                panel.textContent = 'Aucun message dans cette conversation.';
+                return;
+            }
+
+            panel.innerHTML = messages.map((msg) => {
+                const dt = new Date(msg.created_at_epoch * 1000).toLocaleString();
+                const mine = String(msg.from_pseudo || '').toLowerCase() === adminPseudo.toLowerCase();
+                const replySubject = mine ? msg.subject : 'Re: ' + msg.subject;
+                return '<div class="chat-admin-item">'
+                    + '<div class="chat-admin-head">'
+                    + '<span><strong>' + escapeHtml(mine ? adminPseudo : msg.from_pseudo) + '</strong> → <strong>' + escapeHtml(mine ? msg.to_pseudo : adminPseudo) + '</strong> [' + (msg.is_read ? 'lu' : 'non lu') + ']</span>'
+                    + '<span>' + dt + '</span>'
+                    + '</div>'
+                    + '<div class="chat-admin-body"><strong>' + escapeHtml(msg.subject || 'Sans sujet') + '</strong><br>' + escapeHtml(msg.body || '') + '</div>'
+                    + '<div class="actions" style="margin-top:8px;">'
+                    + '<button class="btn-small grant" data-reply-to="' + escapeHtml(adminChatState.selectedThread) + '" data-reply-subject="' + escapeHtml(replySubject) + '">Repondre</button>'
+                    + '</div>'
+                    + '</div>';
+            }).join('');
+
+            panel.querySelectorAll('button[data-reply-to]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    startAdminReply(btn.getAttribute('data-reply-to') || '', btn.getAttribute('data-reply-subject') || '');
+                });
+            });
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        async function sendAdminReply() {
+            const toPseudo = (document.getElementById('admin-reply-to')?.value || '').trim();
+            const subject = (document.getElementById('admin-reply-subject')?.value || '').trim();
+            const body = (document.getElementById('admin-reply-body')?.value || '').trim();
+            if (!toPseudo || !subject || !body) {
+                setAdminReplyMsg(false, 'Remplis destinataire, sujet et message.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/japprends/messages/reply', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        to_pseudo: toPseudo,
+                        subject,
+                        body
+                    })
+                });
+                const data = await res.json();
+                setAdminReplyMsg(!!data.ok, data.message || 'Reponse envoyee.');
+                if (data.ok) {
+                    document.getElementById('admin-reply-subject').value = '';
+                    document.getElementById('admin-reply-body').value = '';
+                    await loadAdminMessages();
+                }
+            } catch (err) {
+                setAdminReplyMsg(false, 'Erreur: ' + err.message);
+            }
+        }
+
+        function copyTempPassword(password) {
+            if (!password) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(password).catch(() => {});
+            }
+        }
+
+        function setOnboardingVisible(visible) {
+            const panel = document.getElementById('onboarding-panel');
+            if (panel) panel.style.display = visible ? 'block' : 'none';
+        }
+
+        async function loadOnboardingProfile() {
+            if (!currentPseudo) return;
+            try {
+                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
+                const data = await res.json();
+                onboardingState.bio = data && typeof data.bio === 'string' ? data.bio : '';
+                const messageInput = document.getElementById('onboarding-message');
+                if (messageInput && !messageInput.value) {
+                    messageInput.value = data && typeof data.commentary === 'string' ? data.commentary : '';
+                }
+            } catch (_err) {
+                onboardingState.bio = '';
+            }
+        }
+
+        async function submitOnboarding() {
+            const currentPassword = document.getElementById('onboarding-current-password').value.trim();
+            const newPassword = document.getElementById('onboarding-new-password').value.trim();
+            const message = document.getElementById('onboarding-message').value.trim();
+            const output = document.getElementById('onboarding-msg');
+
+            if (!currentPseudo) {
+                output.style.color = '#dc4f2f';
+                output.textContent = 'Pseudo manquant en session.';
+                output.style.display = 'block';
+                return;
+            }
+            if (!currentPassword || !newPassword) {
+                output.style.color = '#dc4f2f';
+                output.textContent = 'Remplis le mot de passe temporaire et le nouveau mot de passe.';
+                output.style.display = 'block';
+                return;
+            }
+
+            try {
+                const passwordRes = await fetch('/members/password', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo: currentPseudo,
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                const passwordData = await passwordRes.json();
+                if (!passwordData.ok) {
+                    output.style.color = '#dc4f2f';
+                    output.textContent = passwordData.message || 'Impossible de changer le mot de passe.';
+                    output.style.display = 'block';
+                    return;
+                }
+
+                const profileRes = await fetch('/members/profile/data', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo: currentPseudo,
+                        bio: onboardingState.bio,
+                        commentary: message || null
+                    })
+                });
+                const profileData = await profileRes.json();
+                if (!profileData.ok) {
+                    output.style.color = '#dc4f2f';
+                    output.textContent = profileData.message || 'Mot de passe change, mais le message n\'a pas pu etre enregistre.';
+                    output.style.display = 'block';
+                    return;
+                }
+
+                output.style.color = '#0d9b73';
+                output.textContent = 'Onboarding termine. Ton compte est pret.';
+                output.style.display = 'block';
+                localStorage.removeItem('needs_onboarding');
+                setOnboardingVisible(false);
+            } catch (err) {
+                output.style.color = '#dc4f2f';
+                output.textContent = 'Erreur: ' + err.message;
+                output.style.display = 'block';
+            }
+        }
 
         function paint(el, ok, label) {
             el.textContent = ok ? label + ' OK' : label + ' DOWN';
@@ -645,7 +1099,6 @@ pub async fn dashboard() -> Html<&'static str> {
 
             return '<div style="border:1px solid rgba(17,33,48,.13);border-radius:10px;padding:8px;margin:6px 0;background:#fff">'
                 + '<strong>#' + req.id + ' - ' + req.pseudo + '</strong> [' + req.status + ']'
-                + '<br>raison: ' + req.reason
                 + '<br>referral: ' + req.referral
                 + '<br>cree a: ' + dt
                 + (actions ? '<div style="margin-top:6px">' + actions + '</div>' : '')
@@ -672,7 +1125,12 @@ pub async fn dashboard() -> Html<&'static str> {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     const act = btn.getAttribute('data-act');
-                    await fetch('/japprends/signup-requests/' + id + '/' + act, { method: 'POST' });
+                    const res = await fetch('/japprends/signup-requests/' + id + '/' + act, { method: 'POST' });
+                    const data = await res.json();
+                    if (data && data.ok && data.temp_password) {
+                        copyTempPassword(data.temp_password);
+                        alert('Mot de passe temporaire: ' + data.temp_password);
+                    }
                     await loadAdminSignupQueue();
                     await refreshStatus();
                 });
@@ -739,6 +1197,77 @@ pub async fn dashboard() -> Html<&'static str> {
                 renderChainChecks();
                 renderAdminStats();
                 pushTimeline(new Date().toLocaleTimeString() + ' | erreur de monitoring');
+            }
+        }
+
+        async function loadAdminMessages() {
+            const panel = document.getElementById('admin-messages');
+            const threadPanel = document.getElementById('admin-thread-list');
+            if (!panel || !threadPanel) return;
+
+            try {
+                const res = await fetch('/japprends/messages', { cache: 'no-store' });
+                const list = await res.json();
+                adminChatState.messages = Array.isArray(list) ? list : [];
+                if (adminChatState.messages.length === 0) {
+                    threadPanel.textContent = 'Aucune conversation.';
+                    panel.textContent = 'Aucun message membre.';
+                    return;
+                }
+
+                renderAdminThreadList();
+                renderAdminConversation();
+            } catch (_err) {
+                panel.textContent = 'Impossible de charger les messages.';
+                threadPanel.textContent = 'Impossible de charger les conversations.';
+            }
+        }
+
+        async function loadAdminDonations() {
+            const panel = document.getElementById('admin-donations');
+            if (!panel) return;
+
+            try {
+                const res = await fetch('/japprends/donations', { cache: 'no-store' });
+                const list = await res.json();
+                if (!Array.isArray(list) || list.length === 0) {
+                    panel.textContent = 'Aucune preuve donation pour le moment.';
+                    return;
+                }
+
+                panel.innerHTML = list.slice().reverse().map((row) => {
+                    const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
+                    const state = !row.reviewed ? 'pending' : (row.approved ? 'approuvee' : 'refusee');
+                    const actions = row.reviewed
+                        ? ''
+                        : '<button data-donation-review="1" data-id="' + row.id + '" data-approved="true">Valider</button> '
+                            + '<button data-donation-review="1" data-id="' + row.id + '" data-approved="false">Refuser</button>';
+                    return '<div style="border:1px solid rgba(17,33,48,.13);border-radius:10px;padding:8px;margin:6px 0;background:#fff">'
+                        + '<strong>#' + row.id + '</strong> • ' + row.pseudo + ' • ' + row.method
+                        + '<br>code: ' + row.code
+                        + '<br>etat: ' + state
+                        + '<br>date: ' + dt
+                        + '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">'
+                        + '<a class="btn-small warn" target="_blank" rel="noopener noreferrer" href="/members/donations/proof/' + row.id + '/photo">Voir photo</a>'
+                        + actions
+                        + '</div>'
+                        + '</div>';
+                }).join('');
+
+                panel.querySelectorAll('button[data-donation-review="1"]').forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        const id = btn.getAttribute('data-id');
+                        const approved = btn.getAttribute('data-approved') === 'true';
+                        await fetch('/japprends/donations/' + id + '/review', {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json' },
+                            body: JSON.stringify({ approved })
+                        });
+                        await loadAdminDonations();
+                    });
+                });
+            } catch (_err) {
+                panel.textContent = 'Impossible de charger les donations.';
             }
         }
 
@@ -904,8 +1433,10 @@ pub async fn dashboard() -> Html<&'static str> {
 
         // User management functions
         async function createUser() {
-            const pseudo = document.getElementById('new-pseudo').value.trim();
+            const pseudoInput = document.getElementById('new-pseudo');
             const msg = document.getElementById('create-msg');
+            if (!pseudoInput || !msg) return;
+            const pseudo = pseudoInput.value.trim();
 
             if (!pseudo) {
                 msg.style.color = '#dc4f2f';
@@ -924,8 +1455,9 @@ pub async fn dashboard() -> Html<&'static str> {
 
                 if (data.ok) {
                     msg.style.color = '#0d9b73';
-                    msg.textContent = '✓ ' + data.message;
-                    document.getElementById('new-pseudo').value = '';
+                    msg.textContent = '✓ ' + data.message + (data.temp_password ? ' Mot de passe: ' + data.temp_password : '');
+                    if (data.temp_password) copyTempPassword(data.temp_password);
+                    pseudoInput.value = '';
                     loadUsers();
                 } else {
                     msg.style.color = '#dc4f2f';
@@ -958,8 +1490,17 @@ pub async fn dashboard() -> Html<&'static str> {
             }
         }
 
-        document.getElementById('create-user-btn').addEventListener('click', createUser);
+        const createUserBtn = document.getElementById('create-user-btn');
+        if (createUserBtn) {
+            createUserBtn.addEventListener('click', createUser);
+        }
+        document.getElementById('admin-reply-send').addEventListener('click', sendAdminReply);
+        bindEnterToClick('admin-reply-to', 'admin-reply-send');
+        bindEnterToClick('admin-reply-subject', 'admin-reply-send');
         document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
+        document.getElementById('onboarding-submit').addEventListener('click', submitOnboarding);
+        bindEnterToClick('onboarding-current-password', 'onboarding-submit');
+        bindEnterToClick('onboarding-new-password', 'onboarding-submit');
 
         bindTabs();
         refreshStatus();
@@ -967,13 +1508,16 @@ pub async fn dashboard() -> Html<&'static str> {
         loadEndpoints();
         loadAdminSignupQueue();
         loadUsers();
+        loadAdminMessages();
+        loadAdminDonations();
         setInterval(refreshStatus, 4000);
         setInterval(loadTestsHistory, 12000);
         setInterval(loadAdminSignupQueue, 6000);
         setInterval(loadUsers, 8000);
+        setInterval(loadAdminMessages, 10000);
+        setInterval(loadAdminDonations, 12000);
     </script>
 </body>
 </html>
-"##,
-    )
+"##.replace("%%ADMIN_PSEUDO%%", &admin_pseudo))
 }

@@ -111,6 +111,21 @@ pub async fn home() -> Html<&'static str> {
             el.textContent = text;
         }
 
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        bindEnterToClick('pseudo', 'pseudo-btn');
+        bindEnterToClick('password', 'password-btn');
+
         // STEP 1: Verify pseudo exists and is approved
         document.getElementById('pseudo-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
@@ -159,6 +174,11 @@ pub async fn home() -> Html<&'static str> {
             if (data.ok) {
                 // Store pseudo in localStorage and redirect
                 localStorage.setItem('logged_pseudo', currentPseudo);
+                if (String(data.state || '').toLowerCase() === 'onboarding') {
+                    localStorage.setItem('needs_onboarding', '1');
+                } else {
+                    localStorage.removeItem('needs_onboarding');
+                }
                 setTimeout(() => {
                     window.location.href = '/members/dashboard';
                 }, 600);

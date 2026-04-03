@@ -87,6 +87,35 @@ pub async fn profile() -> Html<&'static str> {
             flex-wrap: wrap;
             align-items: center;
         }
+        .avatar-preview {
+            width: 100%;
+            max-width: 280px;
+            display: none;
+            border-radius: 14px;
+            border: 1px solid rgba(19, 35, 49, 0.16);
+            background: #f3f7fa;
+            margin-bottom: 10px;
+        }
+        .admin-only {
+            display: none;
+        }
+        .list-box {
+            margin-top: 12px;
+            border: 1px solid rgba(19, 35, 49, 0.12);
+            border-radius: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.85);
+        }
+        .list-item {
+            border: 1px solid rgba(19, 35, 49, 0.1);
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 8px;
+            background: #fff;
+        }
+        .list-item:last-child {
+            margin-bottom: 0;
+        }
     </style>
 </head>
 <body>
@@ -109,7 +138,9 @@ pub async fn profile() -> Html<&'static str> {
             <h2>Infos compte</h2>
             <p class="meta"><strong>Pseudo:</strong> <span id="info-pseudo">--</span></p>
             <p class="meta"><strong>Role:</strong> <span id="info-role">--</span></p>
-            <p class="meta"><strong>Status:</strong> <span id="info-status">--</span></p>
+            <p class="meta admin-only" id="status-row"><strong>Status:</strong> <span id="info-status">--</span></p>
+            <p class="meta admin-only" id="status-emoji-row"><strong>Smiley:</strong> <span id="info-status-emoji">--</span></p>
+            <p class="meta admin-only" id="commentary-row"><strong>Commentary:</strong> <span id="info-commentary">--</span></p>
             <p class="meta"><strong>Created at:</strong> <span id="info-created">--</span></p>
             <p class="meta"><strong>Avatar:</strong> <span id="info-avatar">--</span></p>
         </article>
@@ -119,8 +150,8 @@ pub async fn profile() -> Html<&'static str> {
             <label for="bio">Presentation</label>
             <textarea id="bio" placeholder="Qui es-tu, ce que tu fais, ce que tu veux partager..."></textarea>
 
-            <label for="commentary">Commentary</label>
-            <textarea id="commentary" placeholder="Question, idee, demande d'amelioration..."></textarea>
+            <label for="commentary" class="admin-only">Commentary</label>
+            <textarea id="commentary" class="admin-only" placeholder="Question, idee, demande d'amelioration..."></textarea>
 
             <div class="actions">
                 <button id="save-profile" class="primary">Sauver profil</button>
@@ -130,10 +161,13 @@ pub async fn profile() -> Html<&'static str> {
 
         <article class="card">
             <h2>Avatar</h2>
+            <img id="avatar-preview" class="avatar-preview" alt="Avatar preview" />
+            <div id="avatar-state" class="meta">Aucun avatar pour le moment.</div>
             <label for="avatar">Image</label>
             <input id="avatar" type="file" accept="image/*" />
             <div class="actions">
                 <button id="upload-avatar" class="primary">Uploader avatar</button>
+                <button id="delete-avatar" class="secondary" style="border-color:#ef4e24;color:#ef4e24;">Supprimer avatar</button>
             </div>
             <div id="avatar-msg" class="msg"></div>
         </article>
@@ -150,6 +184,58 @@ pub async fn profile() -> Html<&'static str> {
                 <button id="save-password" class="primary">Mettre a jour le mot de passe</button>
             </div>
             <div id="password-msg" class="msg"></div>
+        </article>
+
+        <article class="card" id="member-messages-card">
+            <h2>Messages membres</h2>
+            <p class="meta" style="margin-top:0;">Tous les messages sont envoyes automatiquement a l'admin.</p>
+
+            <label for="msg-subject">Sujet</label>
+            <input id="msg-subject" type="text" placeholder="Sujet du message" />
+
+            <label for="msg-body">Message</label>
+            <textarea id="msg-body" placeholder="Ton message..."></textarea>
+
+            <div class="actions">
+                <button id="send-message" class="primary">Envoyer message</button>
+                <button id="refresh-messages" class="secondary">Rafraichir</button>
+            </div>
+            <div id="messages-msg" class="msg"></div>
+
+            <div class="list-box">
+                <strong>Boite de reception</strong>
+                <div id="messages-inbox" class="meta" style="margin-top:8px;">Aucun message.</div>
+            </div>
+            <div class="list-box">
+                <strong>Messages envoyes</strong>
+                <div id="messages-sent" class="meta" style="margin-top:8px;">Aucun envoi.</div>
+            </div>
+        </article>
+
+        <article class="card" id="donation-card">
+            <h2>Donation (Crypto / Coupon PCS)</h2>
+            <label for="donation-method">Methode</label>
+            <select id="donation-method" style="width:100%;border:1px solid rgba(19, 35, 49, 0.2);border-radius:8px;padding:9px;font:inherit;background:#fff;">
+                <option value="crypto">Crypto</option>
+                <option value="pcs">Coupon PCS</option>
+            </select>
+
+            <label for="donation-code">Code / Reference</label>
+            <input id="donation-code" type="text" placeholder="Code coupon ou tx id" />
+
+            <label for="donation-photo">Photo justificative</label>
+            <input id="donation-photo" type="file" accept="image/*" />
+
+            <div class="actions">
+                <button id="upload-donation" class="primary">Envoyer preuve donation</button>
+                <button id="refresh-donations" class="secondary">Rafraichir</button>
+            </div>
+            <div id="donation-msg" class="msg"></div>
+
+            <div class="list-box">
+                <strong>Mes preuves envoyees</strong>
+                <div id="donations-list" class="meta" style="margin-top:8px;">Aucune preuve envoyee.</div>
+            </div>
         </article>
 
         <article class="card">
@@ -170,6 +256,7 @@ pub async fn profile() -> Html<&'static str> {
         const pseudo = adminMode ? (queryPseudo || localPseudo) : localPseudo;
         let currentPseudo = pseudo;
         let adminUsers = [];
+        let currentAvatarObjectUrl = null;
 
         if (!pseudo) {
             window.location.href = '/';
@@ -180,7 +267,29 @@ pub async fn profile() -> Html<&'static str> {
             note.style.display = 'block';
             document.getElementById('admin-nav').style.display = 'flex';
             document.getElementById('back-link').setAttribute('href', '/dashboard');
+            document.querySelectorAll('.admin-only').forEach((el) => {
+                el.style.display = 'block';
+            });
+            document.getElementById('member-messages-card').style.display = 'none';
+            document.getElementById('donation-card').style.display = 'none';
         }
+
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        bindEnterToClick('current-password', 'save-password');
+        bindEnterToClick('new-password', 'save-password');
+        bindEnterToClick('msg-subject', 'send-message');
+        bindEnterToClick('donation-code', 'upload-donation');
 
         async function ensureAdminSession() {
             if (!adminMode) return true;
@@ -224,6 +333,45 @@ pub async fn profile() -> Html<&'static str> {
             el.textContent = text;
         }
 
+        function escapeHtml(raw) {
+            return String(raw || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+           function statusEmoji(status) {
+               const raw = String(status || '').toLowerCase();
+               if (raw === 'actif') return '😀';
+               if (raw === 'occupe') return '😐';
+               return '❓';
+           }
+
+           function setAvatarState(text, visible) {
+               const state = document.getElementById('avatar-state');
+               state.textContent = text;
+               const preview = document.getElementById('avatar-preview');
+               preview.style.display = visible ? 'block' : 'none';
+           }
+
+           function clearAvatarObjectUrl() {
+               if (currentAvatarObjectUrl) {
+                   URL.revokeObjectURL(currentAvatarObjectUrl);
+                   currentAvatarObjectUrl = null;
+               }
+           }
+
+           function showAvatarPreviewFromFile(file) {
+               clearAvatarObjectUrl();
+               currentAvatarObjectUrl = URL.createObjectURL(file);
+               const preview = document.getElementById('avatar-preview');
+               preview.src = currentAvatarObjectUrl;
+               preview.style.display = 'block';
+               setAvatarState('Prévisualisation locale avant envoi.', true);
+           }
+
         async function loadProfile() {
             try {
                 const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
@@ -232,13 +380,121 @@ pub async fn profile() -> Html<&'static str> {
                     document.getElementById('info-pseudo').textContent = data.pseudo || '--';
                     document.getElementById('info-role').textContent = data.role || '--';
                     document.getElementById('info-status').textContent = data.status || '--';
+                    document.getElementById('info-status-emoji').textContent = statusEmoji(data.status);
+                    document.getElementById('info-commentary').textContent = data.commentary || 'Aucun commentaire.';
                     document.getElementById('info-created').textContent = data.created_at_epoch ? new Date(data.created_at_epoch * 1000).toLocaleString() : '--';
                     document.getElementById('info-avatar').textContent = data.avatar_filename || 'none';
                     document.getElementById('bio').value = data.bio;
                     document.getElementById('commentary').value = data.commentary || '';
+
+                    if (!adminMode) {
+                        document.getElementById('status-row').style.display = 'none';
+                        document.getElementById('status-emoji-row').style.display = 'none';
+                        document.getElementById('commentary-row').style.display = 'none';
+                        document.getElementById('commentary').style.display = 'none';
+                        document.querySelector('label[for="commentary"]').style.display = 'none';
+                    }
+
+                    const preview = document.getElementById('avatar-preview');
+                    if (data.avatar_present) {
+                        clearAvatarObjectUrl();
+                        preview.src = '/members/avatar/' + encodeURIComponent(currentPseudo) + '?t=' + (data.created_at_epoch || Date.now());
+                        setAvatarState(data.avatar_filename ? 'Avatar: ' + data.avatar_filename : 'Avatar present', true);
+                    } else {
+                        clearAvatarObjectUrl();
+                        preview.removeAttribute('src');
+                        setAvatarState('Aucun avatar pour le moment.', false);
+                    }
                 }
             } catch (_err) {
                 setMsg('profile-msg', false, 'Impossible de charger le profil.');
+            }
+        }
+
+        async function loadMessages() {
+            if (adminMode) return;
+            try {
+                const [inboxRes, sentRes] = await Promise.all([
+                    fetch('/members/messages/inbox?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' }),
+                    fetch('/members/messages/sent?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' })
+                ]);
+                const inbox = await inboxRes.json();
+                const sent = await sentRes.json();
+
+                const inboxPanel = document.getElementById('messages-inbox');
+                if (Array.isArray(inbox) && inbox.length > 0) {
+                    inboxPanel.innerHTML = inbox.slice().reverse().map((row) => {
+                        const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
+                        const status = row.is_read ? 'Lu' : 'Non lu';
+                        const readBtn = row.is_read
+                            ? ''
+                            : '<button class="secondary" data-read-id="' + row.id + '">Marquer lu</button>';
+                        return '<div class="list-item">'
+                            + '<div><strong>De:</strong> ' + escapeHtml(row.from_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
+                            + '<div class="meta">' + dt + ' • ' + status + '</div>'
+                            + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
+                            + (readBtn ? '<div class="actions" style="margin-top:8px;">' + readBtn + '</div>' : '')
+                            + '</div>';
+                    }).join('');
+                    inboxPanel.querySelectorAll('button[data-read-id]').forEach((btn) => {
+                        btn.addEventListener('click', async () => {
+                            const id = btn.getAttribute('data-read-id');
+                            const res = await fetch('/members/messages/' + id + '/read', {
+                                method: 'POST',
+                                headers: { 'content-type': 'application/json' },
+                                body: JSON.stringify({ pseudo: currentPseudo })
+                            });
+                            const data = await res.json();
+                            setMsg('messages-msg', !!data.ok, data.message || 'Etat message mis a jour.');
+                            if (data.ok) await loadMessages();
+                        });
+                    });
+                } else {
+                    inboxPanel.textContent = 'Aucun message recu.';
+                }
+
+                const sentPanel = document.getElementById('messages-sent');
+                if (Array.isArray(sent) && sent.length > 0) {
+                    sentPanel.innerHTML = sent.slice().reverse().map((row) => {
+                        const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
+                        return '<div class="list-item">'
+                            + '<div><strong>Vers:</strong> ' + escapeHtml(row.to_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
+                            + '<div class="meta">' + dt + ' • ' + (row.is_read ? 'Lu' : 'Non lu') + '</div>'
+                            + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
+                            + '</div>';
+                    }).join('');
+                } else {
+                    sentPanel.textContent = 'Aucun message envoye.';
+                }
+            } catch (err) {
+                setMsg('messages-msg', false, 'Impossible de charger les messages: ' + err.message);
+            }
+        }
+
+        async function loadDonations() {
+            if (adminMode) return;
+            try {
+                const res = await fetch('/members/donations?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
+                const list = await res.json();
+                const panel = document.getElementById('donations-list');
+                if (!Array.isArray(list) || list.length === 0) {
+                    panel.textContent = 'Aucune preuve envoyee.';
+                    return;
+                }
+
+                panel.innerHTML = list.slice().reverse().map((row) => {
+                    const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
+                    const verdict = !row.reviewed
+                        ? 'En attente'
+                        : (row.approved ? 'Validee' : 'Refusee');
+                    return '<div class="list-item">'
+                        + '<div><strong>#' + row.id + '</strong> • ' + escapeHtml(row.method) + ' • ' + escapeHtml(row.code) + '</div>'
+                        + '<div class="meta">' + dt + ' • ' + verdict + '</div>'
+                        + '<div style="margin-top:6px;"><a class="btn secondary" href="/members/donations/proof/' + row.id + '/photo" target="_blank" rel="noopener noreferrer">Voir photo</a></div>'
+                        + '</div>';
+                }).join('');
+            } catch (err) {
+                setMsg('donation-msg', false, 'Impossible de charger les preuves: ' + err.message);
             }
         }
 
@@ -298,12 +554,81 @@ pub async fn profile() -> Html<&'static str> {
             }
         });
 
+        document.getElementById('send-message').addEventListener('click', async () => {
+            if (adminMode) return;
+            const subject = document.getElementById('msg-subject').value.trim();
+            const body = document.getElementById('msg-body').value.trim();
+            try {
+                const res = await fetch('/members/messages/send', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        from_pseudo: currentPseudo,
+                        subject,
+                        body
+                    })
+                });
+                const data = await res.json();
+                setMsg('messages-msg', !!data.ok, data.message || 'Message envoye.');
+                if (data.ok) {
+                    document.getElementById('msg-subject').value = '';
+                    document.getElementById('msg-body').value = '';
+                    await loadMessages();
+                }
+            } catch (err) {
+                setMsg('messages-msg', false, 'Erreur: ' + err.message);
+            }
+        });
+
+        document.getElementById('refresh-messages').addEventListener('click', loadMessages);
+
+        document.getElementById('upload-donation').addEventListener('click', async () => {
+            if (adminMode) return;
+            const method = document.getElementById('donation-method').value;
+            const code = document.getElementById('donation-code').value.trim();
+            const photo = document.getElementById('donation-photo');
+            if (!code) {
+                setMsg('donation-msg', false, 'Entre un code/reference.');
+                return;
+            }
+            if (!photo.files || photo.files.length === 0) {
+                setMsg('donation-msg', false, 'Ajoute une photo justificative.');
+                return;
+            }
+
+            const form = new FormData();
+            form.append('pseudo', currentPseudo);
+            form.append('method', method);
+            form.append('code', code);
+            form.append('photo', photo.files[0]);
+
+            try {
+                const res = await fetch('/members/donations/proof', {
+                    method: 'POST',
+                    body: form
+                });
+                const data = await res.json();
+                setMsg('donation-msg', !!data.ok, data.message || 'Preuve envoyee.');
+                if (data.ok) {
+                    document.getElementById('donation-code').value = '';
+                    photo.value = '';
+                    await loadDonations();
+                }
+            } catch (err) {
+                setMsg('donation-msg', false, 'Erreur: ' + err.message);
+            }
+        });
+
+        document.getElementById('refresh-donations').addEventListener('click', loadDonations);
+
         document.getElementById('upload-avatar').addEventListener('click', async () => {
             const input = document.getElementById('avatar');
             if (!input.files || input.files.length === 0) {
                 setMsg('avatar-msg', false, 'Choisis un fichier image.');
                 return;
             }
+
+            showAvatarPreviewFromFile(input.files[0]);
 
             const form = new FormData();
             form.append('pseudo', currentPseudo);
@@ -316,6 +641,27 @@ pub async fn profile() -> Html<&'static str> {
                 });
                 const data = await res.json();
                 setMsg('avatar-msg', !!data.ok, data.message || 'Avatar mis a jour.');
+                if (data.ok) {
+                    input.value = '';
+                    await loadProfile();
+                }
+            } catch (err) {
+                setMsg('avatar-msg', false, 'Erreur: ' + err.message);
+            }
+        });
+
+        document.getElementById('delete-avatar').addEventListener('click', async () => {
+            if (!confirm('Supprimer l\'avatar de ce profil ?')) return;
+            try {
+                const res = await fetch('/members/avatar/' + encodeURIComponent(currentPseudo), {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                setMsg('avatar-msg', !!data.ok, data.message || 'Avatar supprime.');
+                if (data.ok) {
+                    clearAvatarObjectUrl();
+                    await loadProfile();
+                }
             } catch (err) {
                 setMsg('avatar-msg', false, 'Erreur: ' + err.message);
             }
@@ -401,6 +747,10 @@ pub async fn profile() -> Html<&'static str> {
                 await loadAdminUsersNavigator();
             }
             loadProfile();
+            if (!adminMode) {
+                await loadMessages();
+                await loadDonations();
+            }
             updateAdminNavMeta();
         })();
     </script>

@@ -89,24 +89,17 @@ pub async fn portal() -> Html<&'static str> {
         </div>
 
         <article class="card">
-            <p class="hint">Inscription avec validation manuelle. Laisse un contact si tu souhaites être recontacté.</p>
+            <p class="hint">Inscription avec validation manuelle. Tu recevras un mot de passe temporaire a copier apres envoi.</p>
 
             <label for="pseudo">Pseudo *</label>
             <input id="pseudo" placeholder="ton_pseudo" required />
 
-            <label for="reason">Pourquoi tu veux rejoindre ? *</label>
-            <textarea id="reason" placeholder="Raconte-nous ta motivation..." required></textarea>
-
             <label for="referral">Comment tu m'as connu ? *</label>
             <input id="referral" placeholder="Ami, réseau social, portfolio..." required />
 
-            <label for="contact">
-                Contact (Pour t'envoyer ton password une fois ton compte validé) <span class="label-optional">(optionnel)</span>
-            </label>
-            <input id="contact" type="text" placeholder="Pour te recontacter..." />
-
             <button class="btn btn-primary" id="signup-btn">Envoyer ma demande</button>
-            <div id="signup-result" class="result"></div>
+            <div id="temp-password-box" class="result" style="margin-top:14px; display:none;"></div>
+            <div id="signup-error" class="result"></div>
         </article>
     </main>
 
@@ -116,25 +109,58 @@ pub async fn portal() -> Html<&'static str> {
             el.textContent = text;
         }
 
+        function bindEnterToClick(inputId, buttonId) {
+            const input = document.getElementById(inputId);
+            const button = document.getElementById(buttonId);
+            if (!input || !button) return;
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    button.click();
+                }
+            });
+        }
+
+        function generateTempPassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+            const bytes = new Uint8Array(12);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes, (value) => chars[value % chars.length]).join('');
+        }
+
+        bindEnterToClick('pseudo', 'signup-btn');
+        bindEnterToClick('referral', 'signup-btn');
+
         document.getElementById('signup-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
-            const reason = document.getElementById('reason').value.trim();
             const referral = document.getElementById('referral').value.trim();
-            const contact = document.getElementById('contact').value.trim();
-            const output = document.getElementById('signup-result');
+            const output = document.getElementById('signup-error');
+            const tempPasswordBox = document.getElementById('temp-password-box');
 
-            if (!pseudo || !reason || !referral) {
-                setResult(output, false, 'Remplis les champs obligatoires (pseudo, raison, comment tu m\'as connu).');
+            if (!pseudo || !referral) {
+                setResult(output, false, 'Remplis les champs obligatoires (pseudo, comment tu m\'as connu).');
                 return;
             }
+
+            const tempPassword = generateTempPassword();
 
             const res = await fetch('/portal/signup-request', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ pseudo, reason, referral, contact })
+                body: JSON.stringify({ pseudo, referral, temp_password: tempPassword })
             });
             const data = await res.json();
-            setResult(output, data.ok, data.message + ' (ID: ' + data.request_id + ')');
+
+            if (data.ok) {
+                output.style.display = 'none';
+                output.textContent = '';
+                tempPasswordBox.style.display = 'block';
+                tempPasswordBox.innerHTML = 'Mot de passe temporaire: <strong>' + (data.temp_password || tempPassword) + '</strong>';
+            } else {
+                setResult(output, false, data.message || 'Inscription refusee.');
+                tempPasswordBox.style.display = 'none';
+                tempPasswordBox.textContent = '';
+            }
         });
     </script>
 </body>
