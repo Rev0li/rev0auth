@@ -229,8 +229,79 @@ pub async fn dashboard() -> Html<&'static str> {
             box-sizing: border-box;
         }
 
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(140px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            border: 1px solid rgba(17, 33, 48, 0.1);
+            border-radius: 10px;
+            background: #fff;
+            padding: 10px;
+        }
+
+        .stat-k {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            opacity: .72;
+        }
+
+        .stat-v {
+            margin-top: 4px;
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .endpoint-grid {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .endpoint-item {
+            border: 1px solid rgba(17, 33, 48, 0.1);
+            border-radius: 10px;
+            background: #fff;
+            padding: 8px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .endpoint-meta {
+            font-size: .85rem;
+            opacity: .8;
+        }
+
+        .badge-ok,
+        .badge-ko {
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
+        .badge-ok {
+            color: #085e48;
+            background: #dff7ee;
+            border: 1px solid #9bdcc7;
+        }
+
+        .badge-ko {
+            color: #7e2a18;
+            background: #ffe8e1;
+            border: 1px solid #f6b7a6;
+        }
+
         @media (max-width: 900px) {
             .grid { grid-template-columns: 1fr; }
+            .stats-strip { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
@@ -302,8 +373,26 @@ pub async fn dashboard() -> Html<&'static str> {
                 </article>
             </div>
             <div class="row">
-                <strong>All endpoints (admin view)</strong>
-                <div id="endpoints-list" class="mini">Chargement...</div>
+                <strong>Admin utils (stats live)</strong>
+                <div class="stats-strip">
+                    <div class="stat-box">
+                        <div class="stat-k">Users total</div>
+                        <div class="stat-v" id="stat-users-total">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Users actifs</div>
+                        <div class="stat-v" id="stat-users-active">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Demandes pending</div>
+                        <div class="stat-v" id="stat-signups-pending">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Dernier run tests</div>
+                        <div class="stat-v" id="stat-tests-last">--</div>
+                    </div>
+                </div>
+                <div class="mini">Idees utiles: ajouter uptime 24h, latence moyenne API et taux d'erreur login.</div>
             </div>
         </section>
 
@@ -350,15 +439,9 @@ pub async fn dashboard() -> Html<&'static str> {
                 <ul id="timeline" class="timeline"></ul>
             </div>
             <div class="row">
-                <strong>Endpoints rapides</strong>
-                <div class="actions">
-                    <a class="btn" href="/status">/status</a>
-                    <a class="btn" href="/status/all">/status/all</a>
-                    <a class="btn" href="/japprends/ping">/japprends/ping</a>
-                    <a class="btn" href="/user/ping">/user/ping</a>
-                    <a class="btn" href="/japprends/tdd">TDD dashboard</a>
-                    <a class="btn" href="/">Landing</a>
-                </div>
+                <strong>Tous les endpoints (visuel sante, non cliquable)</strong>
+                <div class="mini">Cette vue ne navigue pas vers les pages. Elle indique juste si chaque scope est considere OK.</div>
+                <div id="endpoints-system-list" class="endpoint-grid">Chargement...</div>
             </div>
         </section>
 
@@ -377,9 +460,55 @@ pub async fn dashboard() -> Html<&'static str> {
     </main>
 
     <script>
+        const monitorState = { adminOk: false, userOk: false, apiOk: false };
+        const dashboardStats = { users: [], pendingSignups: 0, lastRun: null, endpoints: [] };
+
         function paint(el, ok, label) {
             el.textContent = ok ? label + ' OK' : label + ' DOWN';
             el.className = 'state ' + (ok ? 'ok' : 'down');
+        }
+
+        function endpointScopeOk(ep) {
+            if (ep.scope === 'admin') return monitorState.adminOk && monitorState.apiOk;
+            if (ep.scope === 'member') return monitorState.userOk && monitorState.apiOk;
+            return true;
+        }
+
+        function renderEndpointsSystem() {
+            const panel = document.getElementById('endpoints-system-list');
+            if (!panel) return;
+            const data = dashboardStats.endpoints;
+            if (!Array.isArray(data) || data.length === 0) {
+                panel.textContent = 'Aucun endpoint trouve.';
+                return;
+            }
+
+            panel.innerHTML = data.map((ep) => {
+                const ok = endpointScopeOk(ep);
+                const badge = ok
+                    ? '<span class="badge-ok">OK</span>'
+                    : '<span class="badge-ko">KO</span>';
+
+                return '<div class="endpoint-item">'
+                    + '<div><strong>' + ep.method + '</strong> ' + ep.path
+                    + '<div class="endpoint-meta">scope: ' + ep.scope + '</div></div>'
+                    + badge
+                    + '</div>';
+            }).join('');
+        }
+
+        function renderAdminStats() {
+            const users = Array.isArray(dashboardStats.users) ? dashboardStats.users : [];
+            const pending = Number(dashboardStats.pendingSignups || 0);
+            const lastRun = dashboardStats.lastRun;
+
+            const activeCount = users.filter((u) => String(u.status || '').toLowerCase() === 'actif').length;
+            const lastRunLabel = lastRun ? (lastRun.passed + '/' + lastRun.total) : '--';
+
+            document.getElementById('stat-users-total').textContent = String(users.length);
+            document.getElementById('stat-users-active').textContent = String(activeCount);
+            document.getElementById('stat-signups-pending').textContent = String(pending);
+            document.getElementById('stat-tests-last').textContent = lastRunLabel;
         }
 
         function pushTimeline(message) {
@@ -416,6 +545,10 @@ pub async fn dashboard() -> Html<&'static str> {
 
             const res = await fetch('/japprends/signup-requests', { cache: 'no-store' });
             const list = await res.json();
+            dashboardStats.pendingSignups = Array.isArray(list)
+                ? list.filter((r) => r.status === 'pending').length
+                : 0;
+            renderAdminStats();
             if (!Array.isArray(list) || list.length === 0) {
                 panel.textContent = 'Aucune demande pour le moment.';
                 return;
@@ -450,11 +583,16 @@ pub async fn dashboard() -> Html<&'static str> {
                 const adminOk = data.admin_ok && admin.status === 'ok';
                 const userOk = data.user_ok && user.status === 'ok';
 
+                monitorState.adminOk = adminOk;
+                monitorState.userOk = userOk;
+                monitorState.apiOk = !!data.api_ok;
+
                 paint(document.getElementById('admin-state'), adminOk, 'ADMIN');
                 paint(document.getElementById('admin-state-2'), adminOk, 'ADMIN');
                 paint(document.getElementById('user-state'), userOk, 'USER');
                 paint(document.getElementById('user-state-2'), userOk, 'USER');
                 paint(document.getElementById('api-state'), data.api_ok, 'API');
+                renderEndpointsSystem();
 
                 document.getElementById('sprint').textContent = all.sprint;
                 document.getElementById('tests-total').textContent = String(all.tests_api_total);
@@ -484,9 +622,14 @@ pub async fn dashboard() -> Html<&'static str> {
             const panel = document.getElementById('tests-history');
             if (!panel) return;
             if (!Array.isArray(runs) || runs.length === 0) {
+                dashboardStats.lastRun = null;
+                renderAdminStats();
                 panel.innerHTML = '<div class="mini">Aucun test lance depuis le dashboard.</div>';
                 return;
             }
+
+            dashboardStats.lastRun = runs[0];
+            renderAdminStats();
 
             panel.innerHTML = runs.slice(0, 12).map((run) => {
                 const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
@@ -522,22 +665,14 @@ pub async fn dashboard() -> Html<&'static str> {
         }
 
         async function loadEndpoints() {
-            const panel = document.getElementById('endpoints-list');
+            const panel = document.getElementById('endpoints-system-list');
             if (!panel) return;
 
             try {
                 const res = await fetch('/japprends/endpoints', { cache: 'no-store' });
                 const data = await res.json();
-                if (!Array.isArray(data) || data.length === 0) {
-                    panel.textContent = 'Aucun endpoint trouve.';
-                    return;
-                }
-
-                panel.innerHTML = data.map((ep) => {
-                    return '<div style="border:1px solid rgba(17,33,48,.1);border-radius:8px;padding:6px 8px;margin:6px 0;background:#fff">'
-                        + '<strong>' + ep.method + '</strong> ' + ep.path + ' <span style="opacity:.75">(' + ep.scope + ')</span>'
-                        + '</div>';
-                }).join('');
+                dashboardStats.endpoints = Array.isArray(data) ? data : [];
+                renderEndpointsSystem();
             } catch (_err) {
                 panel.textContent = 'Erreur chargement endpoints.';
             }
@@ -589,6 +724,8 @@ pub async fn dashboard() -> Html<&'static str> {
                     + '</div>';
             }).join('');
 
+            dashboardStats.users = list;
+            renderAdminStats();
             panel.innerHTML = html;
         }
 
