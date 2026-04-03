@@ -51,7 +51,7 @@ Puis verifier:
 
 - `http://localhost:3000/` pour le frontend
 - `http://localhost:3000/dashboard` pour le dashboard op
-- `http://localhost:3000/admin/tdd` pour la page TDD
+- `http://localhost:3000/japprends/tdd` pour la page TDD
 
 ## Check-list avant deploy
 

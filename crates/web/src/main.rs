@@ -228,26 +228,26 @@ async fn main() -> anyhow::Result<()> {
 
     let protected_routes = Router::new()
         .route("/dashboard", get(dashboard))
-        .route("/admin/tdd", get(tdd_dashboard))
+        .route("/japprends/tdd", get(tdd_dashboard))
         .route("/status", get(status))
         .route("/status/all", get(status_all))
-        .route("/admin/signup-requests", get(admin_signup_requests))
+        .route("/japprends/signup-requests", get(admin_signup_requests))
         .route(
-            "/admin/signup-requests/:id/approve",
+            "/japprends/signup-requests/:id/approve",
             post(admin_approve_signup_request),
         )
         .route(
-            "/admin/signup-requests/:id/reject",
+            "/japprends/signup-requests/:id/reject",
             post(admin_reject_signup_request),
         )
-        .route("/admin/ping", get(admin_ping))
+        .route("/japprends/ping", get(admin_ping))
         .route("/user/ping", get(user_ping))
-        .route("/admin/set-password/:pseudo", post(admin_set_password))
-        .route("/admin/remove-password/:pseudo", post(admin_remove_password))
+        .route("/japprends/set-password/:pseudo", post(admin_set_password))
+        .route("/japprends/remove-password/:pseudo", post(admin_remove_password))
         .route("/users", get(list_users))
-        .route("/admin/users", post(admin_create_user))
-        .route("/admin/users/:pseudo", put(admin_update_user))
-        .route("/admin/users/:pseudo", delete(admin_delete_user))
+        .route("/japprends/users", post(admin_create_user))
+        .route("/japprends/users/:pseudo", put(admin_update_user))
+        .route("/japprends/users/:pseudo", delete(admin_delete_user))
         .route("/status/set-busy/:pseudo", post(set_user_busy))
         .route("/status/set-active/:pseudo", post(set_user_active))
         .route("/status/set-inactive/:pseudo", post(set_user_inactive))
@@ -261,9 +261,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/portal", get(portal))
         .route("/portal/signup-request", post(portal_signup_request))
         .route("/portal/login", post(portal_login))
-        .route("/admin/login", get(admin_login_page))
-        .route("/admin/login", post(admin_login))
-        .route("/admin/logout", post(admin_logout))
+        .route("/japprends/login", get(admin_login_page))
+        .route("/japprends/login", post(admin_login))
+        .route("/japprends/logout", post(admin_logout))
         .route("/home/friend", get(friend_home))
         .route("/members/dashboard", get(members_dashboard))
         .route("/members/profile", get(members_profile_page))
@@ -1043,7 +1043,7 @@ async fn require_admin_session(
     }
 
     if req.method() == axum::http::Method::GET {
-        return Redirect::to("/admin/login").into_response();
+        return Redirect::to("/japprends/login").into_response();
     }
 
     (

@@ -97,7 +97,7 @@ pub async fn admin_login() -> Html<&'static str> {
                 return;
             }
 
-            const res = await fetch('/admin/login', {
+            const res = await fetch('/japprends/login', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ password })

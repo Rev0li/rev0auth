@@ -264,7 +264,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 <article class="card">
                     <div class="label">Admin Core</div>
                     <div class="state" id="admin-state-2">Chargement...</div>
-                    <div class="mini">Endpoint controle: <code>/admin/ping</code></div>
+                    <div class="mini">Endpoint controle: <code>/japprends/ping</code></div>
                 </article>
                 <article class="card">
                     <div class="label">VALIDATION INSCRIPTIONS</div>
@@ -325,9 +325,9 @@ pub async fn dashboard() -> Html<&'static str> {
                 <div class="actions">
                     <a class="btn" href="/status">/status</a>
                     <a class="btn" href="/status/all">/status/all</a>
-                    <a class="btn" href="/admin/ping">/admin/ping</a>
+                    <a class="btn" href="/japprends/ping">/japprends/ping</a>
                     <a class="btn" href="/user/ping">/user/ping</a>
-                    <a class="btn" href="/admin/tdd">TDD dashboard</a>
+                    <a class="btn" href="/japprends/tdd">TDD dashboard</a>
                     <a class="btn" href="/">Landing</a>
                 </div>
             </div>
@@ -385,7 +385,7 @@ pub async fn dashboard() -> Html<&'static str> {
             const panel = document.getElementById('admin-signup-queue');
             if (!panel) return;
 
-            const res = await fetch('/admin/signup-requests', { cache: 'no-store' });
+            const res = await fetch('/japprends/signup-requests', { cache: 'no-store' });
             const list = await res.json();
             if (!Array.isArray(list) || list.length === 0) {
                 panel.textContent = 'Aucune demande pour le moment.';
@@ -397,7 +397,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     const act = btn.getAttribute('data-act');
-                    await fetch('/admin/signup-requests/' + id + '/' + act, { method: 'POST' });
+                    await fetch('/japprends/signup-requests/' + id + '/' + act, { method: 'POST' });
                     await loadAdminSignupQueue();
                     await refreshStatus();
                 });
@@ -409,7 +409,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 const [basicRes, allRes, adminRes, userRes] = await Promise.all([
                     fetch('/status', { cache: 'no-store' }),
                     fetch('/status/all', { cache: 'no-store' }),
-                    fetch('/admin/ping', { cache: 'no-store' }),
+                    fetch('/japprends/ping', { cache: 'no-store' }),
                     fetch('/user/ping', { cache: 'no-store' })
                 ]);
 
@@ -513,7 +513,7 @@ pub async fn dashboard() -> Html<&'static str> {
             }
 
             try {
-                const res = await fetch('/admin/users', {
+                const res = await fetch('/japprends/users', {
                     method: 'POST',
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify({ pseudo })
@@ -541,7 +541,7 @@ pub async fn dashboard() -> Html<&'static str> {
             if (!confirm('Supprimer l\'utilisateur ' + pseudo + ' ?')) return;
 
             try {
-                const res = await fetch('/admin/users/' + pseudo, {
+                const res = await fetch('/japprends/users/' + pseudo, {
                     method: 'DELETE'
                 });
                 const data = await res.json();
