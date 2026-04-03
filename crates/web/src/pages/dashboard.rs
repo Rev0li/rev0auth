@@ -185,6 +185,16 @@ pub async fn dashboard() -> Html<&'static str> {
             flex-wrap: wrap;
         }
 
+        .user-card.clickable {
+            cursor: pointer;
+            transition: transform .15s ease, box-shadow .2s ease;
+        }
+
+        .user-card.clickable:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(17, 33, 48, 0.1);
+        }
+
         .user-info { flex: 1; }
         .user-name { font-weight: 700; }
         .user-meta { font-size: 0.85rem; opacity: 0.75; }
@@ -370,6 +380,28 @@ pub async fn dashboard() -> Html<&'static str> {
                 </div>
                 <div id="tests-history" class="tests-history"></div>
             </section>
+
+            <section class="row">
+                <strong>Fun stats (overview)</strong>
+                <div class="stats-strip">
+                    <div class="stat-box">
+                        <div class="stat-k">Couverture services</div>
+                        <div class="stat-v" id="fun-service-coverage">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Demandes acces</div>
+                        <div class="stat-v" id="fun-access-requests">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Activation users</div>
+                        <div class="stat-v" id="fun-active-ratio">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-k">Health chain</div>
+                        <div class="stat-v" id="fun-chain-ok">--</div>
+                    </div>
+                </div>
+            </section>
         </section>
 
         <section class="tab-page" id="tab-admin">
@@ -380,13 +412,12 @@ pub async fn dashboard() -> Html<&'static str> {
                     <div class="mini">Endpoint controle: <code>/japprends/ping</code></div>
                 </article>
                 <article class="card">
-                    <div class="label">VALIDATION INSCRIPTIONS</div>
-                    <div class="mini">Validation manuelle des demandes user.</div>
-                    <div id="admin-signup-queue" class="mini">Chargement...</div>
-                </article>
-                <article class="card">
                     <div class="label">SLO</div>
                     <div class="mini">Objectif: uptime panel admin >= 99.9%</div>
+                </article>
+                <article class="card">
+                    <div class="label">Pilotage</div>
+                    <div class="mini">Vue orientee moderation, acces et operations quotidiennes.</div>
                 </article>
             </div>
             <div class="row">
@@ -422,6 +453,12 @@ pub async fn dashboard() -> Html<&'static str> {
                     <button class="btn-small" style="margin-top: 8px;" id="create-user-btn">+ Créer</button>
                     <div id="create-msg" style="margin-top: 8px; font-size: 0.9rem; display: none;"></div>
                 </div>
+            </div>
+
+            <div class="row">
+                <strong>VALIDATION INSCRIPTIONS</strong>
+                <div class="mini">Validation manuelle des demandes user.</div>
+                <div id="admin-signup-queue" class="mini">Chargement...</div>
             </div>
 
             <div class="row">
@@ -471,11 +508,12 @@ pub async fn dashboard() -> Html<&'static str> {
             <div class="row">
                 <strong>Documentation projet</strong>
                 <ul>
-                    <li><code>docs/roadmap-detailed.md</code></li>
-                    <li><code>docs/FunFront.md</code></li>
-                    <li><code>docs/Outtime.md</code></li>
-                    <li><code>docs/tickets-auth.md</code></li>
-                    <li><code>Portail user: /portal</code></li>
+                    <li><code>docs/public-project-handbook.md</code> (document unique public)</li>
+                    <li><code>docs/cheatsheet-complet.md</code> (debug rapide / tests)</li>
+                    <li><code>docs/polish-finalisation.md</code> (etat polish)</li>
+                    <li><code>docs/install-to-launch.md</code> (runbook deployment)</li>
+                    <li><code>docs/caddy-duckdns-beginners.md</code> (proxy pour debutants)</li>
+                    <li><code>docs/README.md</code> (index principal docs)</li>
                 </ul>
             </div>
         </section>
@@ -552,11 +590,35 @@ pub async fn dashboard() -> Html<&'static str> {
 
             const activeCount = users.filter((u) => String(u.status || '').toLowerCase() === 'actif').length;
             const lastRunLabel = lastRun ? (lastRun.passed + '/' + lastRun.total) : '--';
+            const totalServices = users.length * 3;
+            const grantedServices = users.reduce((sum, u) => {
+                return sum
+                    + (u.access_github ? 1 : 0)
+                    + (u.access_jellyfin ? 1 : 0)
+                    + (u.access_songsurf ? 1 : 0);
+            }, 0);
+            const requestedServices = users.reduce((sum, u) => {
+                return sum
+                    + (u.request_github ? 1 : 0)
+                    + (u.request_jellyfin ? 1 : 0)
+                    + (u.request_songsurf ? 1 : 0);
+            }, 0);
+            const activeRatio = users.length > 0
+                ? Math.round((activeCount * 100) / users.length) + '%'
+                : '--';
+            const chainOk = chainState.webToApi && chainState.adminPing && chainState.userPing && chainState.endpointRegistry;
 
             document.getElementById('stat-users-total').textContent = String(users.length);
             document.getElementById('stat-users-active').textContent = String(activeCount);
             document.getElementById('stat-signups-pending').textContent = String(pending);
             document.getElementById('stat-tests-last').textContent = lastRunLabel;
+
+            document.getElementById('fun-service-coverage').textContent = totalServices > 0
+                ? (grantedServices + '/' + totalServices)
+                : '--';
+            document.getElementById('fun-access-requests').textContent = String(requestedServices);
+            document.getElementById('fun-active-ratio').textContent = activeRatio;
+            document.getElementById('fun-chain-ok').textContent = chainOk ? 'FULL OK' : 'CHECK';
         }
 
         function pushTimeline(message) {
@@ -646,6 +708,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 paint(document.getElementById('api-state'), data.api_ok, 'API');
                 renderChainChecks();
                 renderEndpointsSystem();
+                renderAdminStats();
 
                 document.getElementById('sprint').textContent = all.sprint;
                 document.getElementById('tests-total').textContent = String(all.tests_api_total);
@@ -671,6 +734,7 @@ pub async fn dashboard() -> Html<&'static str> {
                 chainState.adminPing = false;
                 chainState.userPing = false;
                 renderChainChecks();
+                renderAdminStats();
                 pushTimeline(new Date().toLocaleTimeString() + ' | erreur de monitoring');
             }
         }
@@ -786,18 +850,18 @@ pub async fn dashboard() -> Html<&'static str> {
                 const jfLabel = user.access_jellyfin ? 'Jellyfin ON' : 'Jellyfin OFF';
                 const ssLabel = user.access_songsurf ? 'Songsurf ON' : 'Songsurf OFF';
 
-                return '<div class="user-card">'
+                return '<div class="user-card clickable" onclick="openUserProfile(\'' + user.pseudo + '\')">'
                     + '<div class="user-info">'
                     + '<div class="user-name">' + user.pseudo + '</div>'
                     + '<div class="user-meta">' + role + ' • ' + dt + ' • ' + statusDisplay + '</div>'
                     + reqLabel
                     + '</div>'
                     + '<div class="user-actions">'
-                    + '<button class="btn-small warn" onclick="openUserProfile(\'' + user.pseudo + '\')">Profil complet</button>'
-                    + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
-                    + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
-                    + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
-                    + '<button class="btn-small" onclick="deleteUser(\'' + user.pseudo + '\')">🗑 Supprimer</button>'
+                    + '<button class="btn-small warn" onclick="event.stopPropagation(); openUserProfile(\'' + user.pseudo + '\')">Profil complet</button>'
+                    + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
+                    + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
+                    + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
+                    + '<button class="btn-small" onclick="event.stopPropagation(); deleteUser(\'' + user.pseudo + '\')">🗑 Supprimer</button>'
                     + '</div>'
                     + '</div>';
             }).join('');

@@ -80,6 +80,13 @@ pub async fn profile() -> Html<&'static str> {
             font-size: 0.88rem;
             display: none;
         }
+        .admin-nav {
+            margin-top: 10px;
+            display: none;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -88,6 +95,11 @@ pub async fn profile() -> Html<&'static str> {
             <h1>Profil membre</h1>
             <p class="meta">Ici tu retrouves toutes tes infos. You can update or delete your account anytime.</p>
             <div id="admin-note" class="admin-note">Mode admin actif: tu modifies le profil complet de cet utilisateur.</div>
+            <div id="admin-nav" class="admin-nav">
+                <button id="prev-user" class="secondary">User precedent</button>
+                <button id="next-user" class="secondary">User suivant</button>
+                <span id="admin-nav-meta" class="meta"></span>
+            </div>
             <div class="actions">
                 <a class="btn secondary" id="back-link" href="/members/dashboard">Retour dashboard</a>
             </div>
@@ -155,7 +167,9 @@ pub async fn profile() -> Html<&'static str> {
         const adminMode = params.get('admin') === '1';
         const queryPseudo = (params.get('pseudo') || '').trim();
         const localPseudo = localStorage.getItem('logged_pseudo');
-        const pseudo = queryPseudo || localPseudo;
+        const pseudo = adminMode ? (queryPseudo || localPseudo) : localPseudo;
+        let currentPseudo = pseudo;
+        let adminUsers = [];
 
         if (!pseudo) {
             window.location.href = '/';
@@ -164,6 +178,7 @@ pub async fn profile() -> Html<&'static str> {
         if (adminMode) {
             const note = document.getElementById('admin-note');
             note.style.display = 'block';
+            document.getElementById('admin-nav').style.display = 'flex';
             document.getElementById('back-link').setAttribute('href', '/dashboard');
         }
 
@@ -211,7 +226,7 @@ pub async fn profile() -> Html<&'static str> {
 
         async function loadProfile() {
             try {
-                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
                 const data = await res.json();
                 if (data.ok && typeof data.bio === 'string') {
                     document.getElementById('info-pseudo').textContent = data.pseudo || '--';
@@ -227,6 +242,46 @@ pub async fn profile() -> Html<&'static str> {
             }
         }
 
+        function updateAdminNavMeta() {
+            if (!adminMode) return;
+            const idx = adminUsers.findIndex((p) => p.toLowerCase() === currentPseudo.toLowerCase());
+            const total = adminUsers.length;
+            const meta = document.getElementById('admin-nav-meta');
+            if (idx >= 0 && total > 0) {
+                meta.textContent = 'User ' + (idx + 1) + ' / ' + total;
+            } else {
+                meta.textContent = 'User -- / --';
+            }
+        }
+
+        async function loadAdminUsersNavigator() {
+            if (!adminMode) return;
+            try {
+                const res = await fetch('/users', { cache: 'no-store' });
+                const list = await res.json();
+                adminUsers = Array.isArray(list) ? list.map((u) => u.pseudo) : [];
+                if (adminUsers.length > 0 && !adminUsers.some((p) => p.toLowerCase() === currentPseudo.toLowerCase())) {
+                    currentPseudo = adminUsers[0];
+                }
+                updateAdminNavMeta();
+            } catch (_err) {
+                document.getElementById('admin-nav-meta').textContent = 'Navigation users indisponible';
+            }
+        }
+
+        function goToAdminUser(offset) {
+            if (!adminMode || adminUsers.length === 0) return;
+            const idx = adminUsers.findIndex((p) => p.toLowerCase() === currentPseudo.toLowerCase());
+            if (idx < 0) return;
+
+            const nextIdx = idx + offset;
+            if (nextIdx < 0 || nextIdx >= adminUsers.length) return;
+
+            const nextPseudo = adminUsers[nextIdx];
+            const url = '/members/profile?pseudo=' + encodeURIComponent(nextPseudo) + '&admin=1';
+            window.location.href = url;
+        }
+
         document.getElementById('save-profile').addEventListener('click', async () => {
             const bio = document.getElementById('bio').value;
             const commentary = document.getElementById('commentary').value;
@@ -234,7 +289,7 @@ pub async fn profile() -> Html<&'static str> {
                 const res = await fetch('/members/profile/data', {
                     method: 'PUT',
                     headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo, bio, commentary })
+                    body: JSON.stringify({ pseudo: currentPseudo, bio, commentary })
                 });
                 const data = await res.json();
                 setMsg('profile-msg', !!data.ok, data.message || 'Profil mis a jour.');
@@ -251,7 +306,7 @@ pub async fn profile() -> Html<&'static str> {
             }
 
             const form = new FormData();
-            form.append('pseudo', pseudo);
+            form.append('pseudo', currentPseudo);
             form.append('avatar', input.files[0]);
 
             try {
@@ -276,7 +331,7 @@ pub async fn profile() -> Html<&'static str> {
 
             try {
                 const res = adminMode
-                    ? await fetch('/japprends/set-password/' + encodeURIComponent(pseudo), {
+                    ? await fetch('/japprends/set-password/' + encodeURIComponent(currentPseudo), {
                         method: 'POST',
                         headers: { 'content-type': 'application/json' },
                         body: JSON.stringify({ password: newPassword })
@@ -285,7 +340,7 @@ pub async fn profile() -> Html<&'static str> {
                         method: 'PUT',
                         headers: { 'content-type': 'application/json' },
                         body: JSON.stringify({
-                            pseudo,
+                            pseudo: currentPseudo,
                             current_password: currentPassword,
                             new_password: newPassword
                         })
@@ -301,21 +356,34 @@ pub async fn profile() -> Html<&'static str> {
             }
         });
 
+        document.getElementById('prev-user').addEventListener('click', () => goToAdminUser(-1));
+        document.getElementById('next-user').addEventListener('click', () => goToAdminUser(1));
+
         document.getElementById('delete-account').addEventListener('click', async () => {
             if (!confirm('Supprimer ton compte definitivement ?')) return;
             try {
                 const res = await fetch('/members/account', {
                     method: 'DELETE',
                     headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo })
+                    body: JSON.stringify({ pseudo: currentPseudo })
                 });
                 const data = await res.json();
                 setMsg('delete-msg', !!data.ok, data.message || 'Action terminee.');
                 if (data.ok) {
-                    localStorage.removeItem('logged_pseudo');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 500);
+                    if (!adminMode) {
+                        localStorage.removeItem('logged_pseudo');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
+                    } else {
+                        await loadAdminUsersNavigator();
+                        if (adminUsers.length > 0) {
+                            const url = '/members/profile?pseudo=' + encodeURIComponent(adminUsers[0]) + '&admin=1';
+                            window.location.href = url;
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
+                    }
                 }
             } catch (err) {
                 setMsg('delete-msg', false, 'Erreur: ' + err.message);
@@ -330,8 +398,10 @@ pub async fn profile() -> Html<&'static str> {
                     window.location.href = '/japprends/login';
                     return;
                 }
+                await loadAdminUsersNavigator();
             }
             loadProfile();
+            updateAdminNavMeta();
         })();
     </script>
 </body>
