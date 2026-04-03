@@ -56,6 +56,7 @@ struct User {
     active: bool,
     status: UserStatus,
     bio: String,
+    commentary: String,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
     created_at_epoch: u64,
@@ -125,6 +126,20 @@ struct ProfileQuery {
 struct UpdateProfileInput {
     pseudo: String,
     bio: String,
+    commentary: Option<String>,
+    status: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemberStatusInput {
+    pseudo: String,
+    status: String,
+    commentary: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeleteAccountInput {
+    pseudo: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,8 +181,10 @@ struct MemberProfileResponse {
     role: &'static str,
     status: UserStatus,
     bio: String,
+    commentary: String,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
+    created_at_epoch: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -269,6 +286,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/members/profile", get(members_profile_page))
         .route("/members/profile/data", get(member_profile_data))
         .route("/members/profile/data", put(member_update_profile))
+        .route("/members/status", put(member_set_status))
+        .route("/members/account", delete(member_delete_account))
         .route("/members/avatar", post(member_upload_avatar))
         .route("/auth/password-check", post(password_check))
         .merge(protected_routes)
@@ -563,6 +582,7 @@ async fn admin_approve_signup_request(
             active: true,
             status: UserStatus::Actif,
             bio: String::new(),
+            commentary: String::new(),
             avatar_filename: None,
             avatar_size_bytes: None,
             created_at_epoch: now_epoch(),
@@ -786,6 +806,7 @@ async fn admin_create_user(
         active: true,
         status: UserStatus::Actif,
         bio: String::new(),
+        commentary: String::new(),
         avatar_filename: None,
         avatar_size_bytes: None,
         created_at_epoch: now_epoch(),
@@ -872,8 +893,10 @@ async fn member_profile_data(
             role: user.role,
             status: user.status,
             bio: user.bio.clone(),
+            commentary: user.commentary.clone(),
             avatar_filename: user.avatar_filename.clone(),
             avatar_size_bytes: user.avatar_size_bytes,
+            created_at_epoch: user.created_at_epoch,
         });
     }
 
@@ -883,8 +906,10 @@ async fn member_profile_data(
         role: "member",
         status: UserStatus::Inactif,
         bio: String::new(),
+        commentary: String::new(),
         avatar_filename: None,
         avatar_size_bytes: None,
+        created_at_epoch: 0,
     })
 }
 
@@ -898,6 +923,12 @@ async fn member_update_profile(
         .find(|u| u.pseudo.eq_ignore_ascii_case(&payload.pseudo))
     {
         user.bio = payload.bio.trim().to_string();
+        if let Some(commentary) = payload.commentary {
+            user.commentary = commentary.trim().to_string();
+        }
+        if let Some(status) = payload.status {
+            user.status = parse_member_status(&status).unwrap_or(user.status);
+        }
         return Json(MessageResponse {
             ok: true,
             message: "Profil mis a jour.".to_string(),
@@ -907,6 +938,73 @@ async fn member_update_profile(
     Json(MessageResponse {
         ok: false,
         message: "Utilisateur introuvable.".to_string(),
+    })
+}
+
+async fn member_set_status(
+    State(state): State<WebState>,
+    Json(payload): Json<MemberStatusInput>,
+) -> Json<ActionResponse> {
+    let Some(next_status) = parse_member_status(&payload.status) else {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Statut invalide (content|bof|question).",
+        });
+    };
+
+    let mut users = state.users.write().await;
+    if let Some(user) = users
+        .iter_mut()
+        .find(|u| u.pseudo.eq_ignore_ascii_case(payload.pseudo.trim()))
+    {
+        user.status = next_status;
+        if let Some(commentary) = payload.commentary {
+            user.commentary = commentary.trim().to_string();
+        }
+
+        return Json(ActionResponse {
+            ok: true,
+            message: "Statut mis a jour.",
+        });
+    }
+
+    Json(ActionResponse {
+        ok: false,
+        message: "Utilisateur introuvable.",
+    })
+}
+
+async fn member_delete_account(
+    State(state): State<WebState>,
+    Json(payload): Json<DeleteAccountInput>,
+) -> Json<ActionResponse> {
+    let pseudo = payload.pseudo.trim().to_string();
+    if pseudo.is_empty() {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Pseudo manquant.",
+        });
+    }
+
+    let mut users = state.users.write().await;
+    let initial_len = users.len();
+    users.retain(|u| !u.pseudo.eq_ignore_ascii_case(&pseudo));
+    let deleted = users.len() < initial_len;
+    drop(users);
+
+    if !deleted {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Utilisateur introuvable.",
+        });
+    }
+
+    let mut passwords = state.user_passwords.write().await;
+    passwords.remove(&pseudo);
+
+    Json(ActionResponse {
+        ok: true,
+        message: "Compte supprime.",
     })
 }
 
@@ -977,6 +1075,15 @@ fn now_epoch() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+fn parse_member_status(raw: &str) -> Option<UserStatus> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "content" | "happy" => Some(UserStatus::Actif),
+        "bof" | "meh" => Some(UserStatus::Occupe),
+        "question" | "help" | "improvement" => Some(UserStatus::Inactif),
+        _ => None,
+    }
 }
 
 fn admin_password_from_env() -> Option<String> {

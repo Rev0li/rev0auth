@@ -76,16 +76,29 @@ pub async fn profile() -> Html<&'static str> {
     <main class="page">
         <article class="card">
             <h1>Profil membre</h1>
-            <p class="meta">Edite ta bio et mets a jour ton avatar.</p>
+            <p class="meta">Ici tu retrouves toutes tes infos. You can update or delete your account anytime.</p>
             <div class="actions">
                 <a class="btn secondary" href="/members/dashboard">Retour dashboard</a>
             </div>
         </article>
 
         <article class="card">
-            <h2>Bio</h2>
+            <h2>Infos compte</h2>
+            <p class="meta"><strong>Pseudo:</strong> <span id="info-pseudo">--</span></p>
+            <p class="meta"><strong>Role:</strong> <span id="info-role">--</span></p>
+            <p class="meta"><strong>Status:</strong> <span id="info-status">--</span></p>
+            <p class="meta"><strong>Created at:</strong> <span id="info-created">--</span></p>
+            <p class="meta"><strong>Avatar:</strong> <span id="info-avatar">--</span></p>
+        </article>
+
+        <article class="card">
+            <h2>Profil editable</h2>
             <label for="bio">Presentation</label>
             <textarea id="bio" placeholder="Qui es-tu, ce que tu fais, ce que tu veux partager..."></textarea>
+
+            <label for="commentary">Commentary</label>
+            <textarea id="commentary" placeholder="Question, idee, demande d'amelioration..."></textarea>
+
             <div class="actions">
                 <button id="save-profile" class="primary">Sauver profil</button>
             </div>
@@ -100,6 +113,15 @@ pub async fn profile() -> Html<&'static str> {
                 <button id="upload-avatar" class="primary">Uploader avatar</button>
             </div>
             <div id="avatar-msg" class="msg"></div>
+        </article>
+
+        <article class="card">
+            <h2>Danger zone</h2>
+            <p class="meta">Tu peux supprimer ton compte a tout moment. Cette action est irreversible.</p>
+            <div class="actions">
+                <button id="delete-account" class="secondary" style="border-color:#ef4e24;color:#ef4e24;">Supprimer mon compte</button>
+            </div>
+            <div id="delete-msg" class="msg"></div>
         </article>
     </main>
 
@@ -120,7 +142,13 @@ pub async fn profile() -> Html<&'static str> {
                 const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
                 const data = await res.json();
                 if (data.ok && typeof data.bio === 'string') {
+                    document.getElementById('info-pseudo').textContent = data.pseudo || '--';
+                    document.getElementById('info-role').textContent = data.role || '--';
+                    document.getElementById('info-status').textContent = data.status || '--';
+                    document.getElementById('info-created').textContent = data.created_at_epoch ? new Date(data.created_at_epoch * 1000).toLocaleString() : '--';
+                    document.getElementById('info-avatar').textContent = data.avatar_filename || 'none';
                     document.getElementById('bio').value = data.bio;
+                    document.getElementById('commentary').value = data.commentary || '';
                 }
             } catch (_err) {
                 setMsg('profile-msg', false, 'Impossible de charger le profil.');
@@ -129,11 +157,12 @@ pub async fn profile() -> Html<&'static str> {
 
         document.getElementById('save-profile').addEventListener('click', async () => {
             const bio = document.getElementById('bio').value;
+            const commentary = document.getElementById('commentary').value;
             try {
                 const res = await fetch('/members/profile/data', {
                     method: 'PUT',
                     headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo, bio })
+                    body: JSON.stringify({ pseudo, bio, commentary })
                 });
                 const data = await res.json();
                 setMsg('profile-msg', !!data.ok, data.message || 'Profil mis a jour.');
@@ -162,6 +191,27 @@ pub async fn profile() -> Html<&'static str> {
                 setMsg('avatar-msg', !!data.ok, data.message || 'Avatar mis a jour.');
             } catch (err) {
                 setMsg('avatar-msg', false, 'Erreur: ' + err.message);
+            }
+        });
+
+        document.getElementById('delete-account').addEventListener('click', async () => {
+            if (!confirm('Supprimer ton compte definitivement ?')) return;
+            try {
+                const res = await fetch('/members/account', {
+                    method: 'DELETE',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ pseudo })
+                });
+                const data = await res.json();
+                setMsg('delete-msg', !!data.ok, data.message || 'Action terminee.');
+                if (data.ok) {
+                    localStorage.removeItem('logged_pseudo');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                }
+            } catch (err) {
+                setMsg('delete-msg', false, 'Erreur: ' + err.message);
             }
         });
 

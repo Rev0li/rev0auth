@@ -86,30 +86,6 @@ pub async fn friend() -> Html<&'static str> {
             color: #ff6f3f;
             font-weight: 700;
         }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 14px;
-            margin-top: 20px;
-        }
-        .stat-box {
-            background: linear-gradient(135deg, #f2f9ff 0%, #e8f7f5 100%);
-            border: 1px solid rgba(13, 155, 115, 0.2);
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-        }
-        .stat-number {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: #0d9b73;
-        }
-        .stat-label {
-            font-size: 0.85rem;
-            color: #132331;
-            margin-top: 6px;
-            opacity: 0.8;
-        }
         .status-buttons {
             display: flex;
             gap: 10px;
@@ -204,6 +180,10 @@ pub async fn friend() -> Html<&'static str> {
                 Salut <strong id="pseudo-display">ami</strong> ! 
                 <br>Tu es maintenant connecté à la plateforme. Bienvenue dans la communauté rev0auth !
             </p>
+            <p class="greeting">
+                This page is your member home.
+                <br>Tu peux acceder a tes services, mettre a jour ton profil et partager ton feedback.
+            </p>
             <ul class="feature-list">
                 <li>Consulter ton profil et tes données</li>
                 <li>Accéder à l'espace membres</li>
@@ -213,12 +193,15 @@ pub async fn friend() -> Html<&'static str> {
         </article>
 
         <article class="card">
-            <h2>Mon Statut</h2>
-            <p style="margin-top: 0; opacity: 0.8;">Mets à jour ton statut selon ton activité sur les apps</p>
+            <h2>Mon humeur / My status</h2>
+            <p style="margin-top: 0; opacity: 0.8;">Choisis un smiley puis laisse un commentaire si tu veux une amelioration.</p>
             <div class="status-buttons">
-                <button class="status-btn" id="busy-btn">🟡 Occupé (Jellyfin/Songsurf)</button>
-                <button class="status-btn" id="active-btn">🟢 Actif</button>
+                <button class="status-btn" id="happy-btn">😀 Content</button>
+                <button class="status-btn" id="meh-btn">😐 Bof</button>
+                <button class="status-btn" id="question-btn">❓ Question / Amelioration</button>
             </div>
+            <label for="commentary" style="display:block;margin-top:12px;font-weight:700;">Commentary</label>
+            <textarea id="commentary" placeholder="Une idee, une question, une amelioration..." style="width:100%;min-height:86px;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></textarea>
             <div id="status-msg" class="status-msg"></div>
         </article>
 
@@ -244,23 +227,6 @@ pub async fn friend() -> Html<&'static str> {
             </div>
         </article>
 
-        <article class="card">
-            <h2>Statistiques</h2>
-            <div class="stats">
-                <div class="stat-box">
-                    <div class="stat-number" id="member-count">--</div>
-                    <div class="stat-label">Membres actifs</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number" id="signup-pending">--</div>
-                    <div class="stat-label">En attente</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number">24h</div>
-                    <div class="stat-label">Accès disponible</div>
-                </div>
-            </div>
-        </article>
     </main>
 
     <script>
@@ -290,32 +256,21 @@ pub async fn friend() -> Html<&'static str> {
             window.location.href = '/';
         }
 
-        // Load stats
-        async function loadStats() {
-            try {
-                const res = await fetch('/status/all', { cache: 'no-store' });
-                const data = await res.json();
-                
-                const usersRes = await fetch('/users', { cache: 'no-store' });
-                const usersList = await usersRes.json();
-                
-                document.getElementById('member-count').textContent = usersList.length;
-                document.getElementById('signup-pending').textContent = data.signup_requests_pending;
-            } catch (_err) {
-                console.log('Stats loading error');
-            }
-        }
-
-        loadStats();
-        setInterval(loadStats, 10000);
-
         // Status management
         const statusMsg = document.getElementById('status-msg');
+        const commentaryInput = document.getElementById('commentary');
 
         async function setStatus(status) {
             try {
-                const endpoint = status === 'busy' ? '/status/set-busy/' + pseudo : '/status/set-active/' + pseudo;
-                const res = await fetch(endpoint, { method: 'POST', cache: 'no-store' });
+                const res = await fetch('/members/status', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo,
+                        status,
+                        commentary: commentaryInput ? commentaryInput.value : ''
+                    })
+                });
                 const data = await res.json();
                 
                 statusMsg.className = 'status-msg ' + (data.ok ? 'ok' : 'error');
@@ -341,8 +296,9 @@ pub async fn friend() -> Html<&'static str> {
         });
 
         document.getElementById('logout-btn').addEventListener('click', logout);
-        document.getElementById('busy-btn').addEventListener('click', () => setStatus('busy'));
-        document.getElementById('active-btn').addEventListener('click', () => setStatus('active'));
+        document.getElementById('happy-btn').addEventListener('click', () => setStatus('content'));
+        document.getElementById('meh-btn').addEventListener('click', () => setStatus('bof'));
+        document.getElementById('question-btn').addEventListener('click', () => setStatus('question'));
     </script>
 </body>
 </html>
