@@ -28,6 +28,24 @@ Installer et brancher la partie media sur une infra deja en place, sans reconstr
 5. Valider la lecture, l'acces prive et les erreurs de base.
 6. Noter le resultat dans la documentation learning.
 
+## Training launch local
+
+Tu peux deja lancer et valider la base localement avant la partie media:
+
+1. Lancer l'API et le web en local.
+	- `make launch-all`
+	- ou `make launch-api` puis `make launch-web`
+2. Verifier que les services repondent.
+	- `curl http://localhost:8080/health`
+	- ouvrir la page web locale et verifier les routes visibles
+3. Lancer les tests de base.
+	- `make test`
+	- si besoin, `~/.cargo/bin/cargo test -p rev0auth-api`
+
+Limite du local:
+- tu valides la base applicative et les routes de support
+- tu ne peux pas valider le vrai flux NAS/Tailscale sans la cible media
+
 ## Verifications attendues
 
 - le service media est joignable selon le chemin prevu
