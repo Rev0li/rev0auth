@@ -42,6 +42,7 @@ make caddy-install ARGS='--dry-run'
 Avant de toucher au VPS, valider le socle localement:
 
 ```bash
+export ADMIN_DASH_PASSWORD='change-me-now'
 make launch-all
 curl http://localhost:8080/health
 ```
@@ -60,6 +61,10 @@ Puis verifier:
 4. Le reverse proxy pointe vers les bons ports internes.
 5. Les secrets sont defines dans l'environnement cible.
 6. Les routes sensibles ne sont pas ouvertes directement au public.
+
+Secrets minimum a definir:
+
+- `ADMIN_DASH_PASSWORD` (obligatoire pour acceder aux routes admin)
 
 ## Lancement sur VPS
 

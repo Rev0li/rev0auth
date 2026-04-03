@@ -2,10 +2,15 @@ mod pages;
 mod styles;
 
 use axum::{
+    body::Body,
     extract::{Multipart, Path, Query, State},
+    http::{header, HeaderMap, HeaderValue, Request, StatusCode},
+    middleware::{from_fn_with_state, Next},
+    response::{IntoResponse, Redirect, Response},
     routing::{get, post, put, delete},
     Json, Router,
 };
+use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::sync::{atomic::AtomicU64, atomic::Ordering, Arc};
@@ -20,7 +25,11 @@ struct WebState {
     next_request_id: Arc<AtomicU64>,
     users: Arc<RwLock<Vec<User>>>,
     user_passwords: Arc<RwLock<std::collections::HashMap<String, String>>>,
+    admin_sessions: Arc<RwLock<std::collections::HashMap<String, u64>>>,
 }
+
+const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
+const ADMIN_SESSION_TTL_SECS: u64 = 8 * 60 * 60;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -118,6 +127,11 @@ struct UpdateProfileInput {
     bio: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct AdminLoginInput {
+    password: String,
+}
+
 #[derive(Debug, Serialize)]
 struct PasswordCheckResponse {
     ok: bool,
@@ -162,6 +176,12 @@ struct MessageResponse {
     message: String,
 }
 
+#[derive(Debug, Serialize)]
+struct AdminLoginResponse {
+    ok: bool,
+    message: &'static str,
+}
+
 #[derive(Serialize)]
 struct StatusResponse {
     admin_ok: bool,
@@ -201,13 +221,12 @@ async fn main() -> anyhow::Result<()> {
         next_request_id: Arc::new(AtomicU64::new(1)),
         users: Arc::new(RwLock::new(Vec::new())),
         user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
     };
 
-    let app = Router::new()
-        .route("/", get(home))
-        .route("/portal", get(portal))
-        .route("/portal/signup-request", post(portal_signup_request))
-        .route("/portal/login", post(portal_login))
+    let protected_state = state.clone();
+
+    let protected_routes = Router::new()
         .route("/dashboard", get(dashboard))
         .route("/admin/tdd", get(tdd_dashboard))
         .route("/status", get(status))
@@ -229,6 +248,22 @@ async fn main() -> anyhow::Result<()> {
         .route("/admin/users", post(admin_create_user))
         .route("/admin/users/:pseudo", put(admin_update_user))
         .route("/admin/users/:pseudo", delete(admin_delete_user))
+        .route("/status/set-busy/:pseudo", post(set_user_busy))
+        .route("/status/set-active/:pseudo", post(set_user_active))
+        .route("/status/set-inactive/:pseudo", post(set_user_inactive))
+        .route_layer(from_fn_with_state(
+            protected_state,
+            require_admin_session,
+        ));
+
+    let app = Router::new()
+        .route("/", get(home))
+        .route("/portal", get(portal))
+        .route("/portal/signup-request", post(portal_signup_request))
+        .route("/portal/login", post(portal_login))
+        .route("/admin/login", get(admin_login_page))
+        .route("/admin/login", post(admin_login))
+        .route("/admin/logout", post(admin_logout))
         .route("/home/friend", get(friend_home))
         .route("/members/dashboard", get(members_dashboard))
         .route("/members/profile", get(members_profile_page))
@@ -236,9 +271,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/members/profile/data", put(member_update_profile))
         .route("/members/avatar", post(member_upload_avatar))
         .route("/auth/password-check", post(password_check))
-        .route("/status/set-busy/:pseudo", post(set_user_busy))
-        .route("/status/set-active/:pseudo", post(set_user_active))
-        .route("/status/set-inactive/:pseudo", post(set_user_inactive))
+        .merge(protected_routes)
         .with_state(state);
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
 
@@ -258,6 +291,10 @@ async fn home() -> impl axum::response::IntoResponse {
 
 async fn portal() -> impl axum::response::IntoResponse {
     pages::portal().await
+}
+
+async fn admin_login_page() -> impl axum::response::IntoResponse {
+    pages::admin_login().await
 }
 
 async fn dashboard() -> impl axum::response::IntoResponse {
@@ -425,6 +462,78 @@ async fn portal_login(
             message: "Aucune demande trouvee pour ce pseudo.",
         }),
     }
+}
+
+async fn admin_login(
+    State(state): State<WebState>,
+    Json(payload): Json<AdminLoginInput>,
+) -> impl IntoResponse {
+    let Some(expected_password) = admin_password_from_env() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(AdminLoginResponse {
+                ok: false,
+                message: "admin password not configured",
+            }),
+        )
+            .into_response();
+    };
+
+    if payload.password != expected_password {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(AdminLoginResponse {
+                ok: false,
+                message: "mot de passe admin invalide",
+            }),
+        )
+            .into_response();
+    }
+
+    let token = generate_admin_session_token();
+    let expires_at = now_epoch() + ADMIN_SESSION_TTL_SECS;
+    {
+        let mut sessions = state.admin_sessions.write().await;
+        sessions.insert(token.clone(), expires_at);
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&build_admin_cookie(&token)).expect("valid admin cookie"),
+    );
+
+    (
+        StatusCode::OK,
+        headers,
+        Json(AdminLoginResponse {
+            ok: true,
+            message: "connexion admin validee",
+        }),
+    )
+        .into_response()
+}
+
+async fn admin_logout(State(state): State<WebState>, headers: HeaderMap) -> impl IntoResponse {
+    if let Some(token) = extract_cookie_from_headers(&headers, ADMIN_SESSION_COOKIE) {
+        let mut sessions = state.admin_sessions.write().await;
+        sessions.remove(&token);
+    }
+
+    let mut out_headers = HeaderMap::new();
+    out_headers.append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&build_admin_logout_cookie()).expect("valid logout cookie"),
+    );
+
+    (
+        StatusCode::OK,
+        out_headers,
+        Json(AdminLoginResponse {
+            ok: true,
+            message: "deconnexion admin ok",
+        }),
+    )
 }
 
 // ============================================================================
@@ -868,4 +977,81 @@ fn now_epoch() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+fn admin_password_from_env() -> Option<String> {
+    std::env::var("ADMIN_DASH_PASSWORD")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+fn generate_admin_session_token() -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(48)
+        .map(char::from)
+        .collect()
+}
+
+fn build_admin_cookie(token: &str) -> String {
+    format!(
+        "{}={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}",
+        ADMIN_SESSION_COOKIE, token, ADMIN_SESSION_TTL_SECS
+    )
+}
+
+fn build_admin_logout_cookie() -> String {
+    format!(
+        "{}=deleted; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+        ADMIN_SESSION_COOKIE
+    )
+}
+
+fn extract_cookie_from_headers(headers: &HeaderMap, cookie_name: &str) -> Option<String> {
+    let raw = headers.get(header::COOKIE)?.to_str().ok()?;
+    raw.split(';')
+        .map(|part| part.trim())
+        .find_map(|pair| {
+            let (name, value) = pair.split_once('=')?;
+            if name == cookie_name {
+                Some(value.to_string())
+            } else {
+                None
+            }
+        })
+}
+
+async fn is_admin_authenticated(headers: &HeaderMap, state: &WebState) -> bool {
+    let Some(token) = extract_cookie_from_headers(headers, ADMIN_SESSION_COOKIE) else {
+        return false;
+    };
+
+    let now = now_epoch();
+    let mut sessions = state.admin_sessions.write().await;
+    sessions.retain(|_, expires_at| *expires_at > now);
+    sessions.get(&token).is_some_and(|expires_at| *expires_at > now)
+}
+
+async fn require_admin_session(
+    State(state): State<WebState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    if is_admin_authenticated(req.headers(), &state).await {
+        return next.run(req).await;
+    }
+
+    if req.method() == axum::http::Method::GET {
+        return Redirect::to("/admin/login").into_response();
+    }
+
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(AdminLoginResponse {
+            ok: false,
+            message: "admin auth required",
+        }),
+    )
+        .into_response()
 }
