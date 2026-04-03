@@ -116,6 +116,20 @@ pub async fn profile() -> Html<&'static str> {
         </article>
 
         <article class="card">
+            <h2>Mot de passe</h2>
+            <label for="current-password">Mot de passe actuel</label>
+            <input id="current-password" type="password" placeholder="Actuel" />
+
+            <label for="new-password">Nouveau mot de passe</label>
+            <input id="new-password" type="password" placeholder="Nouveau" />
+
+            <div class="actions">
+                <button id="save-password" class="primary">Mettre a jour le mot de passe</button>
+            </div>
+            <div id="password-msg" class="msg"></div>
+        </article>
+
+        <article class="card">
             <h2>Danger zone</h2>
             <p class="meta">Tu peux supprimer ton compte a tout moment. Cette action est irreversible.</p>
             <div class="actions">
@@ -191,6 +205,35 @@ pub async fn profile() -> Html<&'static str> {
                 setMsg('avatar-msg', !!data.ok, data.message || 'Avatar mis a jour.');
             } catch (err) {
                 setMsg('avatar-msg', false, 'Erreur: ' + err.message);
+            }
+        });
+
+        document.getElementById('save-password').addEventListener('click', async () => {
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            if (!newPassword) {
+                setMsg('password-msg', false, 'Entre un nouveau mot de passe.');
+                return;
+            }
+
+            try {
+                const res = await fetch('/members/password', {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        pseudo,
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                const data = await res.json();
+                setMsg('password-msg', !!data.ok, data.message || 'Mot de passe mis a jour.');
+                if (data.ok) {
+                    document.getElementById('current-password').value = '';
+                    document.getElementById('new-password').value = '';
+                }
+            } catch (err) {
+                setMsg('password-msg', false, 'Erreur: ' + err.message);
             }
         });
 

@@ -23,9 +23,11 @@ use tracing::info;
 struct WebState {
     signup_requests: Arc<RwLock<Vec<SignupRequestRecord>>>,
     next_request_id: Arc<AtomicU64>,
+    next_test_run_id: Arc<AtomicU64>,
     users: Arc<RwLock<Vec<User>>>,
     user_passwords: Arc<RwLock<std::collections::HashMap<String, String>>>,
     admin_sessions: Arc<RwLock<std::collections::HashMap<String, u64>>>,
+    dashboard_test_runs: Arc<RwLock<Vec<DashboardTestRun>>>,
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
@@ -143,6 +145,13 @@ struct DeleteAccountInput {
 }
 
 #[derive(Debug, Deserialize)]
+struct PasswordUpdateInput {
+    pseudo: String,
+    current_password: Option<String>,
+    new_password: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct AdminLoginInput {
     password: String,
 }
@@ -225,6 +234,29 @@ struct StatusAllResponse {
     signup_requests_pending: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct DashboardTestCase {
+    name: &'static str,
+    ok: bool,
+    detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct DashboardTestRun {
+    run_id: u64,
+    executed_at_epoch: u64,
+    passed: usize,
+    total: usize,
+    cases: Vec<DashboardTestCase>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct EndpointInfo {
+    method: &'static str,
+    path: &'static str,
+    scope: &'static str,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -236,9 +268,11 @@ async fn main() -> anyhow::Result<()> {
     let state = WebState {
         signup_requests: Arc::new(RwLock::new(Vec::new())),
         next_request_id: Arc::new(AtomicU64::new(1)),
+        next_test_run_id: Arc::new(AtomicU64::new(1)),
         users: Arc::new(RwLock::new(Vec::new())),
         user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        dashboard_test_runs: Arc::new(RwLock::new(Vec::new())),
     };
 
     let protected_state = state.clone();
@@ -265,6 +299,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/japprends/users", post(admin_create_user))
         .route("/japprends/users/:pseudo", put(admin_update_user))
         .route("/japprends/users/:pseudo", delete(admin_delete_user))
+        .route("/japprends/tests/history", get(admin_tests_history))
+        .route("/japprends/tests/launch", post(admin_launch_tests_now))
+        .route("/japprends/endpoints", get(admin_all_endpoints))
         .route("/status/set-busy/:pseudo", post(set_user_busy))
         .route("/status/set-active/:pseudo", post(set_user_active))
         .route("/status/set-inactive/:pseudo", post(set_user_inactive))
@@ -286,6 +323,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/members/profile", get(members_profile_page))
         .route("/members/profile/data", get(member_profile_data))
         .route("/members/profile/data", put(member_update_profile))
+        .route("/members/password", put(member_update_password))
         .route("/members/status", put(member_set_status))
         .route("/members/account", delete(member_delete_account))
         .route("/members/avatar", post(member_upload_avatar))
@@ -621,6 +659,108 @@ async fn admin_reject_signup_request(
         ok: false,
         message: "Demande introuvable.",
     })
+}
+
+async fn admin_tests_history(State(state): State<WebState>) -> Json<Vec<DashboardTestRun>> {
+    let runs = state.dashboard_test_runs.read().await;
+    Json(runs.iter().cloned().rev().collect())
+}
+
+async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<DashboardTestRun> {
+    let api_ok = timeout(
+        Duration::from_millis(500),
+        tokio::net::TcpStream::connect("127.0.0.1:8080"),
+    )
+    .await
+    .map(|r| r.is_ok())
+    .unwrap_or(false);
+
+    let admin_pwd_ok = admin_password_from_env().is_some();
+    let users_total = state.users.read().await.len();
+
+    let cases = vec![
+        DashboardTestCase {
+            name: "api_health_socket",
+            ok: api_ok,
+            detail: if api_ok {
+                "127.0.0.1:8080 reachable".to_string()
+            } else {
+                "cannot reach 127.0.0.1:8080".to_string()
+            },
+        },
+        DashboardTestCase {
+            name: "admin_password_configured",
+            ok: admin_pwd_ok,
+            detail: if admin_pwd_ok {
+                "ADMIN_DASH_PASSWORD configured".to_string()
+            } else {
+                "missing ADMIN_DASH_PASSWORD".to_string()
+            },
+        },
+        DashboardTestCase {
+            name: "user_store_access",
+            ok: true,
+            detail: format!("user records in memory: {users_total}"),
+        },
+    ];
+
+    let passed = cases.iter().filter(|c| c.ok).count();
+    let run = DashboardTestRun {
+        run_id: state.next_test_run_id.fetch_add(1, Ordering::Relaxed),
+        executed_at_epoch: now_epoch(),
+        passed,
+        total: cases.len(),
+        cases,
+    };
+
+    {
+        let mut runs = state.dashboard_test_runs.write().await;
+        runs.push(run.clone());
+        if runs.len() > 200 {
+            let drain_to = runs.len().saturating_sub(200);
+            if drain_to > 0 {
+                runs.drain(0..drain_to);
+            }
+        }
+    }
+
+    Json(run)
+}
+
+async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
+    Json(vec![
+        EndpointInfo { method: "GET", path: "/", scope: "public" },
+        EndpointInfo { method: "GET", path: "/portal", scope: "public" },
+        EndpointInfo { method: "POST", path: "/portal/signup-request", scope: "public" },
+        EndpointInfo { method: "POST", path: "/portal/login", scope: "public" },
+        EndpointInfo { method: "GET", path: "/japprends/login", scope: "public" },
+        EndpointInfo { method: "POST", path: "/japprends/login", scope: "public" },
+        EndpointInfo { method: "POST", path: "/japprends/logout", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/dashboard", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/tdd", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/status", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/status/all", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/ping", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/user/ping", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/signup-requests", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/signup-requests/:id/approve", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/signup-requests/:id/reject", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/users", scope: "admin" },
+        EndpointInfo { method: "PUT", path: "/japprends/users/:pseudo", scope: "admin" },
+        EndpointInfo { method: "DELETE", path: "/japprends/users/:pseudo", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/tests/launch", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/tests/history", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/endpoints", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/members/dashboard", scope: "member" },
+        EndpointInfo { method: "GET", path: "/members/profile", scope: "member" },
+        EndpointInfo { method: "GET", path: "/members/profile/data", scope: "member" },
+        EndpointInfo { method: "PUT", path: "/members/profile/data", scope: "member" },
+        EndpointInfo { method: "PUT", path: "/members/password", scope: "member" },
+        EndpointInfo { method: "PUT", path: "/members/status", scope: "member" },
+        EndpointInfo { method: "DELETE", path: "/members/account", scope: "member" },
+        EndpointInfo { method: "POST", path: "/members/avatar", scope: "member" },
+        EndpointInfo { method: "POST", path: "/auth/password-check", scope: "member" },
+    ])
 }
 
 // ============================================================================
@@ -971,6 +1111,59 @@ async fn member_set_status(
     Json(ActionResponse {
         ok: false,
         message: "Utilisateur introuvable.",
+    })
+}
+
+async fn member_update_password(
+    State(state): State<WebState>,
+    Json(payload): Json<PasswordUpdateInput>,
+) -> Json<ActionResponse> {
+    let pseudo = payload.pseudo.trim().to_string();
+    if pseudo.is_empty() {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Pseudo manquant.",
+        });
+    }
+
+    let new_password = payload.new_password.trim();
+    if new_password.len() < 4 {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Nouveau mot de passe trop court.",
+        });
+    }
+
+    let users = state.users.read().await;
+    if !users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
+        return Json(ActionResponse {
+            ok: false,
+            message: "Utilisateur introuvable.",
+        });
+    }
+    drop(users);
+
+    let mut passwords = state.user_passwords.write().await;
+    if let Some(existing) = passwords.get(&pseudo) {
+        if let Some(current_password) = payload.current_password.as_ref() {
+            if existing != current_password {
+                return Json(ActionResponse {
+                    ok: false,
+                    message: "Mot de passe actuel invalide.",
+                });
+            }
+        } else {
+            return Json(ActionResponse {
+                ok: false,
+                message: "Mot de passe actuel requis.",
+            });
+        }
+    }
+
+    passwords.insert(pseudo, new_password.to_string());
+    Json(ActionResponse {
+        ok: true,
+        message: "Mot de passe mis a jour.",
     })
 }
 

@@ -142,6 +142,27 @@ pub async fn dashboard() -> Html<&'static str> {
             padding: 8px 10px;
             font-size: 0.86rem;
         }
+        .tests-history {
+            margin-top: 12px;
+            display: grid;
+            gap: 8px;
+        }
+        .test-run {
+            border: 1px solid rgba(17, 33, 48, 0.1);
+            border-radius: 10px;
+            background: #fff;
+            padding: 10px;
+        }
+        .test-head {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .test-cases {
+            margin: 6px 0 0;
+            padding-left: 16px;
+            font-size: 0.85rem;
+            opacity: 0.88;
+        }
 
         code {
             background: #f2f9ff;
@@ -256,6 +277,10 @@ pub async fn dashboard() -> Html<&'static str> {
                     | Tests API: <code id="tests-total">--</code>
                     | Demandes en attente: <code id="pending-signups">--</code>
                 </div>
+                <div class="actions">
+                    <button class="tab-btn" id="launch-tests-now">Launch test now</button>
+                </div>
+                <div id="tests-history" class="tests-history"></div>
             </section>
         </section>
 
@@ -275,6 +300,10 @@ pub async fn dashboard() -> Html<&'static str> {
                     <div class="label">SLO</div>
                     <div class="mini">Objectif: uptime panel admin >= 99.9%</div>
                 </article>
+            </div>
+            <div class="row">
+                <strong>All endpoints (admin view)</strong>
+                <div id="endpoints-list" class="mini">Chargement...</div>
             </div>
         </section>
 
@@ -451,6 +480,69 @@ pub async fn dashboard() -> Html<&'static str> {
             }
         }
 
+        function renderTestsHistory(runs) {
+            const panel = document.getElementById('tests-history');
+            if (!panel) return;
+            if (!Array.isArray(runs) || runs.length === 0) {
+                panel.innerHTML = '<div class="mini">Aucun test lance depuis le dashboard.</div>';
+                return;
+            }
+
+            panel.innerHTML = runs.slice(0, 12).map((run) => {
+                const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
+                const cases = Array.isArray(run.cases)
+                    ? run.cases.map((c) => '<li>' + (c.ok ? 'OK' : 'KO') + ' - ' + c.name + ' - ' + c.detail + '</li>').join('')
+                    : '';
+                return '<div class="test-run">'
+                    + '<div class="test-head">Run #' + run.run_id + ' - ' + run.passed + '/' + run.total + ' - ' + dt + '</div>'
+                    + '<ul class="test-cases">' + cases + '</ul>'
+                    + '</div>';
+            }).join('');
+        }
+
+        async function loadTestsHistory() {
+            try {
+                const res = await fetch('/japprends/tests/history', { cache: 'no-store' });
+                const data = await res.json();
+                renderTestsHistory(data);
+            } catch (_err) {
+                const panel = document.getElementById('tests-history');
+                if (panel) panel.innerHTML = '<div class="mini">Impossible de charger l\'historique des tests.</div>';
+            }
+        }
+
+        async function launchTestsNow() {
+            try {
+                await fetch('/japprends/tests/launch', { method: 'POST' });
+                await loadTestsHistory();
+            } catch (_err) {
+                const panel = document.getElementById('tests-history');
+                if (panel) panel.innerHTML = '<div class="mini">Echec du lancement des tests.</div>';
+            }
+        }
+
+        async function loadEndpoints() {
+            const panel = document.getElementById('endpoints-list');
+            if (!panel) return;
+
+            try {
+                const res = await fetch('/japprends/endpoints', { cache: 'no-store' });
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    panel.textContent = 'Aucun endpoint trouve.';
+                    return;
+                }
+
+                panel.innerHTML = data.map((ep) => {
+                    return '<div style="border:1px solid rgba(17,33,48,.1);border-radius:8px;padding:6px 8px;margin:6px 0;background:#fff">'
+                        + '<strong>' + ep.method + '</strong> ' + ep.path + ' <span style="opacity:.75">(' + ep.scope + ')</span>'
+                        + '</div>';
+                }).join('');
+            } catch (_err) {
+                panel.textContent = 'Erreur chargement endpoints.';
+            }
+        }
+
         function bindTabs() {
             const buttons = document.querySelectorAll('[data-tab-btn]');
             const pages = document.querySelectorAll('.tab-page');
@@ -557,12 +649,16 @@ pub async fn dashboard() -> Html<&'static str> {
         }
 
         document.getElementById('create-user-btn').addEventListener('click', createUser);
+        document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
 
         bindTabs();
         refreshStatus();
+        loadTestsHistory();
+        loadEndpoints();
         loadAdminSignupQueue();
         loadUsers();
         setInterval(refreshStatus, 4000);
+        setInterval(loadTestsHistory, 12000);
         setInterval(loadAdminSignupQueue, 6000);
         setInterval(loadUsers, 8000);
     </script>
