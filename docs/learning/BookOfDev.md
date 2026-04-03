@@ -12,6 +12,9 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - 1 ticket = 1 commit
 - chaque ticket met a jour au moins un document de suivi
 - chaque etape doit etre relisible par un camarade sans contexte oral
+- la branche sert de support TDD, pas de cage rigide
+- l'implementation peut rester module-par-module, avec des pieces qui se collent proprement
+- si un ticket demande du test avant code, on le respecte sans forcer un ordre artificiel
 
 ## Liens de base (source actuelle)
 
@@ -25,7 +28,8 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 
 - `STEP-000` backend minimal health
 - `STEP-001` signup route (validation + duplicate check in-memory)
-- `STEP-002+` tests signup puis login/refresh
+- `STEP-002` tests signup (200 / 400 / 409)
+- `STEP-003+` login/refresh puis hardening
 - `STEP-00X` hardening, DB, ops
 
 ## Cible d'organisation finale

@@ -18,6 +18,7 @@ struct AppState {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct UserRecord {
     id: u64,
     email: String,
@@ -130,6 +131,25 @@ mod tests {
     use serde_json::Value;
     use tower::ServiceExt;
 
+    async fn post_signup(app: axum::Router, body: serde_json::Value) -> (u16, Value) {
+        let response = app
+            .oneshot(
+                Request::post("/auth/signup")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        let status = response.status().as_u16();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("bytes");
+        let body = serde_json::from_slice::<Value>(&bytes).expect("json");
+        (status, body)
+    }
+
     #[tokio::test]
     async fn test_health_endpoint() {
         let app = build_router().await.expect("build router");
@@ -152,5 +172,75 @@ mod tests {
 
         assert_eq!(body["service"], "rev0auth-api");
         assert_eq!(body["status"], "ok");
+    }
+
+    #[tokio::test]
+    async fn test_signup_success_returns_user_payload() {
+        let app = build_router().await.expect("build router");
+
+        let (status, body) = post_signup(
+            app,
+            serde_json::json!({
+                "email": "member@example.com",
+                "password": "my-strong-password-123"
+            }),
+        )
+        .await;
+
+        assert_eq!(status, 200);
+        assert_eq!(body["email"], "member@example.com");
+        assert_eq!(body["user_id"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_signup_rejects_invalid_email() {
+        let app = build_router().await.expect("build router");
+
+        let (status, body) = post_signup(
+            app,
+            serde_json::json!({
+                "email": "invalid-email",
+                "password": "my-strong-password-123"
+            }),
+        )
+        .await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "invalid_email");
+    }
+
+    #[tokio::test]
+    async fn test_signup_rejects_weak_password() {
+        let app = build_router().await.expect("build router");
+
+        let (status, body) = post_signup(
+            app,
+            serde_json::json!({
+                "email": "member@example.com",
+                "password": "short"
+            }),
+        )
+        .await;
+
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "weak_password");
+    }
+
+    #[tokio::test]
+    async fn test_signup_duplicate_email_returns_conflict() {
+        let app = build_router().await.expect("build router");
+
+        let payload = serde_json::json!({
+            "email": "dup@example.com",
+            "password": "my-strong-password-123"
+        });
+
+        let (first_status, _) = post_signup(app.clone(), payload.clone()).await;
+        assert_eq!(first_status, 200);
+
+        let (second_status, body) = post_signup(app, payload).await;
+
+        assert_eq!(second_status, 409);
+        assert_eq!(body["error"], "email_already_exists");
     }
 }
