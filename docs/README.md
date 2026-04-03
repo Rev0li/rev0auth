@@ -42,6 +42,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/checklists-master.md`
 - `docs/polish-finalisation.md`
 - `docs/clean-fixpoints-saas-roadmap.md`
+- `docs/clean-inventory-phase1.md`
 - `docs/auth-012-media-install.md`
 - `docs/operations/README.md` (index ops)
 

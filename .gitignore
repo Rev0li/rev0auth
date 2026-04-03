@@ -1,0 +1,22 @@
+/target
+.env
+.env.*
+.DS_Store
+Bro*
+Bro.md
+
+# Local runtime and backup artifacts
+.run/
+backups/
+*.log
+*.tmp
+
+# Local personal scratch notes
+Pensee.md
+memoir.md
+memoire.md
+
+# Editor/OS noise
+.idea/
+.vscode/
+Thumbs.db
