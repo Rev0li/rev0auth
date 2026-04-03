@@ -36,6 +36,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/auth-009-duckdns.md`
 - `docs/auth-009-health-checks.md`
 - `docs/auth-009-secrets.md`
+- `docs/install-to-launch.md`
 - `docs/auth-012-media-install.md`
 - `docs/operations/README.md` (index ops)
 
