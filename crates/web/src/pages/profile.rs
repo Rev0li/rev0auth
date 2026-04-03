@@ -167,6 +167,42 @@ pub async fn profile() -> Html<&'static str> {
             document.getElementById('back-link').setAttribute('href', '/dashboard');
         }
 
+        async function ensureAdminSession() {
+            if (!adminMode) return true;
+
+            try {
+                const res = await fetch('/japprends/auth-check', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                if (res.ok) return true;
+            } catch (_err) {
+                // Ask password below as fallback.
+            }
+
+            const password = window.prompt('Session admin expiree. Entre le mot de passe admin:');
+            if (!password) return false;
+
+            try {
+                const loginRes = await fetch('/japprends/login', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                if (!loginRes.ok) return false;
+
+                const checkRes = await fetch('/japprends/auth-check', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                return checkRes.ok;
+            } catch (_err) {
+                return false;
+            }
+        }
+
         function setMsg(id, ok, text) {
             const el = document.getElementById(id);
             el.className = 'msg ' + (ok ? 'ok' : 'down');
@@ -286,7 +322,17 @@ pub async fn profile() -> Html<&'static str> {
             }
         });
 
-        loadProfile();
+        (async () => {
+            if (adminMode) {
+                const ok = await ensureAdminSession();
+                if (!ok) {
+                    alert('Authentification admin requise pour ouvrir ce profil.');
+                    window.location.href = '/japprends/login';
+                    return;
+                }
+            }
+            loadProfile();
+        })();
     </script>
 </body>
 </html>

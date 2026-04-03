@@ -319,6 +319,7 @@ async fn main() -> anyhow::Result<()> {
             post(admin_reject_signup_request),
         )
         .route("/japprends/ping", get(admin_ping))
+        .route("/japprends/auth-check", post(admin_auth_check))
         .route("/user/ping", get(user_ping))
         .route("/japprends/set-password/:pseudo", post(admin_set_password))
         .route("/japprends/remove-password/:pseudo", post(admin_remove_password))
@@ -434,6 +435,13 @@ async fn user_ping() -> Json<PingResponse> {
     Json(PingResponse {
         side: "user",
         status: "ok",
+    })
+}
+
+async fn admin_auth_check() -> Json<ActionResponse> {
+    Json(ActionResponse {
+        ok: true,
+        message: "admin auth ok",
     })
 }
 
@@ -777,6 +785,7 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
         EndpointInfo { method: "GET", path: "/status", scope: "admin" },
         EndpointInfo { method: "GET", path: "/status/all", scope: "admin" },
         EndpointInfo { method: "GET", path: "/japprends/ping", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/auth-check", scope: "admin" },
         EndpointInfo { method: "GET", path: "/user/ping", scope: "admin" },
         EndpointInfo { method: "GET", path: "/japprends/signup-requests", scope: "admin" },
         EndpointInfo { method: "POST", path: "/japprends/signup-requests/:id/approve", scope: "admin" },
