@@ -15,6 +15,7 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - la branche sert de support TDD, pas de cage rigide
 - l'implementation peut rester module-par-module, avec des pieces qui se collent proprement
 - si un ticket demande du test avant code, on le respecte sans forcer un ordre artificiel
+- les commentaires sont ecrits en anglais et expliquent l'intention, la securite et l'architecture
 
 ## Liens de base (source actuelle)
 
@@ -29,7 +30,8 @@ Cette phase est volontaire: on garde les feuilles en place pendant la reconstruc
 - `STEP-000` backend minimal health
 - `STEP-001` signup route (validation + duplicate check in-memory)
 - `STEP-002` tests signup (200 / 400 / 409)
-- `STEP-003+` login/refresh puis hardening
+- `STEP-003` login route + tests (paire avec STEP-004 si besoin)
+- `STEP-004+` refresh puis hardening
 - `STEP-00X` hardening, DB, ops
 
 ## Cible d'organisation finale
