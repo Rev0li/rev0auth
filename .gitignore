@@ -1,6 +1,7 @@
 /target
 .env
 .env.*
+.env.example
 .DS_Store
 Bro*
 Bro.md
