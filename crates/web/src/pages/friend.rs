@@ -1,6 +1,11 @@
 use axum::response::Html;
 
-pub async fn friend() -> Html<&'static str> {
+use super::{
+    frontend_modules, friend_onboarding_module, friend_services_module,
+    friend_chat_module, friend_status_module, friend_avatar_module,
+};
+
+pub async fn friend() -> Html<String> {
     Html(
         r##"<!doctype html>
 <html lang="fr">
@@ -328,6 +333,11 @@ pub async fn friend() -> Html<&'static str> {
             color: #ef4e24;
             border: 1px solid #f3c2b4;
         }
+        %%FRIEND_ONBOARDING_CSS%%
+        %%FRIEND_SERVICES_CSS%%
+        %%FRIEND_CHAT_CSS%%
+        %%FRIEND_STATUS_CSS%%
+        %%FRIEND_AVATAR_CSS%%
         @media (max-width: 900px) {
             .container {
                 padding: 18px;
@@ -509,102 +519,25 @@ pub async fn friend() -> Html<&'static str> {
             document.getElementById('pseudo-display').textContent = pseudo;
         }
 
-        const accessState = {
-            github: false,
-            jellyfin: false,
-            songsurf: false,
-            requestGithub: false,
-            requestJellyfin: false,
-            requestSongsurf: false
-        };
         const needsOnboarding = localStorage.getItem('needs_onboarding') === '1';
 
-        function bindEnterToClick(inputId, buttonId) {
-            const input = document.getElementById(inputId);
-            const button = document.getElementById(buttonId);
-            if (!input || !button) return;
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    button.click();
-                }
-            });
-        }
+        %%COMMON_JS_UTILS%%
 
-        bindEnterToClick('onboarding-new-password', 'onboarding-submit');
-        bindEnterToClick('onboarding-confirm-password', 'onboarding-submit');
+        // Initialize avatar module
+        const avatarModule = createFriendAvatarModule({ pseudo });
+        avatarModule.setHeaderAvatarSrc(false);
 
-        function setOnboardingMsg(ok, message) {
-            const el = document.getElementById('onboarding-msg');
-            el.className = 'onboarding-msg ' + (ok ? 'ok' : 'error');
-            el.textContent = message;
-        }
+        // Initialize status module
+        const statusModule = createFriendStatusModule({ pseudo });
 
-        function openOnboardingModal() {
-            const modal = document.getElementById('onboarding-modal');
-            modal.style.display = 'flex';
-        }
+        // Initialize services module
+        const servicesModule = createFriendServicesModule({ pseudo });
 
-        function closeOnboardingModal() {
-            const modal = document.getElementById('onboarding-modal');
-            modal.style.display = 'none';
-        }
+        // Initialize chat module
+        const chatModule = createFriendChatModule({ pseudo });
 
-        async function submitOnboarding() {
-            const newPassword = document.getElementById('onboarding-new-password').value.trim();
-            const confirmPassword = document.getElementById('onboarding-confirm-password').value.trim();
-            const message = document.getElementById('onboarding-message').value.trim();
-
-            if (!newPassword || !confirmPassword) {
-                setOnboardingMsg(false, 'Entre le nouveau mot de passe et sa confirmation.');
-                return;
-            }
-
-            if (newPassword !== confirmPassword) {
-                setOnboardingMsg(false, 'Les deux mots de passe ne correspondent pas.');
-                return;
-            }
-
-            try {
-                const profileDataRes = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
-                const profileData = await profileDataRes.json();
-
-                const passwordRes = await fetch('/members/password', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        pseudo,
-                        new_password: newPassword
-                    })
-                });
-                const passwordData = await passwordRes.json();
-                if (!passwordData.ok) {
-                    setOnboardingMsg(false, passwordData.message || 'Impossible de changer le mot de passe.');
-                    return;
-                }
-
-                const profileRes = await fetch('/members/profile/data', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        pseudo,
-                        bio: profileData && typeof profileData.bio === 'string' ? profileData.bio : '',
-                        commentary: message || null
-                    })
-                });
-                const profileUpdate = await profileRes.json();
-                if (!profileUpdate.ok) {
-                    setOnboardingMsg(false, profileUpdate.message || 'Mot de passe change mais message non enregistre.');
-                    return;
-                }
-
-                localStorage.removeItem('needs_onboarding');
-                setOnboardingMsg(true, 'Onboarding valide. Bienvenue.');
-                setTimeout(closeOnboardingModal, 450);
-            } catch (err) {
-                setOnboardingMsg(false, 'Erreur: ' + err.message);
-            }
-        }
+        // Initialize onboarding module
+        const onboardingModule = createFriendOnboardingModule({ pseudo });
 
         // Logout function
         async function logout() {
@@ -622,325 +555,31 @@ pub async fn friend() -> Html<&'static str> {
             window.location.href = '/';
         }
 
-        // Status management
-        const statusMsg = document.getElementById('status-msg');
-        const serviceMsg = document.getElementById('service-msg');
-        const headerAvatar = document.getElementById('header-avatar');
-
-        const chatSubjectInput = document.getElementById('chat-subject');
-        const chatBodyInput = document.getElementById('chat-body');
-        const chatMsg = document.getElementById('chat-msg');
-        const chatHistory = document.getElementById('chat-history');
-
-        function fallbackAvatar(pseudoValue) {
-            const first = (pseudoValue || '?').charAt(0).toUpperCase() || '?';
-            const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>
-                <defs>
-                    <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
-                        <stop offset='0%' stop-color='#0d9b73'/>
-                        <stop offset='100%' stop-color='#132331'/>
-                    </linearGradient>
-                </defs>
-                <rect width='100' height='100' rx='50' fill='url(#g)'/>
-                <text x='50' y='61' text-anchor='middle' font-size='44' font-family='Space Grotesk, Arial, sans-serif' fill='#ffffff'>${first}</text>
-            </svg>`;
-            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-        }
-
-        function setHeaderAvatarSrc(hasAvatar) {
-            if (hasAvatar) {
-                headerAvatar.src = '/members/avatar/' + encodeURIComponent(pseudo) + '?t=' + Date.now();
-                headerAvatar.onerror = () => {
-                    headerAvatar.onerror = null;
-                    headerAvatar.src = fallbackAvatar(pseudo);
-                };
-                return;
-            }
-            headerAvatar.src = fallbackAvatar(pseudo);
-        }
-
-        function setServiceMsg(ok, message) {
-            serviceMsg.className = 'service-msg ' + (ok ? 'ok' : 'error');
-            serviceMsg.textContent = message;
-            serviceMsg.style.display = 'block';
-        }
-
-        function renderServiceButtons() {
-            const songsurfBtn = document.getElementById('songsurf-btn');
-            const jellyfinBtn = document.getElementById('jellyfin-btn');
-            const githubBtn = document.getElementById('github-btn');
-
-            const songsurfState = document.getElementById('songsurf-state');
-            const jellyfinState = document.getElementById('jellyfin-state');
-            const githubState = document.getElementById('github-state');
-
-            if (accessState.songsurf) {
-                songsurfState.textContent = 'Etat: ACCES OUVERT';
-                songsurfBtn.textContent = 'Ouvrir Songsurf';
-                songsurfBtn.classList.remove('locked');
-            } else if (accessState.requestSongsurf) {
-                songsurfState.textContent = 'Etat: demande envoyee, en attente admin';
-                songsurfBtn.textContent = 'Demande Songsurf envoyee';
-                songsurfBtn.classList.add('locked');
-            } else {
-                songsurfState.textContent = 'Etat: verrouille';
-                songsurfBtn.textContent = 'Demander acces Songsurf';
-                songsurfBtn.classList.add('locked');
-            }
-
-            if (accessState.jellyfin) {
-                jellyfinState.textContent = 'Etat: ACCES OUVERT';
-                jellyfinBtn.textContent = 'Ouvrir Jellyfin';
-                jellyfinBtn.classList.remove('locked');
-            } else if (accessState.requestJellyfin) {
-                jellyfinState.textContent = 'Etat: demande envoyee, en attente admin';
-                jellyfinBtn.textContent = 'Demande Jellyfin envoyee';
-                jellyfinBtn.classList.add('locked');
-            } else {
-                jellyfinState.textContent = 'Etat: verrouille';
-                jellyfinBtn.textContent = 'Demander acces Jellyfin';
-                jellyfinBtn.classList.add('locked');
-            }
-
-            if (accessState.github) {
-                githubState.textContent = 'Etat: ACCES OUVERT';
-                githubBtn.textContent = 'Ouvrir GitHub';
-                githubBtn.classList.remove('locked');
-            } else if (accessState.requestGithub) {
-                githubState.textContent = 'Etat: demande envoyee, en attente admin';
-                githubBtn.textContent = 'Demande GitHub envoyee';
-                githubBtn.classList.add('locked');
-            } else {
-                githubState.textContent = 'Etat: verrouille';
-                githubBtn.textContent = 'J\'ai mis une star, demander acces GitHub';
-                githubBtn.classList.add('locked');
-            }
-        }
-
-        async function loadMemberAccessState() {
-            try {
-                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
-                const data = await res.json();
-                accessState.github = !!data.access_github;
-                accessState.jellyfin = !!data.access_jellyfin;
-                accessState.songsurf = !!data.access_songsurf;
-                accessState.requestGithub = !!data.request_github;
-                accessState.requestJellyfin = !!data.request_jellyfin;
-                accessState.requestSongsurf = !!data.request_songsurf;
-                setHeaderAvatarSrc(!!data.avatar_present);
-
-                if (data.github_username) {
-                    document.getElementById('github-username').value = data.github_username;
-                }
-                renderServiceButtons();
-            } catch (err) {
-                setHeaderAvatarSrc(false);
-                setServiceMsg(false, 'Impossible de charger l\'etat des acces: ' + err.message);
-            }
-        }
-
-        async function requestService(service, extraPayload) {
-            try {
-                const res = await fetch('/members/access/request', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify(Object.assign({ pseudo, service }, extraPayload || {}))
-                });
-                const data = await res.json();
-                setServiceMsg(!!data.ok, data.message || 'Reponse recue.');
-                if (data.ok) {
-                    await loadMemberAccessState();
-                }
-            } catch (err) {
-                setServiceMsg(false, 'Erreur: ' + err.message);
-            }
-        }
-
-        async function setStatus(status) {
-            try {
-                const res = await fetch('/members/status', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        pseudo,
-                        status
-                    })
-                });
-                const data = await res.json();
-
-                statusMsg.className = 'status-msg ' + (data.ok ? 'ok' : 'error');
-                statusMsg.textContent = data.message;
-                statusMsg.style.display = 'block';
-
-                setTimeout(() => {
-                    statusMsg.style.display = 'none';
-                }, 3000);
-                return data.ok;
-            } catch (err) {
-                statusMsg.className = 'status-msg error';
-                statusMsg.textContent = 'Erreur: ' + err.message;
-                statusMsg.style.display = 'block';
-                return false;
-            }
-        }
-
-        function setChatMsg(ok, message) {
-            chatMsg.className = 'chat-msg ' + (ok ? 'ok' : 'error');
-            chatMsg.textContent = message;
-        }
-
-        function escapeHtml(value) {
-            return String(value || '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-        }
-
-        async function loadChatHistory() {
-            if (!chatHistory) return;
-            try {
-                const [inboxRes, sentRes] = await Promise.all([
-                    fetch('/members/messages/inbox?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' }),
-                    fetch('/members/messages/sent?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' })
-                ]);
-                const inbox = await inboxRes.json();
-                const sent = await sentRes.json();
-                const merged = [];
-                if (Array.isArray(inbox)) merged.push(...inbox.map((m) => Object.assign({}, m, { mine: false })));
-                if (Array.isArray(sent)) merged.push(...sent.map((m) => Object.assign({}, m, { mine: true })));
-
-                merged.sort((a, b) => {
-                    if (a.created_at_epoch === b.created_at_epoch) return a.id - b.id;
-                    return a.created_at_epoch - b.created_at_epoch;
-                });
-
-                const unreadInbound = merged.filter((m) => !m.mine && !m.is_read);
-                if (unreadInbound.length > 0) {
-                    await Promise.all(unreadInbound.map((m) =>
-                        fetch('/members/messages/' + m.id + '/read', {
-                            method: 'POST',
-                            headers: { 'content-type': 'application/json' },
-                            body: JSON.stringify({ pseudo })
-                        })
-                    ));
-                }
-
-                if (merged.length === 0) {
-                    chatHistory.textContent = 'Aucun message pour le moment.';
-                    return;
-                }
-
-                chatHistory.innerHTML = merged.map((m) => {
-                    const dt = new Date(m.created_at_epoch * 1000).toLocaleString();
-                    const who = m.mine ? 'To admin' : 'Admin';
-                    return '<div class="chat-bubble ' + (m.mine ? 'mine' : 'theirs') + '">'
-                        + '<strong>' + escapeHtml(m.subject || 'Sans sujet') + '</strong><br>'
-                        + escapeHtml(m.body || '')
-                        + '<span class="chat-meta">' + who + ' • ' + dt + '</span>'
-                        + '</div>';
-                }).join('');
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            } catch (err) {
-                chatHistory.textContent = 'Historique indisponible: ' + err.message;
-            }
-        }
-
-        async function sendQuickChat() {
-            const subject = chatSubjectInput.value.trim();
-            const body = chatBodyInput.value.trim();
-
-            if (!subject || !body) {
-                setChatMsg(false, 'Remplis sujet et message.');
-                return;
-            }
-
-            try {
-                const res = await fetch('/members/messages/send', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        from_pseudo: pseudo,
-                        subject,
-                        body
-                    })
-                });
-                const data = await res.json();
-                setChatMsg(!!data.ok, data.message || 'Message envoye.');
-                if (data.ok) {
-                    chatSubjectInput.value = '';
-                    chatBodyInput.value = '';
-                    await loadChatHistory();
-                }
-            } catch (err) {
-                setChatMsg(false, 'Erreur: ' + err.message);
-            }
-        }
-
-        document.getElementById('songsurf-btn').addEventListener('click', async () => {
-            if (accessState.songsurf) {
-                window.location.href = 'https://revoli-songsurf.duckdns.org';
-                return;
-            }
-            await requestService('songsurf');
-        });
-
-        document.getElementById('jellyfin-btn').addEventListener('click', async () => {
-            if (accessState.jellyfin) {
-                window.location.href = 'https://revoli-jellyfin.duckdns.org';
-                return;
-            }
-            await requestService('jellyfin');
-        });
-
-        document.getElementById('github-btn').addEventListener('click', async () => {
-            if (accessState.github) {
-                window.location.href = 'https://github.com/Rev0li';
-                return;
-            }
-
-            const githubUsername = document.getElementById('github-username').value.trim();
-            if (!githubUsername) {
-                setServiceMsg(false, 'Renseigne ton username GitHub avant la demande.');
-                return;
-            }
-
-            await requestService('github', {
-                github_username: githubUsername,
-                starred: true
-            });
-        });
-
         document.getElementById('logout-btn').addEventListener('click', logout);
-        document.getElementById('chat-send-btn').addEventListener('click', sendQuickChat);
-        document.querySelector('a[href="/members/profile"]').addEventListener('click', (event) => {
-            if (localStorage.getItem('needs_onboarding') === '1') {
-                event.preventDefault();
-                openOnboardingModal();
-                setOnboardingMsg(false, 'Termine d\'abord le changement de mot de passe initial.');
-            }
-        });
-        document.getElementById('happy-btn').addEventListener('click', async () => {
-            await setStatus('content');
-        });
-        document.getElementById('meh-btn').addEventListener('click', async () => {
-            await setStatus('bof');
-        });
-        document.getElementById('question-btn').addEventListener('click', async () => {
-            await setStatus('question');
-        });
-        document.getElementById('onboarding-submit').addEventListener('click', submitOnboarding);
-        setHeaderAvatarSrc(false);
+        
         if (needsOnboarding) {
-            openOnboardingModal();
+            onboardingModule.openOnboardingModal();
         }
-        loadMemberAccessState();
-        loadChatHistory();
-        setInterval(loadChatHistory, 8000);
+
+        %%FRIEND_ONBOARDING_JS%%
+        %%FRIEND_SERVICES_JS%%
+        %%FRIEND_CHAT_JS%%
+        %%FRIEND_STATUS_JS%%
+        %%FRIEND_AVATAR_JS%%
     </script>
 </body>
 </html>
-"##,
+"##
+            .replace("%%COMMON_JS_UTILS%%", frontend_modules::JS_COMMON_UTILS)
+            .replace("%%FRIEND_ONBOARDING_CSS%%", friend_onboarding_module::CSS_FRIEND_ONBOARDING_STYLES)
+            .replace("%%FRIEND_ONBOARDING_JS%%", friend_onboarding_module::JS_FRIEND_ONBOARDING_MODULE)
+            .replace("%%FRIEND_SERVICES_CSS%%", friend_services_module::CSS_FRIEND_SERVICES_STYLES)
+            .replace("%%FRIEND_SERVICES_JS%%", friend_services_module::JS_FRIEND_SERVICES_MODULE)
+            .replace("%%FRIEND_CHAT_CSS%%", friend_chat_module::CSS_FRIEND_CHAT_STYLES)
+            .replace("%%FRIEND_CHAT_JS%%", friend_chat_module::JS_FRIEND_CHAT_MODULE)
+            .replace("%%FRIEND_STATUS_CSS%%", friend_status_module::CSS_FRIEND_STATUS_STYLES)
+            .replace("%%FRIEND_STATUS_JS%%", friend_status_module::JS_FRIEND_STATUS_MODULE)
+            .replace("%%FRIEND_AVATAR_CSS%%", friend_avatar_module::CSS_FRIEND_AVATAR_STYLES)
+            .replace("%%FRIEND_AVATAR_JS%%", friend_avatar_module::JS_FRIEND_AVATAR_MODULE),
     )
 }

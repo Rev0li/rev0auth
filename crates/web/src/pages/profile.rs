@@ -1,6 +1,13 @@
 use axum::response::Html;
 
-pub async fn profile() -> Html<&'static str> {
+use super::{
+    frontend_modules,
+    profile_info_module, profile_edit_module, profile_avatar_module,
+    profile_password_module, profile_messages_module, profile_donations_module,
+    profile_admin_navigator_module, profile_account_deletion_module,
+};
+
+pub async fn profile() -> Html<String> {
     Html(
         r##"<!doctype html>
 <html lang="fr">
@@ -756,6 +763,7 @@ pub async fn profile() -> Html<&'static str> {
     </script>
 </body>
 </html>
-"##,
+"##
+            .to_string(),
     )
 }
