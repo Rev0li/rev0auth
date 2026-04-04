@@ -39,6 +39,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/install-to-launch.md`
 - `docs/public-project-handbook.md`
 - `docs/cheatsheet-complet.md`
+- `docs/operations/github-cheatsheet.md`
 - `docs/checklists-master.md`
 - `docs/polish-finalisation.md`
 - `docs/clean-fixpoints-saas-roadmap.md`
@@ -52,6 +53,7 @@ The long-term goal is clarity first, then expansion.
 - `docs/roadmap-detailed.md`
 - `docs/tickets-auth.md`
 - `docs/auth-012-media-install.md`
+- `docs/architecture-web-scan-2026-04-04.md`
 - `docs/tickets/README.md` (index ticketing)
 
 ## Frontend et hors-scope actuel
