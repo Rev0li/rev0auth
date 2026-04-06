@@ -84,6 +84,43 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
             margin: 0 0 10px;
             font-size: 1.1rem;
         }
+        .onboarding-intro {
+            margin-top: 0;
+            opacity: .85;
+        }
+        .onboarding-label {
+            display: block;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+        .onboarding-field,
+        .onboarding-textarea {
+            width: 100%;
+            border: 1px solid rgba(19, 35, 49, 0.2);
+            border-radius: 8px;
+            padding: 9px;
+            box-sizing: border-box;
+            font: inherit;
+            background: #fff;
+        }
+        .onboarding-textarea {
+            min-height: 110px;
+        }
+        .actions-tight {
+            margin-top: 10px;
+        }
+        .mood-label {
+            font-weight: 700;
+            opacity: .8;
+        }
+        .services-intro {
+            margin-top: 0;
+            opacity: .8;
+        }
+        .chat-intro {
+            margin: 0 0 8px;
+            opacity: .82;
+        }
         .chat-card label {
             display: block;
             margin: 10px 0 6px;

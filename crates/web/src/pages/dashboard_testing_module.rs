@@ -15,7 +15,7 @@ function createDashboardTestingModule(ctx) {
             const html = '<div class="grid">' + list.map((ep) => {
                 const cleanPath = (ep.path || '').replace(/^\//, '').slice(0, 50);
                 return '<div class="endpoint-card" title="' + (ep.method || 'N/A') + '">'
-                    + '<code style="word-break:break-all;font-size:0.75rem;">' + cleanPath + '</code>'
+                    + '<code class="test-path">' + cleanPath + '</code>'
                     + '</div>';
             }).join('') + '</div>';
 
@@ -38,11 +38,10 @@ function createDashboardTestingModule(ctx) {
             const html = list.reverse().slice(0, 8).map((result) => {
                 const dt = new Date(result.epoch * 1000).toLocaleTimeString();
                 const ok = result.ok ? '✓' : '✗';
-                const color = result.ok ? '#0d9b73' : '#dc4f2f';
-                return '<div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">'
-                    + '<span style="color:' + color + ';font-weight:700;">' + ok + '</span>'
-                    + '<span style="font-size:0.85rem;flex:1;">' + (result.test_name || 'Test') + '</span>'
-                    + '<span style="font-size:0.75rem;opacity:0.7;">' + dt + '</span>'
+                return '<div class="test-result-row">'
+                    + '<span class="test-result-status ' + (result.ok ? 'ok' : 'down') + '">' + ok + '</span>'
+                    + '<span class="test-result-name">' + (result.test_name || 'Test') + '</span>'
+                    + '<span class="test-result-time">' + dt + '</span>'
                     + '</div>';
             }).join('');
 

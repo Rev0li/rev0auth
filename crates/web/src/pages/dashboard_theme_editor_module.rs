@@ -121,9 +121,9 @@ function createDashboardThemeEditorModule() {
         container.innerHTML = editableTokens.map((token) => {
             const id = 'theme-token-' + token.key.replace(/[^a-z0-9]/gi, '-');
             const value = currentTokenValue(token.key) || token.sample;
-            return '<div style="margin-top:10px;">'
-                + '<label for="' + id + '" style="display:block;font-weight:700;">' + token.label + ' <span style="opacity:.7;font-weight:400;">(' + token.key + ')</span></label>'
-                + '<input id="' + id + '" value="' + value + '" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />'
+            return '<div class="theme-token-row">'
+                + '<label class="theme-token-label" for="' + id + '">' + token.label + ' <span class="theme-token-key">(' + token.key + ')</span></label>'
+                + '<input class="theme-token-input" id="' + id + '" value="' + value + '" />'
                 + '</div>';
         }).join('');
         editableTokens.forEach((token) => {

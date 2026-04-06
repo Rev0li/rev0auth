@@ -29,7 +29,7 @@ function createProfileDonationsModule(ctx) {
                 return '<div class="list-item">'
                     + '<div><strong>#' + row.id + '</strong> • ' + escapeHtml(row.method) + ' • ' + escapeHtml(row.code) + '</div>'
                     + '<div class="meta">' + dt + ' • ' + verdict + '</div>'
-                    + '<div style="margin-top:6px;"><a class="btn secondary" href="/members/donations/proof/' + row.id + '/photo" target="_blank" rel="noopener noreferrer">Voir photo</a></div>'
+                    + '<div class="donation-proof-link"><a class="btn secondary" href="/members/donations/proof/' + row.id + '/photo" target="_blank" rel="noopener noreferrer">Voir photo</a></div>'
                     + '</div>';
             }).join('');
         } catch (err) {

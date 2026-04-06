@@ -65,7 +65,7 @@ pub async fn profile() -> Html<String> {
             <input id="avatar" type="file" accept="image/*" />
             <div class="actions">
                 <button id="upload-avatar" class="primary">Uploader avatar</button>
-                <button id="delete-avatar" class="secondary" style="border-color:#ef4e24;color:#ef4e24;">Supprimer avatar</button>
+                <button id="delete-avatar" class="secondary danger-outline">Supprimer avatar</button>
             </div>
             <div id="avatar-msg" class="msg"></div>
         </article>
@@ -86,7 +86,7 @@ pub async fn profile() -> Html<String> {
 
         <article class="card" id="member-messages-card">
             <h2>Messages membres</h2>
-            <p class="meta" style="margin-top:0;">Tous les messages sont envoyes automatiquement a l'admin.</p>
+            <p class="meta meta-topless">Tous les messages sont envoyes automatiquement a l'admin.</p>
 
             <label for="msg-subject">Sujet</label>
             <input id="msg-subject" type="text" placeholder="Sujet du message" />
@@ -102,18 +102,18 @@ pub async fn profile() -> Html<String> {
 
             <div class="list-box">
                 <strong>Boite de reception</strong>
-                <div id="messages-inbox" class="meta" style="margin-top:8px;">Aucun message.</div>
+                <div id="messages-inbox" class="meta list-meta-gap">Aucun message.</div>
             </div>
             <div class="list-box">
                 <strong>Messages envoyes</strong>
-                <div id="messages-sent" class="meta" style="margin-top:8px;">Aucun envoi.</div>
+                <div id="messages-sent" class="meta list-meta-gap">Aucun envoi.</div>
             </div>
         </article>
 
         <article class="card" id="donation-card">
             <h2>Donation (Crypto / Coupon PCS)</h2>
             <label for="donation-method">Methode</label>
-            <select id="donation-method" style="width:100%;border:1px solid rgba(19, 35, 49, 0.2);border-radius:8px;padding:9px;font:inherit;background:#fff;">
+            <select id="donation-method">
                 <option value="crypto">Crypto</option>
                 <option value="pcs">Coupon PCS</option>
             </select>
@@ -132,7 +132,7 @@ pub async fn profile() -> Html<String> {
 
             <div class="list-box">
                 <strong>Mes preuves envoyees</strong>
-                <div id="donations-list" class="meta" style="margin-top:8px;">Aucune preuve envoyee.</div>
+                <div id="donations-list" class="meta list-meta-gap">Aucune preuve envoyee.</div>
             </div>
         </article>
 
@@ -140,7 +140,7 @@ pub async fn profile() -> Html<String> {
             <h2>Danger zone</h2>
             <p class="meta">Tu peux supprimer ton compte a tout moment. Cette action est irreversible.</p>
             <div class="actions">
-                <button id="delete-account" class="secondary" style="border-color:#ef4e24;color:#ef4e24;">Supprimer mon compte</button>
+                <button id="delete-account" class="secondary danger-outline">Supprimer mon compte</button>
             </div>
             <div id="delete-msg" class="msg"></div>
         </article>

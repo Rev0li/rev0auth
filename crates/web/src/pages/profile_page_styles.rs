@@ -26,7 +26,7 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
         }
         h1 { margin-top: 0; }
         label { display: block; font-weight: 700; margin: 10px 0 6px; }
-        input, textarea {
+        input, textarea, select {
             width: 100%;
             border: 1px solid rgba(19, 35, 49, 0.2);
             border-radius: 8px;
@@ -36,6 +36,26 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             background: #fff;
         }
         textarea { min-height: 90px; resize: vertical; }
+        .danger-outline {
+            border-color: #ef4e24;
+            color: #ef4e24;
+        }
+        .meta-topless {
+            margin-top: 0;
+        }
+        .list-meta-gap {
+            margin-top: 8px;
+        }
+        .message-body {
+            margin-top: 6px;
+            white-space: pre-wrap;
+        }
+        .actions-compact {
+            margin-top: 8px;
+        }
+        .donation-proof-link {
+            margin-top: 6px;
+        }
         .actions {
             display: flex;
             gap: 10px;

@@ -246,6 +246,156 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
         .form-group {
             margin-bottom: 10px;
         }
+        .form-group-top {
+            margin-top: 10px;
+        }
+        .onboarding-msg {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .actions-no-top {
+            margin-top: 0;
+        }
+        .actions-tight {
+            margin-top: 8px;
+        }
+        .theme-editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .field-label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .field-input,
+        .field-select,
+        .field-textarea {
+            width: 100%;
+            border: 1px solid rgba(17, 33, 48, 0.2);
+            border-radius: 8px;
+            padding: 9px;
+            box-sizing: border-box;
+            font: inherit;
+            background: #fff;
+        }
+        .field-textarea {
+            margin-top: 10px;
+            min-height: 120px;
+        }
+        .mini-top {
+            margin-top: 8px;
+        }
+        .preview-grid {
+            margin-top: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .preview-card {
+            padding: 14px;
+        }
+        .preview-title {
+            margin: 8px 0 4px;
+        }
+        .preview-feedback {
+            margin-top: 8px;
+            padding: 8px;
+            border: 1px solid;
+        }
+        .preview-input-label {
+            display: block;
+            margin-top: 8px;
+            font-weight: 700;
+        }
+        .request-row,
+        .donation-row {
+            border: 1px solid rgba(17, 33, 48, .13);
+            border-radius: 10px;
+            padding: 8px;
+            margin: 6px 0;
+            background: #fff;
+        }
+        .request-actions {
+            margin-top: 6px;
+        }
+        .donation-actions {
+            margin-top: 6px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .user-request-badges {
+            margin-top: 4px;
+            color: #8a5a00;
+        }
+        .card-title-reset {
+            margin-top: 0;
+        }
+        .queue-title {
+            margin: 0 0 6px;
+        }
+        .queue-meta {
+            margin: 0;
+        }
+        .test-path {
+            word-break: break-all;
+            font-size: 0.75rem;
+        }
+        .test-result-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .test-result-status {
+            font-weight: 700;
+        }
+        .test-result-status.ok {
+            color: var(--ok);
+        }
+        .test-result-status.down {
+            color: var(--down);
+        }
+        .test-result-name {
+            font-size: 0.85rem;
+            flex: 1;
+        }
+        .test-result-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+        .theme-token-row {
+            margin-top: 10px;
+        }
+        .theme-token-label {
+            display: block;
+            font-weight: 700;
+        }
+        .theme-token-key {
+            opacity: .7;
+            font-weight: 400;
+        }
+        .theme-token-input {
+            width: 100%;
+            border: 1px solid rgba(17, 33, 48, .2);
+            border-radius: 8px;
+            padding: 9px;
+            box-sizing: border-box;
+            font: inherit;
+            background: #fff;
+        }
+        .user-card-title {
+            margin: 0 0 8px;
+        }
+        .donation-item-title {
+            margin: 0 0 4px;
+        }
+        .donation-photo-link {
+            font-size: 0.8rem;
+            margin: 0;
+        }
 
         .form-group label {
             display: block;

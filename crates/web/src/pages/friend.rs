@@ -20,18 +20,18 @@ pub async fn friend() -> Html<String> {
     <div id="onboarding-modal" class="onboarding-modal">
         <div class="onboarding-card">
             <h2>Premiere connexion</h2>
-            <p style="margin-top:0;opacity:.85;">Change ton mot de passe temporaire avant de continuer.</p>
+            <p class="onboarding-intro">Change ton mot de passe temporaire avant de continuer.</p>
 
-            <label for="onboarding-new-password" style="display:block;font-weight:700;margin-top:10px;">Nouveau mot de passe</label>
-            <input id="onboarding-new-password" type="password" placeholder="nouveau mot de passe" style="width:100%;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+            <label for="onboarding-new-password" class="onboarding-label">Nouveau mot de passe</label>
+            <input id="onboarding-new-password" class="onboarding-field" type="password" placeholder="nouveau mot de passe" />
 
-            <label for="onboarding-confirm-password" style="display:block;font-weight:700;margin-top:10px;">Confirmer le nouveau mot de passe</label>
-            <input id="onboarding-confirm-password" type="password" placeholder="retape le nouveau mot de passe" style="width:100%;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+            <label for="onboarding-confirm-password" class="onboarding-label">Confirmer le nouveau mot de passe</label>
+            <input id="onboarding-confirm-password" class="onboarding-field" type="password" placeholder="retape le nouveau mot de passe" />
 
-            <label for="onboarding-message" style="display:block;font-weight:700;margin-top:10px;">Message de presentation</label>
-            <textarea id="onboarding-message" placeholder="Presente-toi rapidement..." style="width:100%;min-height:110px;border:1px solid rgba(19,35,49,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></textarea>
+            <label for="onboarding-message" class="onboarding-label">Message de presentation</label>
+            <textarea id="onboarding-message" class="onboarding-textarea" placeholder="Presente-toi rapidement..."></textarea>
 
-            <div class="actions" style="margin-top:10px;">
+            <div class="actions actions-tight">
                 <button id="onboarding-submit" class="profile-btn">Valider</button>
             </div>
             <div id="onboarding-msg" class="onboarding-msg"></div>
@@ -43,7 +43,7 @@ pub async fn friend() -> Html<String> {
             <div class="header-meta">
                 <h1>Bienvenue <span id="welcome-pseudo">!</span></h1>
                 <div class="header-status">
-                    <span style="font-weight:700;opacity:.8;">Humeur rapide:</span>
+                    <span class="mood-label">Humeur rapide:</span>
                     <button class="status-btn" id="happy-btn">😀 Content</button>
                     <button class="status-btn" id="meh-btn">😐 Bof</button>
                     <button class="status-btn" id="question-btn">❓ Besoin d'aide</button>
@@ -76,7 +76,7 @@ pub async fn friend() -> Html<String> {
 
         <article class="card">
             <h2>Services intégrés</h2>
-            <p style="margin-top: 0; opacity: 0.8;">Par defaut tu n'as acces a rien. Demande l'acces service par service.</p>
+            <p class="services-intro">Par defaut tu n'as acces a rien. Demande l'acces service par service.</p>
             <div class="services">
                 <div class="service-card">
                     <h3>Songsurf</h3>
@@ -107,7 +107,7 @@ pub async fn friend() -> Html<String> {
 
         <article class="chat-card">
             <h2>Start message with me</h2>
-            <p style="margin:0 0 8px;opacity:.82;">Conversation directe avec l'admin.</p>
+            <p class="chat-intro">Conversation directe avec l'admin.</p>
 
             <div id="chat-history" class="chat-history">Chargement de l'historique...</div>
 
@@ -117,7 +117,7 @@ pub async fn friend() -> Html<String> {
             <label for="chat-body">Message</label>
             <textarea id="chat-body" placeholder="Ton message..."></textarea>
 
-            <div class="actions" style="margin-top:10px;">
+            <div class="actions actions-tight">
                 <button id="chat-send-btn" class="profile-btn">Envoyer message</button>
             </div>
             <div id="chat-msg" class="chat-msg"></div>

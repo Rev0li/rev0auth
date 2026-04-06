@@ -1,6 +1,6 @@
 use axum::response::Html;
 
-use super::frontend_theme;
+use super::{frontend_theme, home_page_styles};
 
 pub async fn home() -> Html<String> {
     Html(
@@ -12,72 +12,7 @@ pub async fn home() -> Html<String> {
     <title>rev0auth - Connexion</title>
     %%FRONTEND_THEME_BOOT%%
     <style>
-        %%FRONTEND_SHARED_CSS%%
-        body {
-            margin: 0;
-            font-family: var(--font-sans);
-            color: #132331;
-            background:
-                radial-gradient(circle at 10% 5%, #ffe7cd, transparent 35%),
-                radial-gradient(circle at 90% 0%, #d9f0ff, transparent 40%),
-                linear-gradient(145deg, #eef7ff, #e8f8ef);
-            min-height: 100vh;
-        }
-        .page {
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 28px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-height: 100vh;
-        }
-        .card {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(19, 35, 49, 0.1);
-            border-radius: 20px;
-            padding: 32px;
-            box-shadow: 0 18px 45px rgba(19, 35, 49, 0.15);
-        }
-        h1 { margin: 0 0 8px; font-size: clamp(1.5rem, 5vw, 2rem); }
-        .hint { margin: 10px 0 24px; opacity: .8; font-size: 0.95rem; }
-        label { display: block; margin: 14px 0 6px; font-weight: 700; }
-        input {
-            width: 100%;
-            border: 1px solid rgba(19, 35, 49, 0.2);
-            border-radius: 10px;
-            padding: 10px;
-            font: inherit;
-            background: #fff;
-            box-sizing: border-box;
-        }
-        .btn {
-            margin-top: 16px;
-            border: 0;
-            border-radius: 10px;
-            padding: 11px 16px;
-            font-weight: 700;
-            cursor: pointer;
-            width: 100%;
-        }
-        .btn-primary { color: #fff; background: linear-gradient(120deg, #ff6b3b, #ef4e24); }
-        .result {
-            margin-top: 14px;
-            border-radius: 10px;
-            padding: 10px;
-            font-size: .92rem;
-            display: none;
-        }
-        .ok { display: block; background: #e8fff5; border: 1px solid #b3ecd1; }
-        .down { display: block; background: #fff0ec; border: 1px solid #f3c2b4; }
-        .link {
-            display: block;
-            margin-top: 18px;
-            text-align: center;
-            text-decoration: none;
-            color: #132331;
-            font-weight: 700;
-        }
+        %%HOME_PAGE_STYLES%%
     </style>
 </head>
 <body>
@@ -95,7 +30,7 @@ pub async fn home() -> Html<String> {
             </div>
 
             <!-- STEP 2: Password Input (hidden until pseudo is approved) -->
-            <div id="step-2" style="display: none;">
+            <div id="step-2" class="hidden">
                 <p class="hint">Pseudo approuve ! Entre ton mot de passe.</p>
                 <label for="password">Mot de passe</label>
                 <input id="password" type="password" placeholder="ton_mot_de_passe" />
@@ -193,6 +128,7 @@ pub async fn home() -> Html<String> {
 </html>
 "##
         .replace("%%FRONTEND_THEME_BOOT%%", frontend_theme::FRONTEND_THEME_BOOT)
+    .replace("%%HOME_PAGE_STYLES%%", home_page_styles::HOME_PAGE_STYLES)
         .replace("%%FRONTEND_SHARED_CSS%%", frontend_theme::FRONTEND_SHARED_CSS),
     )
 }

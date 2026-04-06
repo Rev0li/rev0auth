@@ -28,8 +28,8 @@ function createDashboardUsersModule(ctx) {
                 const jfLabel = user.access_jellyfin ? '🟢 Revoke JF' : '🔴 Grant JF';
                 const ssLabel = user.access_songsurf ? '🟢 Revoke SS' : '🔴 Grant SS';
 
-                return '<div class="card" onclick="openUserProfile(\'' + user.pseudo + '\')" style="cursor:pointer;">'
-                    + '<h3 style="margin:0 0 8px;">' + user.pseudo + '</h3>'
+                return '<div class="card user-card clickable" onclick="openUserProfile(\'' + user.pseudo + '\')">'
+                    + '<h3 class="user-card-title">' + user.pseudo + '</h3>'
                     + '<p class="label">Status: ' + (user.status ? user.status.toUpperCase() : 'UNKNOWN') + '</p>'
                     + '<p class="label">Requete ou accès</p>'
                     + '<div class="user-actions">'

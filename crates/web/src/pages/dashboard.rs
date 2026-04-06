@@ -28,7 +28,7 @@ pub async fn dashboard() -> Html<String> {
         <section class="row onboarding-panel" id="onboarding-panel">
             <strong>Onboarding initial</strong>
             <div class="mini">Change ton mot de passe temporaire, puis laisse un message de présentation pour l'admin.</div>
-            <div class="form-group" style="margin-top: 10px;">
+            <div class="form-group form-group-top">
                 <label for="onboarding-current-password">Mot de passe temporaire</label>
                 <input type="password" id="onboarding-current-password" placeholder="mot de passe temporaire" />
             </div>
@@ -43,7 +43,7 @@ pub async fn dashboard() -> Html<String> {
             <div class="actions">
                 <button class="btn-small grant" id="onboarding-submit">Valider l'onboarding</button>
             </div>
-            <div id="onboarding-msg" style="margin-top: 8px; font-size: 0.9rem; display: none;"></div>
+            <div id="onboarding-msg" class="onboarding-msg"></div>
         </section>
 
         <nav class="tabs">
@@ -165,7 +165,7 @@ pub async fn dashboard() -> Html<String> {
                                 <input id="admin-reply-subject" placeholder="Re: ..." />
                                 <label for="admin-reply-body">Message</label>
                                 <textarea id="admin-reply-body" placeholder="Ta reponse..."></textarea>
-                                <div class="actions" style="margin-top:0;">
+                                <div class="actions actions-no-top">
                                     <button class="btn-small grant" id="admin-reply-send">Envoyer reponse</button>
                                 </div>
                                 <div id="admin-reply-msg" class="chat-admin-msg"></div>
@@ -241,14 +241,14 @@ pub async fn dashboard() -> Html<String> {
             <div class="row">
                 <strong>Theme editor (global frontend)</strong>
                 <div class="mini">Ces tokens sont sauvegardes dans le navigateur admin et appliques sur tout le frontend via <code>rev0auth_theme</code>.</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                <div class="theme-editor-grid">
                     <div>
-                        <label for="theme-preset-name" style="display:block;font-weight:700;margin-bottom:6px;">Nom du preset</label>
-                        <input id="theme-preset-name" placeholder="ex: ocean-soft" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+                        <label for="theme-preset-name" class="field-label">Nom du preset</label>
+                        <input id="theme-preset-name" class="field-input" placeholder="ex: ocean-soft" />
                     </div>
                     <div>
-                        <label for="theme-preset-select" style="display:block;font-weight:700;margin-bottom:6px;">Presets enregistres</label>
-                        <select id="theme-preset-select" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></select>
+                        <label for="theme-preset-select" class="field-label">Presets enregistres</label>
+                        <select id="theme-preset-select" class="field-select"></select>
                     </div>
                 </div>
                 <div class="actions">
@@ -266,35 +266,35 @@ pub async fn dashboard() -> Html<String> {
                     <button class="btn-small" id="theme-editor-import-btn">Importer JSON</button>
                     <button class="btn-small danger" id="theme-editor-reset">Reset theme</button>
                 </div>
-                <textarea id="theme-editor-export" style="width:100%;margin-top:10px;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;min-height:120px;font:inherit;background:#fff;" placeholder="JSON export theme..."></textarea>
-                <div id="theme-editor-msg" class="mini" style="margin-top:8px;"></div>
+                <textarea id="theme-editor-export" class="field-textarea" placeholder="JSON export theme..."></textarea>
+                <div id="theme-editor-msg" class="mini mini-top"></div>
             </div>
             <div class="row">
                 <strong>Preview composants (live)</strong>
                 <div class="mini">Ajuste les tokens ci-dessus: cette vitrine se met a jour instantanement et represente les elements principaux du site.</div>
-                <div class="grid" style="margin-top:10px;grid-template-columns:repeat(2,minmax(0,1fr));">
-                    <article class="card" style="padding:14px;">
+                <div class="grid preview-grid">
+                    <article class="card preview-card">
                         <div class="label">Card / Typography</div>
-                        <h3 style="margin:8px 0 4px;">Titre exemple</h3>
+                        <h3 class="preview-title">Titre exemple</h3>
                         <div class="meta">Texte secondaire pour verifier le contraste et la lisibilite globale.</div>
                     </article>
-                    <article class="card" style="padding:14px;">
+                    <article class="card preview-card">
                         <div class="label">Buttons</div>
-                        <div class="actions" style="margin-top:8px;">
+                        <div class="actions actions-tight">
                             <button class="btn-small primary" type="button">Primary</button>
                             <button class="btn-small secondary" type="button">Secondary</button>
                             <button class="btn-small danger" type="button">Danger</button>
                         </div>
                     </article>
-                    <article class="card" style="padding:14px;">
+                    <article class="card preview-card">
                         <div class="label">Feedback</div>
-                        <div class="mini ok" style="margin-top:8px;padding:8px;border:1px solid;">Message succes</div>
-                        <div class="mini down" style="margin-top:8px;padding:8px;border:1px solid;">Message erreur</div>
+                        <div class="mini ok preview-feedback">Message succes</div>
+                        <div class="mini down preview-feedback">Message erreur</div>
                     </article>
-                    <article class="card" style="padding:14px;">
+                    <article class="card preview-card">
                         <div class="label">Form controls</div>
-                        <label for="theme-preview-input" style="display:block;margin-top:8px;font-weight:700;">Input</label>
-                        <input id="theme-preview-input" value="Preview value" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+                        <label for="theme-preview-input" class="preview-input-label">Input</label>
+                        <input id="theme-preview-input" class="field-input" value="Preview value" />
                     </article>
                 </div>
             </div>
@@ -546,11 +546,11 @@ pub async fn dashboard() -> Html<String> {
                     + '<button data-act="reject" data-id="' + req.id + '">Rejeter</button>'
                 : '';
 
-            return '<div style="border:1px solid rgba(17,33,48,.13);border-radius:10px;padding:8px;margin:6px 0;background:#fff">'
+            return '<div class="request-row">'
                 + '<strong>#' + req.id + ' - ' + req.pseudo + '</strong> [' + req.status + ']'
                 + '<br>referral: ' + req.referral
                 + '<br>cree a: ' + dt
-                + (actions ? '<div style="margin-top:6px">' + actions + '</div>' : '')
+                + (actions ? '<div class="request-actions">' + actions + '</div>' : '')
                 + '</div>';
         }
 
@@ -668,12 +668,12 @@ pub async fn dashboard() -> Html<String> {
                         ? ''
                         : '<button data-donation-review="1" data-id="' + row.id + '" data-approved="true">Valider</button> '
                             + '<button data-donation-review="1" data-id="' + row.id + '" data-approved="false">Refuser</button>';
-                    return '<div style="border:1px solid rgba(17,33,48,.13);border-radius:10px;padding:8px;margin:6px 0;background:#fff">'
+                    return '<div class="donation-row">'
                         + '<strong>#' + row.id + '</strong> • ' + row.pseudo + ' • ' + row.method
                         + '<br>code: ' + row.code
                         + '<br>etat: ' + state
                         + '<br>date: ' + dt
-                        + '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">'
+                        + '<div class="donation-actions">'
                         + '<a class="btn-small warn" target="_blank" rel="noopener noreferrer" href="/members/donations/proof/' + row.id + '/photo">Voir photo</a>'
                         + actions
                         + '</div>'
@@ -801,7 +801,7 @@ pub async fn dashboard() -> Html<String> {
                 if (user.request_jellyfin) reqBadges.push('Jellyfin');
                 if (user.request_songsurf) reqBadges.push('Songsurf');
                 const reqLabel = reqBadges.length > 0
-                    ? '<div class="user-meta" style="margin-top:4px;color:#8a5a00">Demandes: ' + reqBadges.join(', ') + '</div>'
+                    ? '<div class="user-meta user-request-badges">Demandes: ' + reqBadges.join(', ') + '</div>'
                     : '';
 
                 const ghLabel = user.access_github ? 'GitHub ON' : 'GitHub OFF';

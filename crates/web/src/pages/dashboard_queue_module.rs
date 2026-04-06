@@ -15,8 +15,8 @@ function createDashboardQueueModule(ctx) {
             const html = '<div class="grid">' + list.map((request) => {
                 const dt = new Date(request.epoch * 1000).toLocaleString();
                 return '<div class="card">'
-                    + '<h3 style="margin:0 0 6px;">Pseudo tentative</h3>'
-                    + '<p class="meta" style="margin:0;">' + dt + '</p>'
+                    + '<h3 class="queue-title">Pseudo tentative</h3>'
+                    + '<p class="meta queue-meta">' + dt + '</p>'
                     + '</div>';
             }).join('') + '</div>';
 

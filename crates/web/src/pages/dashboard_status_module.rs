@@ -8,8 +8,8 @@ function createDashboardStatusModule(ctx) {
         const userCount = (stats.users || []).length;
         const loggedCount = (stats.logged_in_users || []).length;
         const html = '<div class="grid">'
-            + '<div class="card"><h2 style="margin-top:0;">' + userCount + '</h2><p class="label">Total users</p></div>'
-            + '<div class="card"><h2 style="margin-top:0;">' + loggedCount + '</h2><p class="label">Logged in now</p></div>'
+            + '<div class="card"><h2 class="card-title-reset">' + userCount + '</h2><p class="label">Total users</p></div>'
+            + '<div class="card"><h2 class="card-title-reset">' + loggedCount + '</h2><p class="label">Logged in now</p></div>'
             + '</div>';
         
         const container = document.getElementById('admin-stats-summary');

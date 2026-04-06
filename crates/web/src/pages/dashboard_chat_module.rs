@@ -121,7 +121,7 @@ function createDashboardChatModule(ctx) {
                 + '<span>' + dt + '</span>'
                 + '</div>'
                 + '<div class="chat-admin-body"><strong>' + escapeHtml(msg.subject || 'Sans sujet') + '</strong><br>' + escapeHtml(msg.body || '') + '</div>'
-                + '<div class="actions" style="margin-top:8px;">'
+                + '<div class="actions actions-tight">'
                 + '<button class="btn-small grant" data-reply-to="' + escapeHtml(adminChatState.selectedThread) + '" data-reply-subject="' + escapeHtml(replySubject) + '">Repondre</button>'
                 + '</div>'
                 + '</div>';

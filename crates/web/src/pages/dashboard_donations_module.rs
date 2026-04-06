@@ -16,10 +16,10 @@ function createDashboardDonationsModule(ctx) {
                 const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
                 const status = !row.reviewed ? 'En attente' : (row.approved ? '✓ Validee' : '✗ Refusee');
                 return '<div class="card">'
-                    + '<h3 style="margin:0 0 4px;">#' + row.id + ' de ' + row.pseudo + '</h3>'
+                    + '<h3 class="donation-item-title">#' + row.id + ' de ' + row.pseudo + '</h3>'
                     + '<p class="label">' + (row.method || 'N/A') + ' • ' + (row.code || 'N/A') + '</p>'
                     + '<p class="meta">' + dt + ' • ' + status + '</p>'
-                    + '<p style="font-size:0.8rem;margin:0;"><a href="/members/donations/proof/' + row.id + '/photo" target="_blank">Voir photo</a></p>'
+                    + '<p class="donation-photo-link"><a href="/members/donations/proof/' + row.id + '/photo" target="_blank">Voir photo</a></p>'
                     + '</div>';
             }).join('');
 

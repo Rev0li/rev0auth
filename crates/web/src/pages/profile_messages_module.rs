@@ -31,8 +31,8 @@ function createProfileMessagesModule(ctx) {
                     return '<div class="list-item">'
                         + '<div><strong>De:</strong> ' + escapeHtml(row.from_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
                         + '<div class="meta">' + dt + ' • ' + status + '</div>'
-                        + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
-                        + (readBtn ? '<div class="actions" style="margin-top:8px;">' + readBtn + '</div>' : '')
+                        + '<div class="message-body">' + escapeHtml(row.body) + '</div>'
+                        + (readBtn ? '<div class="actions actions-compact">' + readBtn + '</div>' : '')
                         + '</div>';
                 }).join('');
                 inboxPanel.querySelectorAll('button[data-read-id]').forEach((btn) => {
@@ -59,7 +59,7 @@ function createProfileMessagesModule(ctx) {
                     return '<div class="list-item">'
                         + '<div><strong>Vers:</strong> ' + escapeHtml(row.to_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
                         + '<div class="meta">' + dt + ' • ' + (row.is_read ? 'Lu' : 'Non lu') + '</div>'
-                        + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
+                        + '<div class="message-body">' + escapeHtml(row.body) + '</div>'
                         + '</div>';
                 }).join('');
             } else {
