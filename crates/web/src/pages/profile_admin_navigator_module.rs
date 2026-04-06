@@ -86,6 +86,7 @@ function createProfileAdminNavigatorModule(ctx) {
         deleteUser,
         openUserProfile,
         updateAdminNavMeta,
+        getUsers: () => adminUsers.slice(),
         setCurrentPseudo: (p) => { currentPseudo = p; }
     };
 }

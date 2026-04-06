@@ -1,22 +1,21 @@
 use axum::response::Html;
 
-use super::{
-    frontend_modules, friend_onboarding_module, friend_services_module,
-    friend_chat_module, friend_status_module, friend_avatar_module,
-};
+use super::friend_page_assembly;
 
 pub async fn friend() -> Html<String> {
-    Html(
+    Html(friend_page_assembly::assemble_friend_page(
         r##"<!doctype html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Home - rev0auth</title>
+    %%FRONTEND_THEME_BOOT%%
     <style>
+        %%FRONTEND_SHARED_CSS%%
         body {
             margin: 0;
-            font-family: "Space Grotesk", "Avenir Next", sans-serif;
+            font-family: var(--font-sans);
             color: #132331;
             background:
                 radial-gradient(circle at 15% 10%, #d9f0ff, transparent 40%),
@@ -569,17 +568,6 @@ pub async fn friend() -> Html<String> {
     </script>
 </body>
 </html>
-"##
-            .replace("%%COMMON_JS_UTILS%%", frontend_modules::JS_COMMON_UTILS)
-            .replace("%%FRIEND_ONBOARDING_CSS%%", friend_onboarding_module::CSS_FRIEND_ONBOARDING_STYLES)
-            .replace("%%FRIEND_ONBOARDING_JS%%", friend_onboarding_module::JS_FRIEND_ONBOARDING_MODULE)
-            .replace("%%FRIEND_SERVICES_CSS%%", friend_services_module::CSS_FRIEND_SERVICES_STYLES)
-            .replace("%%FRIEND_SERVICES_JS%%", friend_services_module::JS_FRIEND_SERVICES_MODULE)
-            .replace("%%FRIEND_CHAT_CSS%%", friend_chat_module::CSS_FRIEND_CHAT_STYLES)
-            .replace("%%FRIEND_CHAT_JS%%", friend_chat_module::JS_FRIEND_CHAT_MODULE)
-            .replace("%%FRIEND_STATUS_CSS%%", friend_status_module::CSS_FRIEND_STATUS_STYLES)
-            .replace("%%FRIEND_STATUS_JS%%", friend_status_module::JS_FRIEND_STATUS_MODULE)
-            .replace("%%FRIEND_AVATAR_CSS%%", friend_avatar_module::CSS_FRIEND_AVATAR_STYLES)
-            .replace("%%FRIEND_AVATAR_JS%%", friend_avatar_module::JS_FRIEND_AVATAR_MODULE),
-    )
+"##,
+    ))
 }

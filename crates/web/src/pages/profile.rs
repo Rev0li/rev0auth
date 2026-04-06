@@ -1,24 +1,21 @@
 use axum::response::Html;
 
-use super::{
-    frontend_modules,
-    profile_info_module, profile_edit_module, profile_avatar_module,
-    profile_password_module, profile_messages_module, profile_donations_module,
-    profile_admin_navigator_module, profile_account_deletion_module,
-};
+use super::profile_page_assembly;
 
 pub async fn profile() -> Html<String> {
-    Html(
+    Html(profile_page_assembly::assemble_profile_page(
         r##"<!doctype html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Profil membre - rev0auth</title>
+    %%FRONTEND_THEME_BOOT%%
     <style>
+        %%FRONTEND_SHARED_CSS%%
         body {
             margin: 0;
-            font-family: "Space Grotesk", "Avenir Next", sans-serif;
+            font-family: var(--font-sans);
             color: #132331;
             background:
                 radial-gradient(circle at 10% 5%, #ffe7cd, transparent 35%),
@@ -256,14 +253,21 @@ pub async fn profile() -> Html<String> {
     </main>
 
     <script>
+        %%COMMON_JS_UTILS%%
+        %%PROFILE_INFO_MODULE%%
+        %%PROFILE_EDIT_MODULE%%
+        %%PROFILE_AVATAR_MODULE%%
+        %%PROFILE_PASSWORD_MODULE%%
+        %%PROFILE_MESSAGES_MODULE%%
+        %%PROFILE_DONATIONS_MODULE%%
+        %%PROFILE_ADMIN_NAVIGATOR_MODULE%%
+        %%PROFILE_ACCOUNT_DELETION_MODULE%%
+
         const params = new URLSearchParams(window.location.search);
         const adminMode = params.get('admin') === '1';
         const queryPseudo = (params.get('pseudo') || '').trim();
         const localPseudo = localStorage.getItem('logged_pseudo');
-        const pseudo = adminMode ? (queryPseudo || localPseudo) : localPseudo;
-        let currentPseudo = pseudo;
-        let adminUsers = [];
-        let currentAvatarObjectUrl = null;
+        const pseudo = adminMode ? (queryPseudo || localPseudo || '') : (localPseudo || '');
 
         if (!pseudo) {
             window.location.href = '/';
@@ -280,23 +284,6 @@ pub async fn profile() -> Html<String> {
             document.getElementById('member-messages-card').style.display = 'none';
             document.getElementById('donation-card').style.display = 'none';
         }
-
-        function bindEnterToClick(inputId, buttonId) {
-            const input = document.getElementById(inputId);
-            const button = document.getElementById(buttonId);
-            if (!input || !button) return;
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    button.click();
-                }
-            });
-        }
-
-        bindEnterToClick('current-password', 'save-password');
-        bindEnterToClick('new-password', 'save-password');
-        bindEnterToClick('msg-subject', 'send-message');
-        bindEnterToClick('donation-code', 'upload-donation');
 
         async function ensureAdminSession() {
             if (!adminMode) return true;
@@ -334,414 +321,16 @@ pub async fn profile() -> Html<String> {
             }
         }
 
-        function setMsg(id, ok, text) {
-            const el = document.getElementById(id);
-            el.className = 'msg ' + (ok ? 'ok' : 'down');
-            el.textContent = text;
-        }
+        const infoModule = createProfileInfoModule({ pseudo, adminMode });
+        const editModule = createProfileEditModule({ pseudo });
+        const avatarModule = createProfileAvatarModule({ pseudo });
+        const passwordModule = createProfilePasswordModule({ pseudo, adminMode });
+        const messagesModule = createProfileMessagesModule({ pseudo, adminMode });
+        const donationsModule = createProfileDonationsModule({ pseudo, adminMode });
+        const adminNavigatorModule = createProfileAdminNavigatorModule({ pseudo, adminMode });
+        const accountDeletionModule = createProfileAccountDeletionModule({ pseudo, adminMode });
 
-        function escapeHtml(raw) {
-            return String(raw || '')
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#39;');
-        }
-
-           function statusEmoji(status) {
-               const raw = String(status || '').toLowerCase();
-               if (raw === 'actif') return '😀';
-               if (raw === 'occupe') return '😐';
-               return '❓';
-           }
-
-           function setAvatarState(text, visible) {
-               const state = document.getElementById('avatar-state');
-               state.textContent = text;
-               const preview = document.getElementById('avatar-preview');
-               preview.style.display = visible ? 'block' : 'none';
-           }
-
-           function clearAvatarObjectUrl() {
-               if (currentAvatarObjectUrl) {
-                   URL.revokeObjectURL(currentAvatarObjectUrl);
-                   currentAvatarObjectUrl = null;
-               }
-           }
-
-           function showAvatarPreviewFromFile(file) {
-               clearAvatarObjectUrl();
-               currentAvatarObjectUrl = URL.createObjectURL(file);
-               const preview = document.getElementById('avatar-preview');
-               preview.src = currentAvatarObjectUrl;
-               preview.style.display = 'block';
-               setAvatarState('Prévisualisation locale avant envoi.', true);
-           }
-
-        async function loadProfile() {
-            try {
-                const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
-                const data = await res.json();
-                if (data.ok && typeof data.bio === 'string') {
-                    document.getElementById('info-pseudo').textContent = data.pseudo || '--';
-                    document.getElementById('info-role').textContent = data.role || '--';
-                    document.getElementById('info-status').textContent = data.status || '--';
-                    document.getElementById('info-status-emoji').textContent = statusEmoji(data.status);
-                    document.getElementById('info-commentary').textContent = data.commentary || 'Aucun commentaire.';
-                    document.getElementById('info-created').textContent = data.created_at_epoch ? new Date(data.created_at_epoch * 1000).toLocaleString() : '--';
-                    document.getElementById('info-avatar').textContent = data.avatar_filename || 'none';
-                    document.getElementById('bio').value = data.bio;
-                    document.getElementById('commentary').value = data.commentary || '';
-
-                    if (!adminMode) {
-                        document.getElementById('status-row').style.display = 'none';
-                        document.getElementById('status-emoji-row').style.display = 'none';
-                        document.getElementById('commentary-row').style.display = 'none';
-                        document.getElementById('commentary').style.display = 'none';
-                        document.querySelector('label[for="commentary"]').style.display = 'none';
-                    }
-
-                    const preview = document.getElementById('avatar-preview');
-                    if (data.avatar_present) {
-                        clearAvatarObjectUrl();
-                        preview.src = '/members/avatar/' + encodeURIComponent(currentPseudo) + '?t=' + (data.created_at_epoch || Date.now());
-                        setAvatarState(data.avatar_filename ? 'Avatar: ' + data.avatar_filename : 'Avatar present', true);
-                    } else {
-                        clearAvatarObjectUrl();
-                        preview.removeAttribute('src');
-                        setAvatarState('Aucun avatar pour le moment.', false);
-                    }
-                }
-            } catch (_err) {
-                setMsg('profile-msg', false, 'Impossible de charger le profil.');
-            }
-        }
-
-        async function loadMessages() {
-            if (adminMode) return;
-            try {
-                const [inboxRes, sentRes] = await Promise.all([
-                    fetch('/members/messages/inbox?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' }),
-                    fetch('/members/messages/sent?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' })
-                ]);
-                const inbox = await inboxRes.json();
-                const sent = await sentRes.json();
-
-                const inboxPanel = document.getElementById('messages-inbox');
-                if (Array.isArray(inbox) && inbox.length > 0) {
-                    inboxPanel.innerHTML = inbox.slice().reverse().map((row) => {
-                        const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
-                        const status = row.is_read ? 'Lu' : 'Non lu';
-                        const readBtn = row.is_read
-                            ? ''
-                            : '<button class="secondary" data-read-id="' + row.id + '">Marquer lu</button>';
-                        return '<div class="list-item">'
-                            + '<div><strong>De:</strong> ' + escapeHtml(row.from_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
-                            + '<div class="meta">' + dt + ' • ' + status + '</div>'
-                            + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
-                            + (readBtn ? '<div class="actions" style="margin-top:8px;">' + readBtn + '</div>' : '')
-                            + '</div>';
-                    }).join('');
-                    inboxPanel.querySelectorAll('button[data-read-id]').forEach((btn) => {
-                        btn.addEventListener('click', async () => {
-                            const id = btn.getAttribute('data-read-id');
-                            const res = await fetch('/members/messages/' + id + '/read', {
-                                method: 'POST',
-                                headers: { 'content-type': 'application/json' },
-                                body: JSON.stringify({ pseudo: currentPseudo })
-                            });
-                            const data = await res.json();
-                            setMsg('messages-msg', !!data.ok, data.message || 'Etat message mis a jour.');
-                            if (data.ok) await loadMessages();
-                        });
-                    });
-                } else {
-                    inboxPanel.textContent = 'Aucun message recu.';
-                }
-
-                const sentPanel = document.getElementById('messages-sent');
-                if (Array.isArray(sent) && sent.length > 0) {
-                    sentPanel.innerHTML = sent.slice().reverse().map((row) => {
-                        const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
-                        return '<div class="list-item">'
-                            + '<div><strong>Vers:</strong> ' + escapeHtml(row.to_pseudo) + ' • <strong>Sujet:</strong> ' + escapeHtml(row.subject) + '</div>'
-                            + '<div class="meta">' + dt + ' • ' + (row.is_read ? 'Lu' : 'Non lu') + '</div>'
-                            + '<div style="margin-top:6px;white-space:pre-wrap;">' + escapeHtml(row.body) + '</div>'
-                            + '</div>';
-                    }).join('');
-                } else {
-                    sentPanel.textContent = 'Aucun message envoye.';
-                }
-            } catch (err) {
-                setMsg('messages-msg', false, 'Impossible de charger les messages: ' + err.message);
-            }
-        }
-
-        async function loadDonations() {
-            if (adminMode) return;
-            try {
-                const res = await fetch('/members/donations?pseudo=' + encodeURIComponent(currentPseudo), { cache: 'no-store' });
-                const list = await res.json();
-                const panel = document.getElementById('donations-list');
-                if (!Array.isArray(list) || list.length === 0) {
-                    panel.textContent = 'Aucune preuve envoyee.';
-                    return;
-                }
-
-                panel.innerHTML = list.slice().reverse().map((row) => {
-                    const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
-                    const verdict = !row.reviewed
-                        ? 'En attente'
-                        : (row.approved ? 'Validee' : 'Refusee');
-                    return '<div class="list-item">'
-                        + '<div><strong>#' + row.id + '</strong> • ' + escapeHtml(row.method) + ' • ' + escapeHtml(row.code) + '</div>'
-                        + '<div class="meta">' + dt + ' • ' + verdict + '</div>'
-                        + '<div style="margin-top:6px;"><a class="btn secondary" href="/members/donations/proof/' + row.id + '/photo" target="_blank" rel="noopener noreferrer">Voir photo</a></div>'
-                        + '</div>';
-                }).join('');
-            } catch (err) {
-                setMsg('donation-msg', false, 'Impossible de charger les preuves: ' + err.message);
-            }
-        }
-
-        function updateAdminNavMeta() {
-            if (!adminMode) return;
-            const idx = adminUsers.findIndex((p) => p.toLowerCase() === currentPseudo.toLowerCase());
-            const total = adminUsers.length;
-            const meta = document.getElementById('admin-nav-meta');
-            if (idx >= 0 && total > 0) {
-                meta.textContent = 'User ' + (idx + 1) + ' / ' + total;
-            } else {
-                meta.textContent = 'User -- / --';
-            }
-        }
-
-        async function loadAdminUsersNavigator() {
-            if (!adminMode) return;
-            try {
-                const res = await fetch('/users', { cache: 'no-store' });
-                const list = await res.json();
-                adminUsers = Array.isArray(list) ? list.map((u) => u.pseudo) : [];
-                if (adminUsers.length > 0 && !adminUsers.some((p) => p.toLowerCase() === currentPseudo.toLowerCase())) {
-                    currentPseudo = adminUsers[0];
-                }
-                updateAdminNavMeta();
-            } catch (_err) {
-                document.getElementById('admin-nav-meta').textContent = 'Navigation users indisponible';
-            }
-        }
-
-        function goToAdminUser(offset) {
-            if (!adminMode || adminUsers.length === 0) return;
-            const idx = adminUsers.findIndex((p) => p.toLowerCase() === currentPseudo.toLowerCase());
-            if (idx < 0) return;
-
-            const nextIdx = idx + offset;
-            if (nextIdx < 0 || nextIdx >= adminUsers.length) return;
-
-            const nextPseudo = adminUsers[nextIdx];
-            const url = '/members/profile?pseudo=' + encodeURIComponent(nextPseudo) + '&admin=1';
-            window.location.href = url;
-        }
-
-        document.getElementById('save-profile').addEventListener('click', async () => {
-            const bio = document.getElementById('bio').value;
-            const commentary = document.getElementById('commentary').value;
-            try {
-                const res = await fetch('/members/profile/data', {
-                    method: 'PUT',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo: currentPseudo, bio, commentary })
-                });
-                const data = await res.json();
-                setMsg('profile-msg', !!data.ok, data.message || 'Profil mis a jour.');
-            } catch (err) {
-                setMsg('profile-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('send-message').addEventListener('click', async () => {
-            if (adminMode) return;
-            const subject = document.getElementById('msg-subject').value.trim();
-            const body = document.getElementById('msg-body').value.trim();
-            try {
-                const res = await fetch('/members/messages/send', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        from_pseudo: currentPseudo,
-                        subject,
-                        body
-                    })
-                });
-                const data = await res.json();
-                setMsg('messages-msg', !!data.ok, data.message || 'Message envoye.');
-                if (data.ok) {
-                    document.getElementById('msg-subject').value = '';
-                    document.getElementById('msg-body').value = '';
-                    await loadMessages();
-                }
-            } catch (err) {
-                setMsg('messages-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('refresh-messages').addEventListener('click', loadMessages);
-
-        document.getElementById('upload-donation').addEventListener('click', async () => {
-            if (adminMode) return;
-            const method = document.getElementById('donation-method').value;
-            const code = document.getElementById('donation-code').value.trim();
-            const photo = document.getElementById('donation-photo');
-            if (!code) {
-                setMsg('donation-msg', false, 'Entre un code/reference.');
-                return;
-            }
-            if (!photo.files || photo.files.length === 0) {
-                setMsg('donation-msg', false, 'Ajoute une photo justificative.');
-                return;
-            }
-
-            const form = new FormData();
-            form.append('pseudo', currentPseudo);
-            form.append('method', method);
-            form.append('code', code);
-            form.append('photo', photo.files[0]);
-
-            try {
-                const res = await fetch('/members/donations/proof', {
-                    method: 'POST',
-                    body: form
-                });
-                const data = await res.json();
-                setMsg('donation-msg', !!data.ok, data.message || 'Preuve envoyee.');
-                if (data.ok) {
-                    document.getElementById('donation-code').value = '';
-                    photo.value = '';
-                    await loadDonations();
-                }
-            } catch (err) {
-                setMsg('donation-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('refresh-donations').addEventListener('click', loadDonations);
-
-        document.getElementById('upload-avatar').addEventListener('click', async () => {
-            const input = document.getElementById('avatar');
-            if (!input.files || input.files.length === 0) {
-                setMsg('avatar-msg', false, 'Choisis un fichier image.');
-                return;
-            }
-
-            showAvatarPreviewFromFile(input.files[0]);
-
-            const form = new FormData();
-            form.append('pseudo', currentPseudo);
-            form.append('avatar', input.files[0]);
-
-            try {
-                const res = await fetch('/members/avatar', {
-                    method: 'POST',
-                    body: form
-                });
-                const data = await res.json();
-                setMsg('avatar-msg', !!data.ok, data.message || 'Avatar mis a jour.');
-                if (data.ok) {
-                    input.value = '';
-                    await loadProfile();
-                }
-            } catch (err) {
-                setMsg('avatar-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('delete-avatar').addEventListener('click', async () => {
-            if (!confirm('Supprimer l\'avatar de ce profil ?')) return;
-            try {
-                const res = await fetch('/members/avatar/' + encodeURIComponent(currentPseudo), {
-                    method: 'DELETE'
-                });
-                const data = await res.json();
-                setMsg('avatar-msg', !!data.ok, data.message || 'Avatar supprime.');
-                if (data.ok) {
-                    clearAvatarObjectUrl();
-                    await loadProfile();
-                }
-            } catch (err) {
-                setMsg('avatar-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('save-password').addEventListener('click', async () => {
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            if (!newPassword) {
-                setMsg('password-msg', false, 'Entre un nouveau mot de passe.');
-                return;
-            }
-
-            try {
-                const res = adminMode
-                    ? await fetch('/japprends/set-password/' + encodeURIComponent(currentPseudo), {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ password: newPassword })
-                    })
-                    : await fetch('/members/password', {
-                        method: 'PUT',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({
-                            pseudo: currentPseudo,
-                            current_password: currentPassword,
-                            new_password: newPassword
-                        })
-                    });
-                const data = await res.json();
-                setMsg('password-msg', !!data.ok, data.message || 'Mot de passe mis a jour.');
-                if (data.ok) {
-                    document.getElementById('current-password').value = '';
-                    document.getElementById('new-password').value = '';
-                }
-            } catch (err) {
-                setMsg('password-msg', false, 'Erreur: ' + err.message);
-            }
-        });
-
-        document.getElementById('prev-user').addEventListener('click', () => goToAdminUser(-1));
-        document.getElementById('next-user').addEventListener('click', () => goToAdminUser(1));
-
-        document.getElementById('delete-account').addEventListener('click', async () => {
-            if (!confirm('Supprimer ton compte definitivement ?')) return;
-            try {
-                const res = await fetch('/members/account', {
-                    method: 'DELETE',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo: currentPseudo })
-                });
-                const data = await res.json();
-                setMsg('delete-msg', !!data.ok, data.message || 'Action terminee.');
-                if (data.ok) {
-                    if (!adminMode) {
-                        localStorage.removeItem('logged_pseudo');
-                        setTimeout(() => {
-                            window.location.href = '/';
-                        }, 500);
-                    } else {
-                        await loadAdminUsersNavigator();
-                        if (adminUsers.length > 0) {
-                            const url = '/members/profile?pseudo=' + encodeURIComponent(adminUsers[0]) + '&admin=1';
-                            window.location.href = url;
-                        } else {
-                            window.location.href = '/dashboard';
-                        }
-                    }
-                }
-            } catch (err) {
-                setMsg('delete-msg', false, 'Erreur: ' + err.message);
-            }
-        });
+        accountDeletionModule.setAdminNavigatorModule(adminNavigatorModule);
 
         (async () => {
             if (adminMode) {
@@ -751,19 +340,21 @@ pub async fn profile() -> Html<String> {
                     window.location.href = '/japprends/login';
                     return;
                 }
-                await loadAdminUsersNavigator();
+                await adminNavigatorModule.loadAdminUsersNavigator();
             }
-            loadProfile();
+            await infoModule.loadProfile();
+            await editModule.loadProfileData();
+            await avatarModule.loadAvatarState();
             if (!adminMode) {
-                await loadMessages();
-                await loadDonations();
+                await messagesModule.loadMessages();
+                await donationsModule.loadDonations();
             }
-            updateAdminNavMeta();
+            adminNavigatorModule.updateAdminNavMeta();
         })();
     </script>
 </body>
 </html>
 "##
-            .to_string(),
-    )
+,
+    ))
 }

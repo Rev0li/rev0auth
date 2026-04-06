@@ -1,6 +1,8 @@
 use axum::response::Html;
 
-pub async fn home() -> Html<&'static str> {
+use super::frontend_theme;
+
+pub async fn home() -> Html<String> {
     Html(
         r##"<!doctype html>
 <html lang="fr">
@@ -8,10 +10,12 @@ pub async fn home() -> Html<&'static str> {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>rev0auth - Connexion</title>
+    %%FRONTEND_THEME_BOOT%%
     <style>
+        %%FRONTEND_SHARED_CSS%%
         body {
             margin: 0;
-            font-family: "Space Grotesk", "Avenir Next", sans-serif;
+            font-family: var(--font-sans);
             color: #132331;
             background:
                 radial-gradient(circle at 10% 5%, #ffe7cd, transparent 35%),
@@ -187,6 +191,8 @@ pub async fn home() -> Html<&'static str> {
     </script>
 </body>
 </html>
-"##,
+"##
+        .replace("%%FRONTEND_THEME_BOOT%%", frontend_theme::FRONTEND_THEME_BOOT)
+        .replace("%%FRONTEND_SHARED_CSS%%", frontend_theme::FRONTEND_SHARED_CSS),
     )
 }

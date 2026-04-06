@@ -1,23 +1,20 @@
 use axum::response::Html;
 
-use super::{
-    dashboard_chat_module, frontend_modules,
-    dashboard_users_module, dashboard_donations_module, dashboard_testing_module,
-    dashboard_queue_module, dashboard_status_module,
-};
+use super::dashboard_page_assembly;
 
 use crate::admin_pseudo_from_env;
 
 pub async fn dashboard() -> Html<String> {
     let admin_pseudo = admin_pseudo_from_env();
-    Html(
-        r##"<!doctype html>
+    let template = r##"<!doctype html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>rev0auth - Dashboard ALL Include</title>
+    %%FRONTEND_THEME_BOOT%%
     <style>
+        %%FRONTEND_SHARED_CSS%%
         :root {
             --ink: #10202e;
             --panel: rgba(255, 255, 255, 0.9);
@@ -29,7 +26,7 @@ pub async fn dashboard() -> Html<String> {
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            font-family: "Space Grotesk", "Avenir Next", sans-serif;
+            font-family: var(--font-sans);
             color: var(--ink);
             background:
                 radial-gradient(circle at 7% 0%, #ffe8ce 0%, transparent 34%),
@@ -509,6 +506,7 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn active" data-tab-btn="overview">Overview</button>
             <button class="tab-btn" data-tab-btn="admin">Admin</button>
             <button class="tab-btn" data-tab-btn="user">User</button>
+            <button class="tab-btn" data-tab-btn="theme">Theme</button>
             <button class="tab-btn" data-tab-btn="system">System</button>
         </nav>
 
@@ -695,6 +693,69 @@ pub async fn dashboard() -> Html<String> {
             </div>
         </section>
 
+        <section class="tab-page" id="tab-theme">
+            <div class="row">
+                <strong>Theme editor (global frontend)</strong>
+                <div class="mini">Ces tokens sont sauvegardes dans le navigateur admin et appliques sur tout le frontend via <code>rev0auth_theme</code>.</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                    <div>
+                        <label for="theme-preset-name" style="display:block;font-weight:700;margin-bottom:6px;">Nom du preset</label>
+                        <input id="theme-preset-name" placeholder="ex: ocean-soft" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+                    </div>
+                    <div>
+                        <label for="theme-preset-select" style="display:block;font-weight:700;margin-bottom:6px;">Presets enregistres</label>
+                        <select id="theme-preset-select" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;"></select>
+                    </div>
+                </div>
+                <div class="actions">
+                    <button class="btn-small grant" id="theme-preset-save">Sauver preset</button>
+                    <button class="btn-small" id="theme-preset-update">Mettre a jour preset selectionne</button>
+                    <button class="btn-small" id="theme-preset-apply">Appliquer preset</button>
+                    <button class="btn-small danger" id="theme-preset-delete">Supprimer preset</button>
+                </div>
+                <div id="theme-editor-list"></div>
+                <div class="actions">
+                    <button class="btn-small" id="theme-preview-apply">Preview page courante</button>
+                    <button class="btn-small" id="theme-preview-reset">Reset preview</button>
+                    <button class="btn-small grant" id="theme-editor-save">Sauvegarder theme</button>
+                    <button class="btn-small" id="theme-editor-export-btn">Exporter JSON</button>
+                    <button class="btn-small" id="theme-editor-import-btn">Importer JSON</button>
+                    <button class="btn-small danger" id="theme-editor-reset">Reset theme</button>
+                </div>
+                <textarea id="theme-editor-export" style="width:100%;margin-top:10px;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;min-height:120px;font:inherit;background:#fff;" placeholder="JSON export theme..."></textarea>
+                <div id="theme-editor-msg" class="mini" style="margin-top:8px;"></div>
+            </div>
+            <div class="row">
+                <strong>Preview composants (live)</strong>
+                <div class="mini">Ajuste les tokens ci-dessus: cette vitrine se met a jour instantanement et represente les elements principaux du site.</div>
+                <div class="grid" style="margin-top:10px;grid-template-columns:repeat(2,minmax(0,1fr));">
+                    <article class="card" style="padding:14px;">
+                        <div class="label">Card / Typography</div>
+                        <h3 style="margin:8px 0 4px;">Titre exemple</h3>
+                        <div class="meta">Texte secondaire pour verifier le contraste et la lisibilite globale.</div>
+                    </article>
+                    <article class="card" style="padding:14px;">
+                        <div class="label">Buttons</div>
+                        <div class="actions" style="margin-top:8px;">
+                            <button class="btn-small primary" type="button">Primary</button>
+                            <button class="btn-small secondary" type="button">Secondary</button>
+                            <button class="btn-small danger" type="button">Danger</button>
+                        </div>
+                    </article>
+                    <article class="card" style="padding:14px;">
+                        <div class="label">Feedback</div>
+                        <div class="mini ok" style="margin-top:8px;padding:8px;border:1px solid;">Message succes</div>
+                        <div class="mini down" style="margin-top:8px;padding:8px;border:1px solid;">Message erreur</div>
+                    </article>
+                    <article class="card" style="padding:14px;">
+                        <div class="label">Form controls</div>
+                        <label for="theme-preview-input" style="display:block;margin-top:8px;font-weight:700;">Input</label>
+                        <input id="theme-preview-input" value="Preview value" style="width:100%;border:1px solid rgba(17,33,48,.2);border-radius:8px;padding:9px;box-sizing:border-box;font:inherit;background:#fff;" />
+                    </article>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <script>
@@ -716,6 +777,12 @@ pub async fn dashboard() -> Html<String> {
 
         %%COMMON_JS_UTILS%%
         %%DASHBOARD_CHAT_MODULE%%
+        %%DASHBOARD_USERS_MODULE%%
+        %%DASHBOARD_DONATIONS_MODULE%%
+        %%DASHBOARD_TESTING_MODULE%%
+        %%DASHBOARD_QUEUE_MODULE%%
+        %%DASHBOARD_STATUS_MODULE%%
+        %%DASHBOARD_THEME_EDITOR_MODULE%%
 
         const adminChatModule = createDashboardChatModule({
             adminPseudo,
@@ -728,6 +795,8 @@ pub async fn dashboard() -> Html<String> {
             sendAdminReply,
             loadAdminMessages,
         } = adminChatModule;
+
+        const themeEditorModule = createDashboardThemeEditorModule();
 
         function copyTempPassword(password) {
             if (!password) return;
@@ -1316,6 +1385,7 @@ pub async fn dashboard() -> Html<String> {
         bindEnterToClick('onboarding-new-password', 'onboarding-submit');
 
         bindTabs();
+        themeEditorModule.initThemeEditor();
         refreshStatus();
         loadTestsHistory();
         loadEndpoints();
@@ -1333,13 +1403,7 @@ pub async fn dashboard() -> Html<String> {
 </body>
 </html>
 "##
-            .replace("%%ADMIN_PSEUDO%%", &admin_pseudo)
-            .replace("%%COMMON_JS_UTILS%%", frontend_modules::JS_COMMON_UTILS)
-            .replace("%%DASHBOARD_CHAT_MODULE%%", dashboard_chat_module::JS_DASHBOARD_CHAT_MODULE)
-            .replace("%%DASHBOARD_USERS_MODULE%%", dashboard_users_module::JS_DASHBOARD_USERS_MODULE)
-            .replace("%%DASHBOARD_DONATIONS_MODULE%%", dashboard_donations_module::JS_DASHBOARD_DONATIONS_MODULE)
-            .replace("%%DASHBOARD_TESTING_MODULE%%", dashboard_testing_module::JS_DASHBOARD_TESTING_MODULE)
-            .replace("%%DASHBOARD_QUEUE_MODULE%%", dashboard_queue_module::JS_DASHBOARD_QUEUE_MODULE)
-            .replace("%%DASHBOARD_STATUS_MODULE%%", dashboard_status_module::JS_DASHBOARD_STATUS_MODULE),
-    )
+    .replace("%%ADMIN_PSEUDO%%", &admin_pseudo);
+
+    Html(dashboard_page_assembly::assemble_dashboard_page(&template))
 }

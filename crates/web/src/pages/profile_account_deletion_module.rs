@@ -28,13 +28,20 @@ function createProfileAccountDeletionModule(ctx) {
                         window.location.href = '/';
                     }, 500);
                 } else {
-                    // Admin mode: use navigator to go to next user or dashboard
+                    // Admin mode: switch to another profile if available, fallback to dashboard.
                     if (adminNavigatorModule) {
                         await adminNavigatorModule.loadAdminUsersNavigator();
-                        adminNavigatorModule.deleteUser(currentPseudo);
+                        const users = adminNavigatorModule.getUsers ? adminNavigatorModule.getUsers() : [];
+                        const nextPseudo = users.find((p) => String(p).toLowerCase() !== String(currentPseudo).toLowerCase());
+                        if (nextPseudo) {
+                            adminNavigatorModule.openUserProfile(nextPseudo);
+                            return;
+                        }
                     } else {
                         window.location.href = '/dashboard';
+                        return;
                     }
+                    window.location.href = '/dashboard';
                 }
             }
         } catch (err) {
