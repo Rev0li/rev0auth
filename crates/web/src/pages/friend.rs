@@ -54,15 +54,6 @@ pub async fn friend() -> Html<String> {
             align-items: flex-end;
             gap: 10px;
         }
-        .header-avatar {
-            width: 62px;
-            height: 62px;
-            border-radius: 50%;
-            border: 2px solid rgba(19, 35, 49, 0.16);
-            background: #f3f7fa;
-            object-fit: cover;
-            box-shadow: 0 6px 14px rgba(19, 35, 49, 0.16);
-        }
         .header-action-row {
             display: flex;
             gap: 10px;
