@@ -1,5 +1,4 @@
 mod pages;
-mod styles;
 
 use axum::{
     body::Body,
