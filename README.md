@@ -1,81 +1,79 @@
-# rev0auth
+# rev0auth - SaaS Platform
 
-Plateforme Rust pour:
-- zone privee membres (roles/rangs)
-- diffusion/partage video (DldeMedia)
-- zone publique portfolio + CV + contact pro
+Plateforme SaaS Rust pour gestion d'identité, d'accès et connexion de services externes.
 
-## Architecture cible
+## Features
 
-- `crates/api`: API auth + RBAC + gestion membres
-- `crates/web`: frontend public/prive (SSR initial)
-- VPS: reverse proxy HTTPS (Caddy/Nginx)
-- DNS: DuckDNS
-- NAS: acces prive via Tailscale uniquement
+- **Auth & RBAC**: Signup/login sécurisés, tokens JWT rotatifs, roles granulaires
+- **Connection Dashboard**: Vue unifiée des services connectés (GitHub, Jellyfin, Songsurf)
+- **Admin Control**: Gestion users, activation d'accès, audit logs
+- **Private Zone**: Espace membre personnalisé avec profil, avatar, messages
+- **Portfolio Public**: Pages publiques (home, profil, CV)
+- **Security First**: CSRF, rate-limit, validation stricte, logs d'audit
 
-## Demarrage local
+## Quick Start
+
+### Local
 
 ```bash
+# Setup variables
 export AUTH_JWT_SECRET='replace-with-32-bytes-minimum-secret'
-~/.cargo/bin/cargo run -p rev0auth-api
-~/.cargo/bin/cargo run -p rev0auth-web
-```
+export ADMIN_DASH_PASSWORD='change-me'
 
-API healthcheck:
+# Launch
+make launch-all
 
-```bash
+# Verify
 curl http://localhost:8080/health
 ```
 
-Preflight avant deploy:
+API: `http://127.0.0.1:8080`
+Web: `http://127.0.0.1:3000`
+
+### Production
 
 ```bash
-export ADMIN_DASH_PASSWORD='change-me'
+export AUTH_JWT_SECRET='your-production-secret'
+export DATABASE_URL='postgres://...'
 make preflight
+./scripts/setup-vps.sh
+./scripts/install-caddy-template.sh
 ```
 
-## Vision securite
+Voir [docs/install-to-launch.md](docs/install-to-launch.md) pour le déploiement complet.
 
-- JWT court + refresh tokens rotatifs
-- RBAC (guest/member/mod/admin)
-- secrets via variables d'environnement
-- NAS non expose publiquement (Tailscale tailnet)
-- logs d'audit sur connexions et actions sensibles
+## Architecture
 
-## Module Auth implemente
+- **API** (`crates/api`): Auth, RBAC, user management, audit
+- **Web** (`crates/web`): Admin dashboard, member zone, public pages
+- **Database**: PostgreSQL (avec fallback memoire pour dev)
+- **Infrastructure**: Caddy reverse proxy, DuckDNS, Tailscale (pour NAS privé)
 
-Routes disponibles:
-- POST /auth/signup
-- POST /auth/login
-- POST /auth/refresh
+## Services
 
-Documentation active:
-- docs/public-project-handbook.md
-- docs/checklists-master.md
-- docs/tickets-auth.md
+Intégration gérée:
+- **GitHub** (star verification, username linking)
+- **Jellyfin** (accès media)
+- **Songsurf** (music service)
 
-## AUTH-005 - Backend PostgreSQL
+Admin contrôle activation par user.
 
-Le backend auth utilise PostgreSQL automatiquement si `DATABASE_URL` est defini.
-Sinon, il reste en mode memoire (pratique pour tests locaux).
+## Documentation
 
-Exemple:
+- [Roadmap](docs/roadmaps/first_stable-roadmap.md)
+- [Handbook & Troubleshooting](docs/public-project-handbook.md)
+- [Operations Guide](docs/operations/README.md)
+- [Learning](docs/learning/README.md)
+
+## Testing & Quality
 
 ```bash
-export AUTH_JWT_SECRET='replace-with-32-bytes-minimum-secret'
-export DATABASE_URL='postgres://postgres:postgres@localhost:5432/rev0auth'
-~/.cargo/bin/cargo run -p rev0auth-api
+make test              # All tests
+cargo check -p rev0auth-web
+cargo check -p rev0auth-api
 ```
 
-Schema SQL versionne:
-- crates/api/migrations/0001_auth_schema.sql
+## License & Status
 
-Rapport ticket AUTH-005 (archive):
-- docs/archive/2026-04-clean-2/auth-005-report.md
-## Audit complet & Roadmap future
-
-Pour voir TOUT le detail des fonctions/variables/tests:
-- [docs/archive/2026-04-clean-2/audit-auth-complete.md](docs/archive/2026-04-clean-2/audit-auth-complete.md)
-
-Pour la timeline jour par jour (10 jours) vers produit final:
-- [docs/roadmap-detailed.md](docs/roadmap-detailed.md)
+Status: **v1-alpha** (firs_stable baseline)
+Target: v1.0.0 (clean + security hardened + UI polish)
