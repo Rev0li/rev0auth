@@ -33,6 +33,7 @@ pub mod dashboard_status_module;
 pub mod dashboard_theme_editor_module;
 pub mod profile_page_styles;
 pub mod friend_page_styles;
+pub mod dashboard_page_styles;
 
 pub use home::home;
 pub use portal::portal;
