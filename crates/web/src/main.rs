@@ -155,11 +155,6 @@ struct AccountPasswordResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct CreateUserInput {
-    pseudo: String,
-}
-
-#[derive(Debug, Deserialize)]
 struct UpdateUserInput {
     status: Option<String>,
     access_github: Option<bool>,
@@ -1214,11 +1209,9 @@ async fn admin_remove_password(
 }
 
 async fn admin_create_user(
-    State(state): State<WebState>,
-    Json(payload): Json<CreateUserInput>,
+    State(_state): State<WebState>,
+    Json(_payload): Json<serde_json::Value>,
 ) -> Json<AccountPasswordResponse> {
-    let _ = state;
-    let _ = payload;
     Json(AccountPasswordResponse {
         ok: false,
         message: "Creation manuelle desactivee pour eviter les collisions de compte.".to_string(),
