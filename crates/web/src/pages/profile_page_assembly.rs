@@ -2,6 +2,7 @@ use super::{
     frontend_modules, frontend_theme, page_assembly, profile_account_deletion_module,
     profile_admin_navigator_module, profile_avatar_module, profile_donations_module,
     profile_edit_module, profile_info_module, profile_messages_module, profile_password_module,
+    profile_page_styles,
 };
 
 pub fn assemble_profile_page(template: &str) -> String {
@@ -15,6 +16,10 @@ pub fn assemble_profile_page(template: &str) -> String {
             page_assembly::PageModule {
                 placeholder: "%%FRONTEND_SHARED_CSS%%",
                 content: frontend_theme::FRONTEND_SHARED_CSS,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%PROFILE_PAGE_STYLES%%",
+                content: profile_page_styles::PROFILE_PAGE_STYLES,
             },
             page_assembly::PageModule {
                 placeholder: "%%COMMON_JS_UTILS%%",

@@ -31,6 +31,7 @@ pub mod dashboard_testing_module;
 pub mod dashboard_queue_module;
 pub mod dashboard_status_module;
 pub mod dashboard_theme_editor_module;
+pub mod profile_page_styles;
 
 pub use home::home;
 pub use portal::portal;
