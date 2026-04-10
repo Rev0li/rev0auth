@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init
 
 help:
 	@echo "Targets:"
@@ -56,3 +56,6 @@ preflight:
 
 admin-otp:
 	./scripts/admin-otp.sh
+
+admin-2fa-init:
+	./scripts/admin-2fa-init.sh
