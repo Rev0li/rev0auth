@@ -3,6 +3,23 @@
 Date: 2026-04-06
 Baseline stable: `firs_stable`
 
+## Avancement - 2026-04-10
+
+- Phase 1 (clean structurel): largement executee sur les pages web principales.
+  - extraction des styles inline vers modules dedies
+  - suppression des `style="..."` restants dans les templates et modules cibles
+  - validation compile/test apres lots
+- Phase 2 (best security tests): demarree et branchee au pipeline global.
+  - `make test` est maintenant un all-test: audit securite + suite tests Rust
+  - tests securite API ajoutes (payload malforme, champs manquants, bearer forge)
+  - 2FA admin TOTP ajoute (optionnel, active via `ADMIN_DASH_TOTP_SECRET`)
+- Ops/dev ergonomie:
+  - chargement automatique de `.env` sur `make launch-all` et `make test`
+
+Commits de reference:
+- `e8d2ce8` - nettoyage styles inline web
+- `57e9c58` - all-test securite + 2FA TOTP + integration `.env`
+
 ## Objectif
 
 Partir d'une base stable, reduire la surface de code, renforcer la securite, puis livrer une V1 visuelle propre.
@@ -13,7 +30,7 @@ Partir d'une base stable, reduire la surface de code, renforcer la securite, pui
 - Verrouiller la verification minimale:
   - `cargo check -p rev0auth-web`
   - `make test`
-- Interdire les gros commits melanges: uniquement micro-commits atomiques.
+- Interdire les gros commits melanges.
 
 ## Phase 1 - Clean structurel (micro-refactor)
 
@@ -47,6 +64,11 @@ Objectif: augmenter la confiance sur les chemins d'attaque.
   - integration (db/http)
   - security (abuse cases)
 - Ajouter commandes de run dediees dans `Makefile` ou scripts.
+
+Etat actuel (2026-04-10):
+- [x] commandes de run securite integrees au flux `make test`
+- [x] premiers tests de securite API integres
+- [ ] completer la matrice abuse cases (replay approfondi, CSRF mutation coverage complet, escalation scenario end-to-end)
 
 ## Phase 3 - Hardening securite
 

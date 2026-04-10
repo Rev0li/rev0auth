@@ -258,4 +258,30 @@ Objectif:
 Definition of done:
 - Procedure d'installation documentee dans `docs/auth-012-media-install.md`
 - Verifications de branchement notees
+
+## Ticket AUTH-013-SECURITY-PIPELINE
+
+Statut: DONE
+
+Objectif:
+- Transformer `make test` en all-test securite + qualite
+- Ajouter un 2FA admin pragmatique (TOTP) pour le dashboard
+- Integrer automatiquement `.env` dans les commandes de run/test
+
+Definition of done:
+- `make test` lance audit securite + suite Rust
+- script `scripts/security-audit.sh` verifie au minimum:
+	- absence de mot de passe en clair en migration auth
+	- presence de hash password (`password_hash`) cote DB
+	- presence des hooks 2FA admin
+- login admin accepte OTP lorsque `ADMIN_DASH_TOTP_SECRET` est configure
+- `.env` auto-charge sur `make launch-all` et `make test`
+- pipeline vert apres integration
+
+Livrables:
+- `scripts/load-env.sh`
+- `scripts/security-audit.sh`
+- maj `scripts/devtools.sh` et `scripts/launch.sh`
+- ajout TOTP dans `crates/web/src/main.rs` + UI login admin
+- tests API securite supplementaires dans `crates/api/src/app/tests.rs`
 - Infra existante non remaniee
