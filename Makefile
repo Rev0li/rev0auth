@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp
 
 help:
 	@echo "Targets:"
@@ -53,3 +53,6 @@ snapshot:
 
 preflight:
 	./scripts/deploy-preflight.sh
+
+admin-otp:
+	./scripts/admin-otp.sh
