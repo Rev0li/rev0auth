@@ -6,6 +6,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_DIR="$ROOT_DIR/.run"
 LOG_DIR="$RUN_DIR/logs"
 
+# shellcheck disable=SC1090
+source "$ROOT_DIR/scripts/load-env.sh"
+
 usage() {
   echo "Usage: ./scripts/launch.sh <api|web> [--bg]"
 }

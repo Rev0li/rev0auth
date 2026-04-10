@@ -41,6 +41,20 @@ async fn post_login(app: axum::Router, body: serde_json::Value) -> (u16, Value) 
     (status, body)
 }
 
+async fn post_login_raw(app: axum::Router, raw_body: &str) -> u16 {
+    let response = app
+        .oneshot(
+            Request::post("/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from(raw_body.to_string()))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+
+    response.status().as_u16()
+}
+
 async fn post_refresh(app: axum::Router, body: serde_json::Value) -> (u16, Value) {
     let response = app
         .oneshot(
@@ -447,4 +461,31 @@ async fn test_admin_panel_allows_admin() {
     assert_eq!(status, 200);
     assert_eq!(body["status"], "admin_ok");
     assert_eq!(body["actor_email"], "admin@example.com");
+}
+
+#[tokio::test]
+async fn test_login_rejects_malformed_json_payload() {
+    let app = build_router().await.expect("build router");
+
+    let status = post_login_raw(app, "{invalid-json").await;
+    assert_eq!(status, 400);
+}
+
+#[tokio::test]
+async fn test_login_rejects_missing_required_fields() {
+    let app = build_router().await.expect("build router");
+
+    let status = post_login_raw(app, r#"{"email":"member@example.com"}"#).await;
+    assert_eq!(status, 422);
+}
+
+#[tokio::test]
+async fn test_admin_panel_rejects_forged_bearer() {
+    let app = build_router().await.expect("build router");
+
+    let forged = "eyJhbGciOiJub25lIn0.eyJzdWIiOiJhZG1pbkBleGFtcGxlLmNvbSJ9.";
+    let (status, body) = get_admin_panel(app, Some(forged)).await;
+
+    assert_eq!(status, 401);
+    assert_eq!(body["error"], "invalid_access_token");
 }

@@ -19,7 +19,7 @@ pub async fn admin_login() -> Html<String> {
     <main class="page">
         <article class="card">
             <h1>Admin Access</h1>
-            <p class="hint">Connexion admin renforcee: pseudo + seed + mot de passe + bouton challenge.</p>
+            <p class="hint">Connexion admin renforcee: pseudo + seed + mot de passe + OTP 2FA (si active) + bouton challenge.</p>
 
             <label for="pseudo">Pseudo admin</label>
             <input id="pseudo" type="text" placeholder="admin pseudo" />
@@ -29,6 +29,9 @@ pub async fn admin_login() -> Html<String> {
 
             <label for="password">Mot de passe admin</label>
             <input id="password" type="password" placeholder="admin password" />
+
+            <label for="otp">Code OTP (2FA)</label>
+            <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" />
 
             <div class="trap-zone" aria-hidden="true">
                 <label for="website">website</label>
@@ -87,11 +90,13 @@ pub async fn admin_login() -> Html<String> {
         bindEnterToClick('pseudo', 'login-btn');
         bindEnterToClick('seed', 'login-btn');
         bindEnterToClick('password', 'login-btn');
+        bindEnterToClick('otp', 'login-btn');
 
         document.getElementById('login-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
             const seed = document.getElementById('seed').value.trim();
             const password = document.getElementById('password').value.trim();
+            const otp = document.getElementById('otp').value.trim();
             const website = document.getElementById('website').value.trim();
             const output = document.getElementById('login-result');
 
@@ -112,6 +117,7 @@ pub async fn admin_login() -> Html<String> {
                     pseudo,
                     seed,
                     password,
+                    otp,
                     challenge_choice: challengeChoice,
                     trap_value: trapTouched ? 'clicked' : website
                 })

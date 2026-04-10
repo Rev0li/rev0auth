@@ -50,9 +50,13 @@ case "$cmd" in
     exec "$ROOT_DIR/scripts/install-caddy-template.sh" "$@"
     ;;
   launch-all)
+    # shellcheck disable=SC1090
+    source "$ROOT_DIR/scripts/load-env.sh"
     exec "$ROOT_DIR/scripts/launch-all.sh"
     ;;
   launch)
+    # shellcheck disable=SC1090
+    source "$ROOT_DIR/scripts/load-env.sh"
     exec "$ROOT_DIR/scripts/launch.sh" "$@"
     ;;
   stop)
@@ -63,6 +67,9 @@ case "$cmd" in
     ;;
   test)
     cd "$ROOT_DIR"
+    # shellcheck disable=SC1090
+    source "$ROOT_DIR/scripts/load-env.sh"
+    "$ROOT_DIR/scripts/security-audit.sh"
     exec cargo test
     ;;
   *)

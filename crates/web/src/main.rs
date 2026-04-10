@@ -9,8 +9,11 @@ use axum::{
     routing::{get, post, put, delete},
     Json, Router,
 };
+use data_encoding::BASE32_NOPAD;
+use hmac::{Hmac, Mac};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
+use sha1::Sha1;
 use std::net::SocketAddr;
 use std::sync::{atomic::AtomicU64, atomic::Ordering, Arc};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -236,6 +239,8 @@ struct AdminLoginInput {
     pseudo: String,
     seed: String,
     password: String,
+    #[serde(default)]
+    otp: Option<String>,
     challenge_choice: String,
     #[serde(default)]
     trap_value: Option<String>,
@@ -761,6 +766,20 @@ async fn admin_login(
             }),
         )
             .into_response();
+    }
+
+    if let Some(totp_secret) = admin_totp_secret_from_env() {
+        let otp = payload.otp.unwrap_or_default();
+        if !verify_totp_code(&totp_secret, otp.trim(), now_epoch()) {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(AdminLoginResponse {
+                    ok: false,
+                    message: "code 2FA invalide",
+                }),
+            )
+                .into_response();
+        }
     }
 
     let token = generate_admin_session_token();
@@ -2205,6 +2224,89 @@ fn admin_seed_from_env() -> String {
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "rev0auth-seed".to_string())
+}
+
+fn admin_totp_secret_from_env() -> Option<String> {
+    std::env::var("ADMIN_DASH_TOTP_SECRET")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+fn decode_base32_secret(secret: &str) -> Option<Vec<u8>> {
+    let normalized: String = secret
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-')
+        .collect::<String>()
+        .to_ascii_uppercase();
+    BASE32_NOPAD.decode(normalized.as_bytes()).ok()
+}
+
+fn totp_code(secret: &[u8], epoch: u64, step_secs: u64, digits: u32) -> Option<u32> {
+    type HmacSha1 = Hmac<Sha1>;
+    let counter = epoch / step_secs;
+    let mut counter_bytes = [0u8; 8];
+    counter_bytes.copy_from_slice(&counter.to_be_bytes());
+
+    let mut mac = HmacSha1::new_from_slice(secret).ok()?;
+    mac.update(&counter_bytes);
+    let result = mac.finalize().into_bytes();
+
+    let offset = (result[19] & 0x0f) as usize;
+    let binary = ((u32::from(result[offset]) & 0x7f) << 24)
+        | (u32::from(result[offset + 1]) << 16)
+        | (u32::from(result[offset + 2]) << 8)
+        | u32::from(result[offset + 3]);
+
+    Some(binary % 10u32.pow(digits))
+}
+
+fn verify_totp_code(secret_b32: &str, otp_input: &str, now_epoch_secs: u64) -> bool {
+    if otp_input.len() != 6 || !otp_input.chars().all(|c| c.is_ascii_digit()) {
+        return false;
+    }
+    let Some(secret) = decode_base32_secret(secret_b32) else {
+        return false;
+    };
+
+    for drift in [-1_i64, 0, 1] {
+        let ts = if drift < 0 {
+            now_epoch_secs.saturating_sub(30)
+        } else if drift > 0 {
+            now_epoch_secs.saturating_add(30)
+        } else {
+            now_epoch_secs
+        };
+        if let Some(code) = totp_code(&secret, ts, 30, 6) {
+            if format!("{code:06}") == otp_input {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{totp_code, verify_totp_code};
+
+    #[test]
+    fn test_totp_validation_accepts_current_code() {
+        let secret_b32 = "JBSWY3DPEHPK3PXP";
+        let secret = data_encoding::BASE32_NOPAD
+            .decode(secret_b32.as_bytes())
+            .expect("valid b32 secret");
+        let now = 1_700_000_000_u64;
+        let code = totp_code(&secret, now, 30, 6).expect("code");
+        assert!(verify_totp_code(secret_b32, &format!("{code:06}"), now));
+    }
+
+    #[test]
+    fn test_totp_validation_rejects_wrong_code() {
+        let secret_b32 = "JBSWY3DPEHPK3PXP";
+        let now = 1_700_000_000_u64;
+        assert!(!verify_totp_code(secret_b32, "000000", now));
+    }
 }
 
 fn generate_admin_session_token() -> String {

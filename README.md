@@ -19,6 +19,8 @@ Plateforme SaaS Rust pour gestion d'identité, d'accès et connexion de services
 # Setup variables
 export AUTH_JWT_SECRET='replace-with-32-bytes-minimum-secret'
 export ADMIN_DASH_PASSWORD='change-me'
+# Optional admin 2FA (TOTP Base32 secret)
+export ADMIN_DASH_TOTP_SECRET=''
 
 # Launch
 make launch-all
@@ -68,10 +70,12 @@ Admin contrôle activation par user.
 ## Testing & Quality
 
 ```bash
-make test              # All tests
+make test              # All tests + security audit checks
 cargo check -p rev0auth-web
 cargo check -p rev0auth-api
 ```
+
+Note: `make launch-all` and `make test` load `.env` automatically when present.
 
 ## License & Status
 
