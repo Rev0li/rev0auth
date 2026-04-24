@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init gen-secret gen-secret-yubikey
 
 help:
 	@echo "Targets:"
@@ -59,3 +59,9 @@ admin-otp:
 
 admin-2fa-init:
 	./scripts/admin-2fa-init.sh
+
+gen-secret:
+	./scripts/gen_secret.sh
+
+gen-secret-yubikey:
+	./scripts/gen_secret.sh --yubikey

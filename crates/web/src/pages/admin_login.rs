@@ -76,9 +76,9 @@ pub async fn admin_login() -> Html<String> {
 
         <article class="card" id="yubikey-step">
             <h1>Verification YubiKey</h1>
-            <p class="hint">Identifiants valides. Touche ta cle de securite YubiKey pour finaliser la connexion.</p>
+            <p class="hint">Identifiants valides — touche ta cle pour continuer.</p>
             <span class="yubikey-icon">🔑</span>
-            <button class="btn" id="yubikey-btn">Toucher la cle YubiKey</button>
+            <p id="yubikey-waiting" style="text-align:center;color:var(--color-muted);font-size:0.9rem;margin:0 0 12px">En attente de la cle...</p>
             <div id="yubikey-result" class="result"></div>
             <button class="btn" id="yubikey-back-btn" style="margin-top:8px;background:var(--bg-page);color:var(--color-muted);border:1px solid var(--color-panel-border)">
                 Recommencer
@@ -167,6 +167,7 @@ pub async fn admin_login() -> Html<String> {
                 pendingWebAuthnChallenge = data.webauthn_challenge;
                 document.getElementById('password-step').style.display = 'none';
                 document.getElementById('yubikey-step').style.display = 'block';
+                startYubiKeyAuth();
                 return;
             }
 
@@ -174,9 +175,10 @@ pub async fn admin_login() -> Html<String> {
             if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
         });
 
-        // ---- Step 2: YubiKey ----
-        document.getElementById('yubikey-btn').addEventListener('click', async () => {
+        // ---- Step 2: YubiKey (auto-triggered) ----
+        async function startYubiKeyAuth() {
             const output = document.getElementById('yubikey-result');
+            const waiting = document.getElementById('yubikey-waiting');
             if (!pendingWebAuthnToken || !pendingWebAuthnChallenge) {
                 setResult(output, false, 'Session expiree. Recommence la connexion.');
                 return;
@@ -188,11 +190,12 @@ pub async fn admin_login() -> Html<String> {
                     options.allowCredentials = options.allowCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
                 }
 
-                output.className = 'result';
-                output.textContent = 'En attente de la cle...';
-                output.style.display = 'block';
+                if (waiting) waiting.style.display = 'block';
+                output.style.display = 'none';
 
                 const cred = await navigator.credentials.get({ publicKey: options });
+                if (waiting) waiting.style.display = 'none';
+
                 const credJSON = {
                     id: cred.id,
                     rawId: bufferToBase64url(cred.rawId),
@@ -214,9 +217,10 @@ pub async fn admin_login() -> Html<String> {
                 setResult(output, data.ok, data.message);
                 if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
             } catch (err) {
+                if (waiting) waiting.style.display = 'none';
                 setResult(output, false, 'Erreur YubiKey: ' + err.message);
             }
-        });
+        }
 
         document.getElementById('yubikey-back-btn').addEventListener('click', () => {
             pendingWebAuthnToken = null;
