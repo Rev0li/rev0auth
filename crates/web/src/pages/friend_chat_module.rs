@@ -150,15 +150,15 @@ pub const CSS_FRIEND_CHAT_STYLES: &str = r#"
             display: none;
         }
         .chat-msg.ok {
-            background: #e8fff5;
-            color: #0d9b73;
-            border: 1px solid #b3ecd1;
+            background: var(--color-success-bg);
+            color: var(--color-success);
+            border: 1px solid var(--color-success-border);
             display: block;
         }
         .chat-msg.error {
-            background: #fff0ec;
-            color: #ef4e24;
-            border: 1px solid #f3c2b4;
+            background: var(--color-danger-bg);
+            color: var(--color-danger);
+            border: 1px solid var(--color-danger-border);
             display: block;
         }
         .chat-history {
@@ -181,12 +181,12 @@ pub const CSS_FRIEND_CHAT_STYLES: &str = r#"
         }
         .chat-bubble.mine {
             justify-self: end;
-            background: #e8fff5;
-            border-color: #b3ecd1;
+            background: var(--color-accent-bg);
+            border-color: var(--color-accent-border);
         }
         .chat-bubble.theirs {
             justify-self: start;
-            background: #fff;
+            background: var(--color-panel);
         }
         .chat-meta {
             display: block;

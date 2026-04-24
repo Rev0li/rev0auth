@@ -1,21 +1,21 @@
 pub const JS_DASHBOARD_THEME_EDITOR_MODULE: &str = r#"
 function createDashboardThemeEditorModule() {
     const editableTokens = [
-        { key: '--color-ink', label: 'Texte principal', sample: '#132331' },
-        { key: '--color-muted', label: 'Texte secondaire', sample: '#4b5f71' },
-        { key: '--color-panel', label: 'Fond carte', sample: 'rgba(255, 255, 255, 0.92)' },
-        { key: '--color-panel-border', label: 'Bordure carte', sample: 'rgba(19, 35, 49, 0.1)' },
-        { key: '--color-success', label: 'Success texte', sample: '#0d9b73' },
-        { key: '--color-danger', label: 'Danger texte', sample: '#ef4e24' },
-        { key: '--color-success-bg', label: 'Success fond', sample: '#e8fff5' },
-        { key: '--color-danger-bg', label: 'Danger fond', sample: '#fff0ec' },
-        { key: '--btn-primary-from', label: 'Bouton primary start', sample: '#ff6b3b' },
-        { key: '--btn-primary-to', label: 'Bouton primary end', sample: '#ef4e24' },
-        { key: '--btn-secondary-bg', label: 'Bouton secondary fond', sample: '#f2f9ff' },
-        { key: '--btn-secondary-border', label: 'Bouton secondary bordure', sample: 'rgba(19, 35, 49, 0.15)' },
-        { key: '--btn-secondary-ink', label: 'Bouton secondary texte', sample: '#132331' },
-        { key: '--bg-a', label: 'Fond gradient A', sample: '#eef8ff' },
-        { key: '--bg-b', label: 'Fond gradient B', sample: '#e6f7ee' },
+        { key: '--color-ink', label: 'Texte principal', sample: '#0f172a' },
+        { key: '--color-muted', label: 'Texte secondaire', sample: '#64748b' },
+        { key: '--color-panel', label: 'Fond carte', sample: '#ffffff' },
+        { key: '--color-panel-border', label: 'Bordure carte', sample: '#e2e8f0' },
+        { key: '--color-success', label: 'Success texte', sample: '#059669' },
+        { key: '--color-danger', label: 'Danger texte', sample: '#e11d48' },
+        { key: '--color-success-bg', label: 'Success fond', sample: '#ecfdf5' },
+        { key: '--color-danger-bg', label: 'Danger fond', sample: '#fff1f2' },
+        { key: '--color-accent', label: 'Accent', sample: '#6366f1' },
+        { key: '--color-accent-dark', label: 'Accent hover', sample: '#4f46e5' },
+        { key: '--btn-primary-bg', label: 'Bouton primary fond', sample: '#6366f1' },
+        { key: '--btn-secondary-bg', label: 'Bouton secondary fond', sample: '#ffffff' },
+        { key: '--btn-secondary-border', label: 'Bouton secondary bordure', sample: '#e2e8f0' },
+        { key: '--btn-secondary-ink', label: 'Bouton secondary texte', sample: '#0f172a' },
+        { key: '--bg-page', label: 'Fond page', sample: '#f8fafc' },
     ];
     const PRESET_KEY = 'rev0auth_theme_presets';
     const ACTIVE_PRESET_KEY = 'rev0auth_theme_active_preset';

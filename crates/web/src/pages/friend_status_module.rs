@@ -53,46 +53,27 @@ function createFriendStatusModule(ctx) {
 "#;
 
 pub const CSS_FRIEND_STATUS_STYLES: &str = r#"
-        .header-status {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .status-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
-            flex-wrap: wrap;
-        }
+        .header-status { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .status-buttons { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
         .status-btn {
-            padding: 8px 14px;
-            border: 1px solid rgba(13, 155, 115, 0.3);
-            border-radius: 8px;
-            background: rgba(13, 155, 115, 0.05);
-            color: #0d9b73;
+            padding: 7px 13px;
+            border: 1px solid var(--color-success-border);
+            border-radius: var(--radius-md);
+            background: var(--color-success-bg);
+            color: var(--color-success);
             font-weight: 600;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
+            transition: opacity 0.1s;
         }
-        .status-btn:hover {
-            background: rgba(13, 155, 115, 0.15);
-        }
+        .status-btn:hover { opacity: 0.8; }
         .status-msg {
             margin-top: 10px;
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            padding: 8px 10px;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
             display: none;
         }
-        .status-msg.ok {
-            background: #e8fff5;
-            color: #0d9b73;
-            border: 1px solid #b3ecd1;
-        }
-        .status-msg.error {
-            background: #fff0ec;
-            color: #ef4e24;
-            border: 1px solid #f3c2b4;
-        }
+        .status-msg.ok { display: block; background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); }
+        .status-msg.error { display: block; background: var(--color-danger-bg); color: var(--color-danger); border: 1px solid var(--color-danger-border); }
 "#;

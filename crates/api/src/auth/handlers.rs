@@ -1,9 +1,10 @@
 use crate::auth::{
-    audit::{client_ip_from_headers, AuditEventType},
+    audit::{client_ip_from_headers, AuditEvent, AuditEventType},
     cookies::{
         build_auth_set_cookie_headers, build_csrf_cookie, extract_cookie_from_headers,
         generate_csrf_token, CSRF_COOKIE_NAME, REFRESH_COOKIE_NAME,
     },
+    extractor::UserClaims,
     models::{
         AuthResponse, CsrfTokenResponse, ErrorResponse, LoginRequest, Role, SessionResponse,
         SignupRequest,
@@ -12,7 +13,13 @@ use crate::auth::{
     store::{normalize_email, AppState},
 };
 use axum::{extract::State, http::header, http::HeaderMap, http::HeaderValue, http::StatusCode, Json};
+use serde::Serialize;
 use tracing::info;
+
+#[derive(Serialize)]
+pub struct AdminAuditLogsResponse {
+    pub items: Vec<AuditEvent>,
+}
 
 // Dev note: issues a CSRF token for unauthenticated browser flows (signup/login).
 // Attached to: GET /csrf bootstrap endpoint before POST mutations.
@@ -254,6 +261,26 @@ fn err(status: StatusCode, code: &'static str) -> (StatusCode, Json<ErrorRespons
 fn is_valid_email(email: &str) -> bool {
     let e = email.trim();
     e.contains('@') && e.len() >= 5
+}
+
+pub async fn admin_panel(
+    claims: UserClaims,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    if !matches!(claims.role, Role::Admin) {
+        return Err(err(StatusCode::FORBIDDEN, "forbidden"));
+    }
+    Ok(Json(serde_json::json!({ "status": "admin_ok", "actor_email": claims.email })))
+}
+
+pub async fn admin_audit_logs(
+    State(state): State<AppState>,
+    claims: UserClaims,
+) -> Result<Json<AdminAuditLogsResponse>, (StatusCode, Json<ErrorResponse>)> {
+    if !matches!(claims.role, Role::Admin) {
+        return Err(err(StatusCode::FORBIDDEN, "forbidden"));
+    }
+    let items = state.list_audit_events().await;
+    Ok(Json(AdminAuditLogsResponse { items }))
 }
 
 #[cfg(test)]
@@ -609,6 +636,34 @@ mod tests {
             send_json_with_csrf(app, "/auth/signup", payload, &csrf_cookie, &csrf_token).await;
         assert_eq!(status, 400);
         assert_eq!(body["error"], "weak_password");
+    }
+
+    #[tokio::test]
+    async fn test_signup_password_11_chars_rejected() {
+        let app = create_test_app();
+        let (csrf_cookie, csrf_token) = bootstrap_csrf(app.clone()).await;
+        let payload = json!({
+            "email": "boundary11@example.com",
+            "password": "abcdefghijk"
+        });
+        let (status, _, body) =
+            send_json_with_csrf(app, "/auth/signup", payload, &csrf_cookie, &csrf_token).await;
+        assert_eq!(status, 400);
+        assert_eq!(body["error"], "weak_password");
+    }
+
+    #[tokio::test]
+    async fn test_signup_password_12_chars_accepted() {
+        let app = create_test_app();
+        let (csrf_cookie, csrf_token) = bootstrap_csrf(app.clone()).await;
+        let payload = json!({
+            "email": "boundary12@example.com",
+            "password": "abcdefghijkl"
+        });
+        let (status, _, body) =
+            send_json_with_csrf(app, "/auth/signup", payload, &csrf_cookie, &csrf_token).await;
+        assert_eq!(status, 200);
+        assert!(body["access_token"].is_string());
     }
 
     #[tokio::test]
@@ -1043,5 +1098,165 @@ mod tests {
             send_json_with_csrf(app, "/auth/signup", payload, &csrf_cookie, &csrf_token).await;
         assert_eq!(status, 200);
         assert!(body["access_token"].is_string());
+    }
+
+    // --- Security matrix: refresh token replay (deep) ---
+
+    // The CSRF token is bound to the session at login and does not rotate per-refresh.
+    // Each rotation consumes the current refresh token and issues a new one.
+    // A replayed token from any previous generation must be rejected.
+    #[tokio::test]
+    async fn test_refresh_replay_two_generations_rejected() {
+        let app = create_test_app();
+        let (csrf_cookie, csrf_token) = bootstrap_csrf(app.clone()).await;
+
+        let _ = send_json_with_csrf(
+            app.clone(), "/auth/signup",
+            json!({ "email": "replay-deep@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        let (_, login_headers, login_json) = send_json_with_csrf(
+            app.clone(), "/auth/login",
+            json!({ "email": "replay-deep@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        // Session CSRF is fixed at login time; same token used for all rotations.
+        let session_csrf = login_json["csrf_token"].as_str().unwrap_or_default().to_string();
+        let session_csrf_cookie = extract_set_cookie_value(&login_headers, "csrf_token=")
+            .expect("csrf cookie after login")
+            .split(';').next().unwrap_or_default().to_string();
+        let rt1 = extract_cookie_token(
+            &extract_set_cookie_value(&login_headers, "refresh_token=").expect("rt1 cookie"),
+        );
+
+        // First rotation: rt1 → rt2
+        let cookie_rt1 = format!("{}; refresh_token={}", session_csrf_cookie, rt1);
+        let (s1, r1_headers, _) = send_json_with_cookie(
+            app.clone(), "/auth/refresh", json!({}), &cookie_rt1, &session_csrf,
+        ).await;
+        assert_eq!(s1, 200);
+
+        let rt2 = extract_cookie_token(
+            &extract_set_cookie_value(&r1_headers, "refresh_token=").expect("rt2 cookie"),
+        );
+
+        // Second rotation: rt2 → rt3, still using the same session CSRF — chain works
+        let cookie_rt2 = format!("{}; refresh_token={}", session_csrf_cookie, rt2);
+        let (s2, _, _) = send_json_with_cookie(
+            app.clone(), "/auth/refresh", json!({}), &cookie_rt2, &session_csrf,
+        ).await;
+        assert_eq!(s2, 200);
+
+        // Replay rt1 (two generations old) — must be rejected
+        let (replay_status, _, replay_body) = send_json_with_cookie(
+            app.clone(), "/auth/refresh", json!({}), &cookie_rt1, &session_csrf,
+        ).await;
+        assert_eq!(replay_status, 401);
+        assert_eq!(replay_body["error"], "invalid_refresh_token");
+    }
+
+    // --- Security matrix: CSRF full mutation coverage ---
+
+    #[tokio::test]
+    async fn test_login_blocked_without_csrf_header() {
+        let app = create_test_app();
+        let payload = json!({ "email": "a@example.com", "password": "my-strong-password-123" });
+        let (status, _, body) = send_json(app, "/auth/login", payload).await;
+        assert_eq!(status, 403);
+        assert_eq!(body["error"], "missing_csrf_token");
+    }
+
+    #[tokio::test]
+    async fn test_login_blocked_with_mismatched_csrf() {
+        let app = create_test_app();
+        let (csrf_cookie, _) = bootstrap_csrf(app.clone()).await;
+        let payload = json!({ "email": "a@example.com", "password": "my-strong-password-123" });
+        let (status, _, body) = send_json_with_csrf(
+            app, "/auth/login", payload, &csrf_cookie, "wrong-token",
+        ).await;
+        assert_eq!(status, 403);
+        assert_eq!(body["error"], "invalid_csrf_token");
+    }
+
+    #[tokio::test]
+    async fn test_refresh_blocked_without_csrf_header() {
+        let app = create_test_app();
+        let (status, _, body) = send_json(app, "/auth/refresh", json!({})).await;
+        assert_eq!(status, 403);
+        assert_eq!(body["error"], "missing_csrf_token");
+    }
+
+    #[tokio::test]
+    async fn test_refresh_blocked_with_mismatched_csrf() {
+        let app = create_test_app();
+        let (csrf_cookie, csrf_token) = bootstrap_csrf(app.clone()).await;
+
+        let _ = send_json_with_csrf(
+            app.clone(), "/auth/signup",
+            json!({ "email": "csrf-refresh@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        let (_, login_headers, login_json) = send_json_with_csrf(
+            app.clone(), "/auth/login",
+            json!({ "email": "csrf-refresh@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        let real_csrf_cookie = extract_set_cookie_value(&login_headers, "csrf_token=")
+            .expect("csrf cookie after login")
+            .split(';').next().unwrap_or_default().to_string();
+        let rt = extract_cookie_token(
+            &extract_set_cookie_value(&login_headers, "refresh_token=").expect("rt cookie"),
+        );
+        let _ = login_json["csrf_token"].as_str().unwrap_or_default();
+
+        let cookie_header = format!("{}; refresh_token={}", real_csrf_cookie, rt);
+        let (status, _, body) = send_json_with_cookie(
+            app, "/auth/refresh", json!({}), &cookie_header, "tampered-csrf-token",
+        ).await;
+        assert_eq!(status, 403);
+        assert_eq!(body["error"], "invalid_csrf_token");
+    }
+
+    // --- Security matrix: RBAC escalation member → admin (end-to-end) ---
+
+    #[tokio::test]
+    async fn test_rbac_member_cannot_escalate_to_admin() {
+        let app = create_test_app();
+        let (csrf_cookie, csrf_token) = bootstrap_csrf(app.clone()).await;
+
+        let _ = send_json_with_csrf(
+            app.clone(), "/auth/signup",
+            json!({ "email": "member-esc@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        let (_, login_headers, _) = send_json_with_csrf(
+            app.clone(), "/auth/login",
+            json!({ "email": "member-esc@example.com", "password": "my-strong-password-123" }),
+            &csrf_cookie, &csrf_token,
+        ).await;
+
+        let member_token = extract_cookie_token(
+            &extract_set_cookie_value(&login_headers, "access_token=").expect("access token cookie"),
+        );
+
+        // Member token blocked on admin panel
+        let (panel_status, panel_body) = get_with_bearer(app.clone(), "/admin/panel", &member_token).await;
+        assert_eq!(panel_status, 403);
+        assert_eq!(panel_body["error"], "forbidden");
+
+        // Member token blocked on audit logs
+        let (audit_status, audit_body) = get_with_bearer(app.clone(), "/admin/audit-logs", &member_token).await;
+        assert_eq!(audit_status, 403);
+        assert_eq!(audit_body["error"], "forbidden");
+
+        // Forged alg:none token claiming admin role is rejected at JWT validation
+        let forged = "eyJhbGciOiJub25lIn0.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDAiLCJlbWFpbCI6ImhhY2tlckBleGFtcGxlLmNvbSIsInJvbGUiOiJhZG1pbiIsInRva2VuX3R5cGUiOiJhY2Nlc3MiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.";
+        let (forged_status, _) = get_with_bearer(app, "/admin/panel", forged).await;
+        assert_eq!(forged_status, 401);
     }
 }

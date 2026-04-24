@@ -195,51 +195,48 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r#"
         }
         .service-btn {
             width: 100%;
-            border: 1px solid rgba(19, 35, 49, 0.2);
-            border-radius: 8px;
-            background: rgba(13, 155, 115, 0.08);
-            color: #0d9b73;
-            font-weight: 700;
-            padding: 9px 10px;
+            border: 1px solid var(--color-success-border);
+            border-radius: var(--radius-md);
+            background: var(--color-success-bg);
+            color: var(--color-success);
+            font-weight: 600;
+            padding: 8px 10px;
             cursor: pointer;
+            font-size: 0.875rem;
+            transition: opacity 0.1s;
         }
-        .service-btn:hover {
-            background: rgba(13, 155, 115, 0.18);
-        }
+        .service-btn:hover { opacity: 0.8; }
         .service-btn.locked {
-            background: #f3f7fa;
-            color: #4b5f71;
-            border-color: rgba(19, 35, 49, 0.16);
+            background: var(--bg-page);
+            color: var(--color-muted);
+            border-color: var(--color-panel-border);
         }
-        .service-state {
-            font-size: 0.84rem;
-            margin: 8px 0;
-            opacity: 0.84;
-        }
+        .service-state { font-size: 0.8125rem; margin: 6px 0; color: var(--color-muted); }
         .service-input {
             width: 100%;
-            border: 1px solid rgba(19, 35, 49, 0.2);
-            border-radius: 8px;
-            padding: 8px;
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--radius-md);
+            padding: 8px 10px;
             box-sizing: border-box;
+            font: inherit;
+            font-size: 0.875rem;
             margin-bottom: 8px;
+            outline: none;
+            transition: border-color 0.15s;
         }
-        .service-msg {
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            display: none;
-        }
+        .service-input:focus { border-color: var(--color-accent); }
+        .service-msg { margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-md); font-size: 0.875rem; display: none; }
         .service-msg.ok {
-            background: #e8fff5;
-            color: #0d9b73;
-            border: 1px solid #b3ecd1;
+            display: block;
+            background: var(--color-success-bg);
+            color: var(--color-success);
+            border: 1px solid var(--color-success-border);
         }
         .service-msg.error {
-            background: #fff0ec;
-            color: #ef4e24;
-            border: 1px solid #f3c2b4;
+            display: block;
+            background: var(--color-danger-bg);
+            color: var(--color-danger);
+            border: 1px solid var(--color-danger-border);
         }
         @media (max-width: 900px) {
             .service-card {

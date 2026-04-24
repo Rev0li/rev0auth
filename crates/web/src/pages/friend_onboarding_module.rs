@@ -128,14 +128,14 @@ pub const CSS_FRIEND_ONBOARDING_STYLES: &str = r#"
         }
         .onboarding-msg.ok {
             display: block;
-            background: #e8fff5;
-            color: #0d9b73;
-            border: 1px solid #b3ecd1;
+            background: var(--color-success-bg);
+            color: var(--color-success);
+            border: 1px solid var(--color-success-border);
         }
         .onboarding-msg.error {
             display: block;
-            background: #fff0ec;
-            color: #ef4e24;
-            border: 1px solid #f3c2b4;
+            background: var(--color-danger-bg);
+            color: var(--color-danger);
+            border: 1px solid var(--color-danger-border);
         }
 "#;

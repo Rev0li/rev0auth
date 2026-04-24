@@ -52,6 +52,7 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn" data-tab-btn="user">User</button>
             <button class="tab-btn" data-tab-btn="theme">Theme</button>
             <button class="tab-btn" data-tab-btn="system">System</button>
+            <button class="tab-btn" data-tab-btn="security">Security</button>
         </nav>
 
         <section class="tab-page active" id="tab-overview">
@@ -296,6 +297,50 @@ pub async fn dashboard() -> Html<String> {
                         <label for="theme-preview-input" class="preview-input-label">Input</label>
                         <input id="theme-preview-input" class="field-input" value="Preview value" />
                     </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="tab-page" id="tab-security">
+            <div class="row">
+                <strong>YubiKey / WebAuthn FIDO2</strong>
+                <div class="mini">Authentification forte par cle materielle. Une fois enregistree, la cle est exigee a chaque connexion admin.</div>
+
+                <div id="webauthn-status-block" class="mini" style="margin-top:12px;">
+                    Chargement...
+                </div>
+
+                <div class="actions" style="margin-top:14px;">
+                    <button class="btn-small grant" id="webauthn-register-btn">Enregistrer une cle YubiKey</button>
+                    <button class="btn-small danger" id="webauthn-remove-btn" style="display:none">Retirer la cle</button>
+                </div>
+
+                <div id="webauthn-register-msg" class="mini" style="display:none;margin-top:10px;"></div>
+
+                <div id="webauthn-credential-export" style="display:none;margin-top:14px;">
+                    <div class="mini">
+                        Copie cette valeur dans ton <code>.env</code> comme <code>ADMIN_WEBAUTHN_CREDENTIAL</code>
+                        pour que la cle persiste apres redemarrage:
+                    </div>
+                    <textarea id="webauthn-credential-json"
+                        style="width:100%;min-height:90px;margin-top:8px;font-family:ui-monospace,monospace;font-size:0.75rem;resize:vertical;"
+                        readonly></textarea>
+                    <div class="actions actions-tight">
+                        <button class="btn-small" id="webauthn-copy-btn">Copier</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <strong>Config WebAuthn</strong>
+                <div class="mini">
+                    RP ID: <code id="webauthn-rp-id">--</code> &nbsp;|&nbsp;
+                    Origin: <code id="webauthn-rp-origin">--</code>
+                </div>
+                <div class="mini" style="margin-top:6px;">
+                    Dev: <code>WEBAUTHN_RP_ID=localhost</code> + <code>WEBAUTHN_RP_ORIGIN=http://localhost:3000</code> (defaut).<br/>
+                    Prod: remplace par ton domaine + <code>https://</code>.
+                    WebAuthn necessite HTTPS en production.
                 </div>
             </div>
         </section>
@@ -928,6 +973,133 @@ pub async fn dashboard() -> Html<String> {
         bindEnterToClick('onboarding-current-password', 'onboarding-submit');
         bindEnterToClick('onboarding-new-password', 'onboarding-submit');
 
+        // ---- WebAuthn helpers (registration) ----
+        function base64urlToBuffer(b64) {
+            const b = (b64 + '===').slice(0, b64.length + (4 - b64.length % 4) % 4)
+                .replace(/-/g, '+').replace(/_/g, '/');
+            const bin = atob(b);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+        }
+        function bufferToBase64url(buf) {
+            const bytes = new Uint8Array(buf);
+            let str = '';
+            for (const b of bytes) str += String.fromCharCode(b);
+            return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        async function loadWebAuthnStatus() {
+            try {
+                const res = await fetch('/japprends/webauthn/status');
+                const data = await res.json();
+                const block = document.getElementById('webauthn-status-block');
+                const removeBtn = document.getElementById('webauthn-remove-btn');
+
+                if (data.registered) {
+                    block.innerHTML = '<span style="color:var(--color-success);font-weight:600">● Cle YubiKey enregistree</span> — La cle sera exigee a chaque connexion admin.';
+                    if (removeBtn) removeBtn.style.display = 'inline-flex';
+                } else {
+                    block.innerHTML = '<span style="color:var(--color-muted)">○ Aucune cle enregistree</span> — Connexion par mot de passe seul.';
+                    if (removeBtn) removeBtn.style.display = 'none';
+                }
+
+                const rpId = document.getElementById('webauthn-rp-id');
+                const rpOrigin = document.getElementById('webauthn-rp-origin');
+                if (rpId) rpId.textContent = data.rp_id || '--';
+                if (rpOrigin) rpOrigin.textContent = data.rp_origin || '--';
+            } catch(e) {
+                console.warn('webauthn status error', e);
+            }
+        }
+
+        async function registerYubiKey() {
+            const msg = document.getElementById('webauthn-register-msg');
+            const exportDiv = document.getElementById('webauthn-credential-export');
+
+            msg.textContent = 'Demarrage de l\'enregistrement...';
+            msg.className = 'mini';
+            msg.style.display = 'block';
+            exportDiv.style.display = 'none';
+
+            try {
+                const startRes = await fetch('/japprends/webauthn/register/start');
+                if (!startRes.ok) throw new Error('Erreur serveur start');
+                const challengeJSON = await startRes.json();
+
+                const options = challengeJSON.publicKey;
+                options.challenge = base64urlToBuffer(options.challenge);
+                options.user.id = base64urlToBuffer(options.user.id);
+                if (options.excludeCredentials) {
+                    options.excludeCredentials = options.excludeCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
+                }
+
+                msg.textContent = 'Touche ta cle YubiKey maintenant...';
+
+                const cred = await navigator.credentials.create({ publicKey: options });
+                const credJSON = {
+                    id: cred.id,
+                    rawId: bufferToBase64url(cred.rawId),
+                    type: cred.type,
+                    response: {
+                        attestationObject: bufferToBase64url(cred.response.attestationObject),
+                        clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+                    }
+                };
+
+                const finishRes = await fetch('/japprends/webauthn/register/finish', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ credential: credJSON })
+                });
+                const data = await finishRes.json();
+
+                if (data.ok) {
+                    msg.textContent = data.message;
+                    msg.style.color = 'var(--color-success)';
+                    if (data.credential_json) {
+                        document.getElementById('webauthn-credential-json').value = data.credential_json;
+                        exportDiv.style.display = 'block';
+                    }
+                    loadWebAuthnStatus();
+                } else {
+                    msg.textContent = 'Erreur: ' + data.message;
+                    msg.style.color = 'var(--color-danger)';
+                }
+            } catch (err) {
+                msg.textContent = 'Erreur: ' + err.message;
+                msg.style.color = 'var(--color-danger)';
+            }
+        }
+
+        async function removeYubiKey() {
+            if (!confirm('Retirer la cle YubiKey ? La connexion par mot de passe seul sera reactivee.')) return;
+            try {
+                const res = await fetch('/japprends/webauthn/remove', { method: 'POST' });
+                const data = await res.json();
+                const msg = document.getElementById('webauthn-register-msg');
+                msg.textContent = data.message;
+                msg.style.color = data.ok ? 'var(--color-success)' : 'var(--color-danger)';
+                msg.style.display = 'block';
+                document.getElementById('webauthn-credential-export').style.display = 'none';
+                loadWebAuthnStatus();
+            } catch (e) {
+                console.warn('webauthn remove error', e);
+            }
+        }
+
+        document.getElementById('webauthn-register-btn').addEventListener('click', registerYubiKey);
+        document.getElementById('webauthn-remove-btn').addEventListener('click', removeYubiKey);
+        document.getElementById('webauthn-copy-btn').addEventListener('click', () => {
+            const ta = document.getElementById('webauthn-credential-json');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(ta.value).then(() => {
+                    document.getElementById('webauthn-copy-btn').textContent = 'Copie!';
+                    setTimeout(() => { document.getElementById('webauthn-copy-btn').textContent = 'Copier'; }, 1500);
+                });
+            }
+        });
+
         bindTabs();
         themeEditorModule.initThemeEditor();
         refreshStatus();
@@ -937,6 +1109,7 @@ pub async fn dashboard() -> Html<String> {
         loadUsers();
         loadAdminMessages();
         loadAdminDonations();
+        loadWebAuthnStatus();
         setInterval(refreshStatus, 4000);
         setInterval(loadTestsHistory, 12000);
         setInterval(loadAdminSignupQueue, 6000);

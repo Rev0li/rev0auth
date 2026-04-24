@@ -17,3 +17,9 @@ tracing-subscriber.workspace = true
 hmac = "0.12"
 sha1 = "0.10"
 data-encoding = "2.6"
+webauthn-rs = "0.5"
+uuid = { version = "1", features = ["v4", "v5"] }
+url = "2"
+
+[dev-dependencies]
+tower = "0.5"

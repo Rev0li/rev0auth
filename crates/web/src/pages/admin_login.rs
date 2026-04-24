@@ -13,25 +13,46 @@ pub async fn admin_login() -> Html<String> {
     %%FRONTEND_THEME_BOOT%%
     <style>
         %%ADMIN_LOGIN_PAGE_STYLES%%
+        #yubikey-step { display: none; }
+        .yubikey-icon {
+            font-size: 2.5rem;
+            display: block;
+            text-align: center;
+            margin: 12px 0;
+            animation: pulse 1.8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.96); }
+        }
     </style>
 </head>
 <body>
     <main class="page">
-        <article class="card">
+        <div class="brand">
+            <span class="brand-badge">rev0auth admin</span>
+        </div>
+
+        <article class="card" id="password-step">
             <h1>Admin Access</h1>
-            <p class="hint">Connexion admin renforcee: pseudo + seed + mot de passe + OTP 2FA (si active) + bouton challenge.</p>
+            <p class="hint">Pseudo + seed + mot de passe + OTP 2FA (si actif) + challenge.</p>
 
-            <label for="pseudo">Pseudo admin</label>
-            <input id="pseudo" type="text" placeholder="admin pseudo" />
-
-            <label for="seed">Seed admin</label>
-            <input id="seed" type="password" placeholder="admin seed" />
-
-            <label for="password">Mot de passe admin</label>
-            <input id="password" type="password" placeholder="admin password" />
-
-            <label for="otp">Code OTP (2FA)</label>
-            <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" />
+            <div class="field">
+                <label for="pseudo">Pseudo admin</label>
+                <input id="pseudo" type="text" placeholder="admin pseudo" autocomplete="username" />
+            </div>
+            <div class="field">
+                <label for="seed">Seed admin</label>
+                <input id="seed" type="password" placeholder="admin seed" />
+            </div>
+            <div class="field">
+                <label for="password">Mot de passe admin</label>
+                <input id="password" type="password" placeholder="admin password" autocomplete="current-password" />
+            </div>
+            <div class="field">
+                <label for="otp">Code OTP 2FA <span style="font-weight:400;color:var(--color-muted)">(optionnel)</span></label>
+                <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" />
+            </div>
 
             <div class="trap-zone" aria-hidden="true">
                 <label for="website">website</label>
@@ -39,7 +60,7 @@ pub async fn admin_login() -> Html<String> {
                 <button id="fake-invisible-btn" type="button">fake</button>
             </div>
 
-            <label class="challenge-label">Challenge fun: clique uniquement sur 🔒 Lock</label>
+            <p class="challenge-label">Challenge: clique uniquement sur 🔒 Lock</p>
             <div class="challenge-grid">
                 <button class="challenge-btn" data-choice="spark" type="button">✨ Spark</button>
                 <button class="challenge-btn" data-choice="rocket" type="button">🚀 Rocket</button>
@@ -52,46 +73,71 @@ pub async fn admin_login() -> Html<String> {
             <button class="btn" id="login-btn">Se connecter</button>
             <div id="login-result" class="result"></div>
         </article>
+
+        <article class="card" id="yubikey-step">
+            <h1>Verification YubiKey</h1>
+            <p class="hint">Identifiants valides. Touche ta cle de securite YubiKey pour finaliser la connexion.</p>
+            <span class="yubikey-icon">🔑</span>
+            <button class="btn" id="yubikey-btn">Toucher la cle YubiKey</button>
+            <div id="yubikey-result" class="result"></div>
+            <button class="btn" id="yubikey-back-btn" style="margin-top:8px;background:var(--bg-page);color:var(--color-muted);border:1px solid var(--color-panel-border)">
+                Recommencer
+            </button>
+        </article>
     </main>
 
     <script>
+        // ---- WebAuthn helpers ----
+        function base64urlToBuffer(b64) {
+            const b = (b64 + '===').slice(0, b64.length + (4 - b64.length % 4) % 4)
+                .replace(/-/g, '+').replace(/_/g, '/');
+            const bin = atob(b);
+            const buf = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+            return buf.buffer;
+        }
+        function bufferToBase64url(buf) {
+            const bytes = new Uint8Array(buf);
+            let str = '';
+            for (const b of bytes) str += String.fromCharCode(b);
+            return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        // ---- State ----
+        let challengeChoice = '';
+        let trapTouched = false;
+        let pendingWebAuthnToken = null;
+        let pendingWebAuthnChallenge = null;
+
         function setResult(el, ok, text) {
             el.className = 'result ' + (ok ? 'ok' : 'down');
             el.textContent = text;
+            el.style.display = 'block';
         }
 
-        let challengeChoice = '';
-        let trapTouched = false;
-
+        // ---- Challenge buttons ----
         document.querySelectorAll('.challenge-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 challengeChoice = btn.getAttribute('data-choice') || '';
-                document.querySelectorAll('.challenge-btn').forEach((node) => node.classList.remove('selected'));
+                document.querySelectorAll('.challenge-btn').forEach((n) => n.classList.remove('selected'));
                 btn.classList.add('selected');
             });
         });
 
-        document.getElementById('fake-invisible-btn').addEventListener('click', () => {
-            trapTouched = true;
-        });
+        document.getElementById('fake-invisible-btn').addEventListener('click', () => { trapTouched = true; });
 
-        function bindEnterToClick(inputId, buttonId) {
+        function bindEnter(inputId, buttonId) {
             const input = document.getElementById(inputId);
-            const button = document.getElementById(buttonId);
-            if (!input || !button) return;
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    button.click();
-                }
-            });
+            const btn = document.getElementById(buttonId);
+            if (!input || !btn) return;
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
         }
+        bindEnter('pseudo', 'login-btn');
+        bindEnter('seed', 'login-btn');
+        bindEnter('password', 'login-btn');
+        bindEnter('otp', 'login-btn');
 
-        bindEnterToClick('pseudo', 'login-btn');
-        bindEnterToClick('seed', 'login-btn');
-        bindEnterToClick('password', 'login-btn');
-        bindEnterToClick('otp', 'login-btn');
-
+        // ---- Step 1: password ----
         document.getElementById('login-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
             const seed = document.getElementById('seed').value.trim();
@@ -104,7 +150,6 @@ pub async fn admin_login() -> Html<String> {
                 setResult(output, false, 'Entre pseudo, seed et mot de passe admin.');
                 return;
             }
-
             if (!challengeChoice) {
                 setResult(output, false, 'Clique un bouton challenge.');
                 return;
@@ -113,24 +158,72 @@ pub async fn admin_login() -> Html<String> {
             const res = await fetch('/japprends/login', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    pseudo,
-                    seed,
-                    password,
-                    otp,
-                    challenge_choice: challengeChoice,
-                    trap_value: trapTouched ? 'clicked' : website
-                })
+                body: JSON.stringify({ pseudo, seed, password, otp, challenge_choice: challengeChoice, trap_value: trapTouched ? 'clicked' : website })
             });
-
             const data = await res.json();
-            setResult(output, data.ok, data.message);
 
-            if (data.ok) {
-                setTimeout(() => {
-                    window.location.href = '/dashboard';
-                }, 350);
+            if (data.webauthn_required) {
+                pendingWebAuthnToken = data.webauthn_token;
+                pendingWebAuthnChallenge = data.webauthn_challenge;
+                document.getElementById('password-step').style.display = 'none';
+                document.getElementById('yubikey-step').style.display = 'block';
+                return;
             }
+
+            setResult(output, data.ok, data.message);
+            if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
+        });
+
+        // ---- Step 2: YubiKey ----
+        document.getElementById('yubikey-btn').addEventListener('click', async () => {
+            const output = document.getElementById('yubikey-result');
+            if (!pendingWebAuthnToken || !pendingWebAuthnChallenge) {
+                setResult(output, false, 'Session expiree. Recommence la connexion.');
+                return;
+            }
+            try {
+                const options = pendingWebAuthnChallenge.publicKey;
+                options.challenge = base64urlToBuffer(options.challenge);
+                if (options.allowCredentials) {
+                    options.allowCredentials = options.allowCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
+                }
+
+                output.className = 'result';
+                output.textContent = 'En attente de la cle...';
+                output.style.display = 'block';
+
+                const cred = await navigator.credentials.get({ publicKey: options });
+                const credJSON = {
+                    id: cred.id,
+                    rawId: bufferToBase64url(cred.rawId),
+                    type: cred.type,
+                    response: {
+                        authenticatorData: bufferToBase64url(cred.response.authenticatorData),
+                        clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+                        signature: bufferToBase64url(cred.response.signature),
+                        userHandle: cred.response.userHandle ? bufferToBase64url(cred.response.userHandle) : null,
+                    }
+                };
+
+                const res = await fetch('/japprends/webauthn/auth/finish', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ token: pendingWebAuthnToken, credential: credJSON })
+                });
+                const data = await res.json();
+                setResult(output, data.ok, data.message);
+                if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
+            } catch (err) {
+                setResult(output, false, 'Erreur YubiKey: ' + err.message);
+            }
+        });
+
+        document.getElementById('yubikey-back-btn').addEventListener('click', () => {
+            pendingWebAuthnToken = null;
+            pendingWebAuthnChallenge = null;
+            document.getElementById('yubikey-step').style.display = 'none';
+            document.getElementById('password-step').style.display = 'block';
+            document.getElementById('login-result').style.display = 'none';
         });
     </script>
 </body>

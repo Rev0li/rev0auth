@@ -2,83 +2,117 @@ pub const ADMIN_LOGIN_PAGE_STYLES: &str = r#"
         %%FRONTEND_SHARED_CSS%%
         body {
             margin: 0;
-            font-family: var(--font-sans);
-            color: #132331;
-            background:
-                radial-gradient(circle at 10% 5%, #ffe7cd, transparent 35%),
-                radial-gradient(circle at 90% 0%, #d9f0ff, transparent 40%),
-                linear-gradient(145deg, #eef7ff, #e8f8ef);
+            background: var(--bg-page);
             min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
         .page {
-            max-width: 520px;
+            max-width: 400px;
             margin: 0 auto;
-            padding: 28px;
+            padding: 40px 24px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             min-height: 100vh;
         }
-        .card {
-            background: rgba(255, 255, 255, 0.92);
-            border: 1px solid rgba(19, 35, 49, 0.1);
-            border-radius: 20px;
-            padding: 32px;
-            box-shadow: 0 18px 45px rgba(19, 35, 49, 0.15);
+        .brand {
+            margin-bottom: 28px;
         }
-        h1 { margin: 0 0 8px; font-size: clamp(1.5rem, 5vw, 2rem); }
-        .hint { margin: 10px 0 24px; opacity: .82; font-size: 0.95rem; }
-        label { display: block; margin: 14px 0 6px; font-weight: 700; }
+        .brand-badge {
+            display: inline-block;
+            background: var(--color-ink);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+        }
+        .card {
+            background: var(--color-panel);
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        }
+        h1 { margin: 0 0 6px; font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+        .hint { margin: 0 0 22px; font-size: 0.875rem; color: var(--color-muted); }
+        .field { margin-bottom: 14px; }
+        label {
+            display: block;
+            margin: 0 0 5px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+        }
         input {
             width: 100%;
-            border: 1px solid rgba(19, 35, 49, 0.2);
-            border-radius: 10px;
-            padding: 10px;
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--radius-md);
+            padding: 9px 11px;
             font: inherit;
-            background: #fff;
+            font-size: 0.9375rem;
+            background: var(--color-panel);
             box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        input:focus {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px var(--color-accent-bg);
         }
         .btn {
-            margin-top: 16px;
-            border: 0;
-            border-radius: 10px;
-            padding: 11px 16px;
-            font-weight: 700;
+            margin-top: 8px;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 10px 16px;
+            font: inherit;
+            font-size: 0.9375rem;
+            font-weight: 600;
             cursor: pointer;
             width: 100%;
+            background: var(--color-accent);
             color: #fff;
-            background: linear-gradient(120deg, #ff6b3b, #ef4e24);
+            transition: background 0.15s;
         }
+        .btn:hover { background: var(--color-accent-dark); }
         .result {
-            margin-top: 14px;
-            border-radius: 10px;
-            padding: 10px;
-            font-size: .92rem;
+            margin-top: 12px;
+            border-radius: var(--radius-md);
+            padding: 9px 11px;
+            font-size: 0.875rem;
             display: none;
         }
-        .ok { display: block; background: #e8fff5; border: 1px solid #b3ecd1; }
-        .down { display: block; background: #fff0ec; border: 1px solid #f3c2b4; }
+        .ok { display: block; }
+        .down { display: block; }
         .challenge-grid {
             margin-top: 10px;
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 8px;
+            gap: 6px;
         }
         .challenge-label {
-            margin-top: 12px;
+            margin-top: 14px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--color-muted);
         }
         .challenge-btn {
-            border: 1px solid rgba(19, 35, 49, 0.18);
-            background: #fff;
-            color: #132331;
-            border-radius: 10px;
+            border: 1px solid var(--color-panel-border);
+            background: var(--color-panel);
+            color: var(--color-ink);
+            border-radius: var(--radius-md);
             padding: 8px;
-            font-weight: 700;
+            font-weight: 600;
+            font-size: 0.875rem;
             cursor: pointer;
+            transition: background 0.1s, border-color 0.1s;
         }
+        .challenge-btn:hover { background: var(--bg-page); }
         .challenge-btn.selected {
-            border-color: #ef4e24;
-            background: #fff0ec;
+            border-color: var(--color-accent-border);
+            background: var(--color-accent-bg);
+            color: var(--color-accent);
         }
         .trap-zone {
             position: absolute;
