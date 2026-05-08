@@ -421,6 +421,22 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             background: var(--color-danger-bg);
             border: 1px solid var(--color-danger-border);
         }
+        .sweep-log {
+            margin-top: 10px;
+            background: var(--bg-page);
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            min-height: 180px;
+            max-height: 420px;
+            overflow-y: auto;
+            white-space: pre;
+            color: var(--color-ink);
+        }
+
         /* ===== Messenger-style messages ===== */
         .msg-admin-layout {
             display: grid;

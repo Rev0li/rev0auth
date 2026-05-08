@@ -196,7 +196,7 @@ pub async fn admin_login() -> Html<String> {
                 const data = await res.json();
                 setResult(output, data.ok, data.message);
                 if (data.ok) {
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 350);
+                    setTimeout(() => { window.location.href = '/japprends/tdd'; }, 350);
                 } else {
                     retryBtn.style.display = 'block';
                 }
@@ -260,7 +260,7 @@ pub async fn admin_login() -> Html<String> {
             });
             const data = await res.json();
             setResult(output, data.ok, data.message);
-            if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
+            if (data.ok) setTimeout(() => { window.location.href = '/japprends/tdd'; }, 350);
         });
 
         // ---- Start ----

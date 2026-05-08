@@ -417,8 +417,7 @@ struct EndpointInfo {
 fn build_router(state: WebState) -> Router {
     let protected_state = state.clone();
     let protected_routes = Router::new()
-        .route("/dashboard", get(dashboard))
-        .route("/japprends/tdd", get(tdd_dashboard))
+        .route("/japprends/tdd", get(dashboard))
         .route("/status", get(status))
         .route("/status/all", get(status_all))
         .route("/japprends/signup-requests", get(admin_signup_requests))
@@ -458,6 +457,7 @@ fn build_router(state: WebState) -> Router {
 
     Router::new()
         .route("/", get(home))
+        .route("/dashboard", get(dashboard_decoy))
         .route("/portal", get(portal))
         .route("/portal/signup-request", post(portal_signup_request))
         .route("/portal/login", post(portal_login))
@@ -564,8 +564,12 @@ async fn dashboard() -> impl axum::response::IntoResponse {
     pages::dashboard().await
 }
 
-async fn tdd_dashboard() -> impl axum::response::IntoResponse {
-    pages::tdd_dashboard().await
+async fn dashboard_decoy() -> impl axum::response::IntoResponse {
+    axum::response::Html(
+        r#"<!doctype html><html><head><title>Not Found</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:80px">
+<h1>404</h1><p>Page not found.</p></body></html>"#,
+    )
 }
 
 async fn friend_home() -> impl axum::response::IntoResponse {
@@ -1296,7 +1300,6 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
         EndpointInfo { method: "GET", path: "/japprends/login", scope: "public" },
         EndpointInfo { method: "POST", path: "/japprends/login", scope: "public" },
         EndpointInfo { method: "POST", path: "/japprends/logout", scope: "admin" },
-        EndpointInfo { method: "GET", path: "/dashboard", scope: "admin" },
         EndpointInfo { method: "GET", path: "/japprends/tdd", scope: "admin" },
         EndpointInfo { method: "GET", path: "/status", scope: "admin" },
         EndpointInfo { method: "GET", path: "/status/all", scope: "admin" },

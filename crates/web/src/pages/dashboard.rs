@@ -30,6 +30,7 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn" data-tab-btn="members">Members</button>
             <button class="tab-btn" data-tab-btn="messages">Messages</button>
             <button class="tab-btn" data-tab-btn="donations">Donations</button>
+            <button class="tab-btn" data-tab-btn="logs">Logs</button>
         </nav>
 
         <!-- ====== STATUS ====== -->
@@ -116,7 +117,18 @@ pub async fn dashboard() -> Html<String> {
             </div>
         </section>
 
-
+        <!-- ====== LOGS ====== -->
+        <section class="tab-page" id="tab-logs">
+            <div class="row">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <strong>Sweep routes</strong>
+                    <button class="btn-small grant" id="run-sweep-btn">Lancer le sweep</button>
+                    <button class="btn-small" id="clear-sweep-btn">Effacer</button>
+                    <span class="chip" id="sweep-time" style="margin-left:auto">—</span>
+                </div>
+                <pre id="sweep-log" class="sweep-log">Pret. Clique sur "Lancer le sweep".</pre>
+            </div>
+        </section>
 
     </main>
 
@@ -519,8 +531,44 @@ pub async fn dashboard() -> Html<String> {
                     if (tab === 'messages') loadAdminMessages();
                     if (tab === 'donations') loadAdminDonations();
                     if (tab === 'members') { loadAdminSignupQueue(); loadUsers(); }
+                    if (tab === 'logs') runSweep();
                 });
             });
+        }
+
+        // ---- sweep logs ----
+        const SWEEP_ROUTES = [
+            { method: 'GET', path: '/status' },
+            { method: 'GET', path: '/status/all' },
+            { method: 'GET', path: '/japprends/ping' },
+            { method: 'GET', path: '/user/ping' },
+            { method: 'GET', path: '/japprends/tdd' },
+            { method: 'GET', path: '/home/friend' },
+            { method: 'GET', path: '/' },
+        ];
+
+        async function runSweep() {
+            const log = document.getElementById('sweep-log');
+            const timeChip = document.getElementById('sweep-time');
+            if (!log) return;
+            const started = new Date();
+            timeChip.textContent = started.toLocaleTimeString();
+            log.textContent = '[' + started.toLocaleTimeString() + '] Sweep demarre...\n';
+
+            for (const route of SWEEP_ROUTES) {
+                try {
+                    const res = await fetch(route.path, { cache: 'no-store' });
+                    const status = res.status;
+                    const ok = status >= 200 && status < 400;
+                    log.textContent += (ok ? '  OK  ' : ' FAIL ') + ' ' + status + '  ' + route.method + ' ' + route.path + '\n';
+                } catch (err) {
+                    log.textContent += ' ERR   ---  ' + route.method + ' ' + route.path + '  (' + err.message + ')\n';
+                }
+                log.scrollTop = log.scrollHeight;
+            }
+            const elapsed = ((Date.now() - started.getTime()) / 1000).toFixed(2);
+            log.textContent += '\nTermine en ' + elapsed + 's.\n';
+            log.scrollTop = log.scrollHeight;
         }
 
         // ---- init ----
@@ -529,6 +577,11 @@ pub async fn dashboard() -> Html<String> {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
         });
         document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
+        document.getElementById('run-sweep-btn').addEventListener('click', runSweep);
+        document.getElementById('clear-sweep-btn').addEventListener('click', () => {
+            const log = document.getElementById('sweep-log');
+            if (log) log.textContent = 'Pret. Clique sur "Lancer le sweep".';
+        });
 
         bindTabs();
         refreshStatus();
