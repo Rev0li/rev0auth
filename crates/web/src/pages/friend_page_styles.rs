@@ -25,17 +25,6 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
             font-weight: 700;
             letter-spacing: -0.02em;
         }
-        .header-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .header-status {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
         .header-actions {
             display: flex;
             flex-direction: column;
@@ -97,7 +86,6 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
         .onboarding-textarea:focus { border-color: var(--color-accent); }
         .onboarding-textarea { min-height: 110px; resize: vertical; }
         .actions-tight { margin-top: 10px; }
-        .mood-label { font-weight: 600; font-size: 0.875rem; color: var(--color-muted); }
         .services-intro { margin-top: 0; color: var(--color-muted); font-size: 0.875rem; }
         .card {
             background: var(--color-panel);
@@ -125,28 +113,6 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
             color: var(--color-accent);
             font-weight: 700;
         }
-        .status-buttons { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-        .status-btn {
-            padding: 7px 13px;
-            border: 1px solid var(--color-success-border);
-            border-radius: var(--radius-md);
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: opacity 0.1s;
-        }
-        .status-btn:hover { opacity: 0.8; }
-        .status-msg {
-            margin-top: 10px;
-            padding: 8px 10px;
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            display: none;
-        }
-        .status-msg.ok { display: block; }
-        .status-msg.error { display: block; }
         .remark-panel {
             display: none;
             margin-top: 12px;

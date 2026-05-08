@@ -13,8 +13,13 @@ function createProfilePasswordModule(ctx) {
     async function savePassword() {
         const currentPassword = document.getElementById('current-password').value;
         const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
         if (!newPassword) {
             setMsg(false, 'Entre un nouveau mot de passe.');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setMsg(false, 'Les deux mots de passe ne correspondent pas.');
             return;
         }
 
@@ -39,6 +44,7 @@ function createProfilePasswordModule(ctx) {
             if (data.ok) {
                 document.getElementById('current-password').value = '';
                 document.getElementById('new-password').value = '';
+                document.getElementById('confirm-password').value = '';
             }
         } catch (err) {
             setMsg(false, 'Erreur: ' + err.message);
@@ -48,6 +54,7 @@ function createProfilePasswordModule(ctx) {
     document.getElementById('save-password').addEventListener('click', savePassword);
     bindEnterToClick('current-password', 'save-password');
     bindEnterToClick('new-password', 'save-password');
+    bindEnterToClick('confirm-password', 'save-password');
 
     return {
         savePassword,

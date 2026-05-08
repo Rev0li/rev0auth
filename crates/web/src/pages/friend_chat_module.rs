@@ -131,6 +131,26 @@ function createFriendChatModule(ctx) {
         }
     }
 
+    // Emoji picker
+    const EMOJIS = ['😊','😂','😍','🥰','😅','🤔','😢','😡','👍','❤️','🔥','🎉','🙏','💯','👀','🤝','😎','💪','✨','🫡'];
+    const emojiBtn = document.getElementById('chat-emoji-btn');
+    const emojiPanel = document.getElementById('chat-emoji-panel');
+    if (emojiBtn && emojiPanel) {
+        emojiPanel.innerHTML = EMOJIS.map((e) => '<button class="emoji-pick" type="button">' + e + '</button>').join('');
+        emojiBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            emojiPanel.classList.toggle('open');
+        });
+        emojiPanel.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('.emoji-pick');
+            if (!btn) return;
+            chatBodyInput.value += btn.textContent;
+            chatBodyInput.focus();
+            emojiPanel.classList.remove('open');
+        });
+        document.addEventListener('click', () => emojiPanel.classList.remove('open'));
+    }
+
     document.getElementById('chat-open-btn').addEventListener('click', () => {
         isOpen ? closeChat() : openChat();
     });
@@ -301,7 +321,50 @@ pub const CSS_FRIEND_CHAT_STYLES: &str = r#"
             border-top: 1px solid var(--color-panel-border, rgba(0,0,0,0.1));
             background: var(--bg-card, #fff);
             flex-shrink: 0;
+            align-items: flex-end;
         }
+        .chat-emoji-wrap { position: relative; flex-shrink: 0; }
+        .chat-emoji-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1px solid var(--color-panel-border, rgba(0,0,0,0.15));
+            background: var(--bg-page, #f5f7fa);
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s;
+        }
+        .chat-emoji-btn:hover { background: var(--color-accent-bg, #e8f4ff); }
+        .chat-emoji-panel {
+            position: absolute;
+            bottom: 42px;
+            left: 0;
+            width: 200px;
+            background: var(--bg-card, #fff);
+            border: 1px solid var(--color-panel-border, rgba(0,0,0,0.1));
+            border-radius: 12px;
+            padding: 8px;
+            display: none;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+            z-index: 100;
+        }
+        .chat-emoji-panel.open { display: grid; }
+        .emoji-pick {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 4px;
+            border-radius: 6px;
+            transition: background 0.1s;
+            line-height: 1;
+        }
+        .emoji-pick:hover { background: var(--bg-page, #f5f7fa); }
         .chat-overlay-input {
             flex: 1;
             border: 1px solid var(--color-panel-border, rgba(0,0,0,0.15));

@@ -40,16 +40,6 @@ pub async fn friend() -> Html<String> {
 
     <main class="container">
         <div class="header">
-            <div class="header-meta">
-                <h1>Bienvenue <span id="welcome-pseudo">!</span></h1>
-                <div class="header-status">
-                    <span class="mood-label">Humeur rapide:</span>
-                    <button class="status-btn" id="happy-btn">😀 Content</button>
-                    <button class="status-btn" id="meh-btn">😐 Bof</button>
-                    <button class="status-btn" id="question-btn">❓ Besoin d'aide</button>
-                </div>
-                <div id="status-msg" class="status-msg"></div>
-            </div>
             <div class="header-actions">
                 <img id="header-avatar" class="header-avatar" alt="Photo de profil" />
                 <div class="header-action-row">
@@ -127,6 +117,10 @@ pub async fn friend() -> Html<String> {
         </div>
         <div id="chat-msg" class="chat-popup-msg"></div>
         <div class="chat-popup-footer">
+            <div class="chat-emoji-wrap">
+                <button id="chat-emoji-btn" class="chat-emoji-btn" type="button" title="Emojis">😊</button>
+                <div id="chat-emoji-panel" class="chat-emoji-panel"></div>
+            </div>
             <textarea id="chat-body" class="chat-overlay-input" rows="1" placeholder="Message..."></textarea>
             <button id="chat-send-btn" class="chat-overlay-send">➤</button>
         </div>
@@ -139,8 +133,8 @@ pub async fn friend() -> Html<String> {
         if (!pseudo) {
             window.location.href = '/';
         } else {
-            document.getElementById('welcome-pseudo').textContent = pseudo;
-            document.getElementById('pseudo-display').textContent = pseudo;
+            const pseudoDisplay = document.getElementById('pseudo-display');
+            if (pseudoDisplay) pseudoDisplay.textContent = pseudo;
         }
 
         const needsOnboarding = localStorage.getItem('needs_onboarding') === '1';

@@ -1,8 +1,7 @@
 use super::{
-    frontend_modules, frontend_theme, page_assembly, profile_account_deletion_module,
-    profile_admin_navigator_module, profile_avatar_module, profile_donations_module,
-    profile_edit_module, profile_info_module, profile_messages_module, profile_password_module,
-    profile_page_styles,
+    friend_chat_module, frontend_modules, frontend_theme, page_assembly,
+    profile_account_deletion_module, profile_admin_navigator_module, profile_avatar_module,
+    profile_donations_module, profile_info_module, profile_password_module, profile_page_styles,
 };
 
 pub fn assemble_profile_page(template: &str) -> String {
@@ -22,6 +21,10 @@ pub fn assemble_profile_page(template: &str) -> String {
                 content: profile_page_styles::PROFILE_PAGE_STYLES,
             },
             page_assembly::PageModule {
+                placeholder: "%%FRIEND_CHAT_STYLES%%",
+                content: friend_chat_module::CSS_FRIEND_CHAT_STYLES,
+            },
+            page_assembly::PageModule {
                 placeholder: "%%COMMON_JS_UTILS%%",
                 content: frontend_modules::JS_COMMON_UTILS,
             },
@@ -30,20 +33,12 @@ pub fn assemble_profile_page(template: &str) -> String {
                 content: profile_info_module::JS_PROFILE_INFO_MODULE,
             },
             page_assembly::PageModule {
-                placeholder: "%%PROFILE_EDIT_MODULE%%",
-                content: profile_edit_module::JS_PROFILE_EDIT_MODULE,
-            },
-            page_assembly::PageModule {
                 placeholder: "%%PROFILE_AVATAR_MODULE%%",
                 content: profile_avatar_module::JS_PROFILE_AVATAR_MODULE,
             },
             page_assembly::PageModule {
                 placeholder: "%%PROFILE_PASSWORD_MODULE%%",
                 content: profile_password_module::JS_PROFILE_PASSWORD_MODULE,
-            },
-            page_assembly::PageModule {
-                placeholder: "%%PROFILE_MESSAGES_MODULE%%",
-                content: profile_messages_module::JS_PROFILE_MESSAGES_MODULE,
             },
             page_assembly::PageModule {
                 placeholder: "%%PROFILE_DONATIONS_MODULE%%",
@@ -56,6 +51,10 @@ pub fn assemble_profile_page(template: &str) -> String {
             page_assembly::PageModule {
                 placeholder: "%%PROFILE_ACCOUNT_DELETION_MODULE%%",
                 content: profile_account_deletion_module::JS_PROFILE_ACCOUNT_DELETION_MODULE,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%FRIEND_CHAT_MODULE%%",
+                content: friend_chat_module::JS_FRIEND_CHAT_MODULE,
             },
         ],
     )

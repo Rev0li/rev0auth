@@ -62,8 +62,8 @@ const ADMIN_LOCKOUT_SECS: u64 = 15 * 60;
 const AVATAR_MAX_BYTES: usize = 512 * 1024;
 const DONATION_PROOF_MAX_BYTES: usize = 5 * 1024 * 1024;
 const UPLOAD_GLOBAL_LIMIT_BYTES: usize = 10 * 1024 * 1024;
-const AVATAR_ALLOWED_EXTS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif"];
-const ALLOWED_IMAGE_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif"];
+const AVATAR_ALLOWED_EXTS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "svg"];
+const ALLOWED_IMAGE_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
