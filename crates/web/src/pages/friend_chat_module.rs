@@ -1,20 +1,36 @@
-// Chat module for member to admin messaging
+// Chat overlay module — full-screen messenger style, member ↔ admin
 pub const JS_FRIEND_CHAT_MODULE: &str = r#"
 function createFriendChatModule(ctx) {
     const { pseudo } = ctx;
-    
-    const chatSubjectInput = document.getElementById('chat-subject');
+
+    const overlay = document.getElementById('chat-overlay');
+    const chatHistory = document.getElementById('chat-history');
     const chatBodyInput = document.getElementById('chat-body');
     const chatMsg = document.getElementById('chat-msg');
-    const chatHistory = document.getElementById('chat-history');
+    let refreshTimer = null;
+
+    function openChat() {
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        loadChatHistory();
+        refreshTimer = setInterval(loadChatHistory, 8000);
+    }
+
+    function closeChat() {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    }
 
     function setChatMsg(ok, message) {
-        chatMsg.className = 'chat-msg ' + (ok ? 'ok' : 'error');
+        chatMsg.className = 'chat-overlay-msg ' + (ok ? 'ok' : 'error');
         chatMsg.textContent = message;
+        chatMsg.style.display = 'block';
+        if (ok) setTimeout(() => { chatMsg.style.display = 'none'; }, 2500);
     }
 
     async function loadChatHistory() {
-        if (!chatHistory) return;
+        if (!overlay.classList.contains('open')) return;
         try {
             const [inboxRes, sentRes] = await Promise.all([
                 fetch('/members/messages/inbox?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' }),
@@ -43,155 +59,220 @@ function createFriendChatModule(ctx) {
             }
 
             if (merged.length === 0) {
-                chatHistory.textContent = 'Aucun message pour le moment.';
+                chatHistory.innerHTML = '<p class="chat-empty">Aucun message pour le moment.</p>';
                 return;
             }
 
             chatHistory.innerHTML = merged.map((m) => {
-                const dt = new Date(m.created_at_epoch * 1000).toLocaleString();
-                const who = m.mine ? 'To admin' : 'Admin';
+                const dt = new Date(m.created_at_epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 return '<div class="chat-bubble ' + (m.mine ? 'mine' : 'theirs') + '">'
-                    + '<strong>' + escapeHtml(m.subject || 'Sans sujet') + '</strong><br>'
-                    + escapeHtml(m.body || '')
-                    + '<span class="chat-meta">' + who + ' • ' + dt + '</span>'
+                    + '<div class="chat-bubble-text">' + escapeHtml(m.body || '') + '</div>'
+                    + '<div class="chat-bubble-time">' + dt + '</div>'
                     + '</div>';
             }).join('');
             chatHistory.scrollTop = chatHistory.scrollHeight;
         } catch (err) {
-            chatHistory.textContent = 'Historique indisponible: ' + err.message;
+            chatHistory.innerHTML = '<p class="chat-empty">Historique indisponible.</p>';
         }
     }
 
-    async function sendQuickChat() {
-        const subject = chatSubjectInput.value.trim();
+    async function sendMessage() {
         const body = chatBodyInput.value.trim();
+        if (!body) return;
 
-        if (!subject || !body) {
-            setChatMsg(false, 'Remplis sujet et message.');
-            return;
-        }
+        const sendBtn = document.getElementById('chat-send-btn');
+        sendBtn.disabled = true;
 
         try {
             const res = await fetch('/members/messages/send', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    from_pseudo: pseudo,
-                    subject,
-                    body
-                })
+                body: JSON.stringify({ from_pseudo: pseudo, body })
             });
             const data = await res.json();
-            setChatMsg(!!data.ok, data.message || 'Message envoye.');
             if (data.ok) {
-                chatSubjectInput.value = '';
                 chatBodyInput.value = '';
                 await loadChatHistory();
+            } else {
+                setChatMsg(false, data.message || 'Erreur envoi.');
             }
         } catch (err) {
             setChatMsg(false, 'Erreur: ' + err.message);
+        } finally {
+            sendBtn.disabled = false;
         }
     }
 
-    // Setup chat send button
-    document.getElementById('chat-send-btn').addEventListener('click', sendQuickChat);
+    document.getElementById('chat-open-btn').addEventListener('click', openChat);
+    document.getElementById('chat-close-btn').addEventListener('click', closeChat);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeChat(); });
+    document.getElementById('chat-send-btn').addEventListener('click', sendMessage);
+    chatBodyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
 
-    // Load initial chat history
-    loadChatHistory();
-
-    // Auto-refresh chat history every 8 seconds
-    setInterval(loadChatHistory, 8000);
-
-    return {
-        setChatMsg,
-        loadChatHistory,
-        sendQuickChat
-    };
+    return { openChat, closeChat, loadChatHistory };
 }
 "#;
 
 pub const CSS_FRIEND_CHAT_STYLES: &str = r#"
-        .chat-card {
-            margin-bottom: 20px;
-            border: 1px solid rgba(19, 35, 49, 0.14);
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 16px;
-            box-shadow: 0 12px 24px rgba(19, 35, 49, 0.09);
+        .chat-fab {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--color-accent, #4a9eff);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+            transition: transform 0.15s, box-shadow 0.15s;
+            z-index: 900;
         }
-        .chat-card h2 {
-            margin: 0 0 10px;
-            font-size: 1.1rem;
+        .chat-fab:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.3);
         }
-        .chat-card label {
-            display: block;
-            margin: 10px 0 6px;
+        .chat-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 950;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-page, #f5f7fa);
+            transform: translateY(100%);
+            transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .chat-overlay.open {
+            transform: translateY(0);
+        }
+        .chat-overlay-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--color-panel-border, rgba(0,0,0,0.1));
+            background: var(--bg-card, #fff);
+            flex-shrink: 0;
+        }
+        .chat-overlay-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--color-accent, #4a9eff);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
         }
-        .chat-card input,
-        .chat-card textarea {
-            width: 100%;
-            border: 1px solid rgba(19, 35, 49, 0.2);
-            border-radius: 8px;
-            padding: 9px;
-            box-sizing: border-box;
-            font: inherit;
-            background: #fff;
+        .chat-overlay-title {
+            flex: 1;
+            font-weight: 700;
+            font-size: 1rem;
         }
-        .chat-card textarea {
-            min-height: 110px;
-            resize: vertical;
+        .chat-overlay-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.4rem;
+            color: var(--color-muted, #888);
+            padding: 4px;
+            line-height: 1;
         }
-        .chat-msg {
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            display: none;
-        }
-        .chat-msg.ok {
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            border: 1px solid var(--color-success-border);
-            display: block;
-        }
-        .chat-msg.error {
-            background: var(--color-danger-bg);
-            color: var(--color-danger);
-            border: 1px solid var(--color-danger-border);
-            display: block;
-        }
+        .chat-overlay-close:hover { color: var(--color-text, #222); }
         .chat-history {
-            margin-top: 12px;
-            max-height: 300px;
-            overflow: auto;
-            display: grid;
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
             gap: 8px;
-            padding-right: 4px;
+        }
+        .chat-empty {
+            text-align: center;
+            color: var(--color-muted, #888);
+            font-size: 0.9rem;
+            margin: auto;
         }
         .chat-bubble {
-            max-width: 86%;
-            padding: 9px 11px;
-            border-radius: 12px;
-            border: 1px solid rgba(19, 35, 49, 0.12);
-            white-space: pre-wrap;
-            line-height: 1.4;
-            font-size: 0.9rem;
-            box-shadow: 0 6px 14px rgba(19, 35, 49, 0.07);
+            max-width: 75%;
+            padding: 9px 13px;
+            border-radius: 18px;
+            word-break: break-word;
         }
         .chat-bubble.mine {
-            justify-self: end;
-            background: var(--color-accent-bg);
-            border-color: var(--color-accent-border);
+            align-self: flex-end;
+            background: var(--color-accent, #4a9eff);
+            color: #fff;
+            border-bottom-right-radius: 4px;
         }
         .chat-bubble.theirs {
-            justify-self: start;
-            background: var(--color-panel);
+            align-self: flex-start;
+            background: var(--bg-card, #fff);
+            border: 1px solid var(--color-panel-border, rgba(0,0,0,0.1));
+            border-bottom-left-radius: 4px;
         }
-        .chat-meta {
-            display: block;
-            margin-top: 4px;
-            font-size: 0.78rem;
-            opacity: 0.72;
+        .chat-bubble-text { font-size: 0.92rem; line-height: 1.45; white-space: pre-wrap; }
+        .chat-bubble-time {
+            font-size: 0.72rem;
+            opacity: 0.65;
+            margin-top: 3px;
+            text-align: right;
         }
+        .chat-overlay-footer {
+            display: flex;
+            gap: 10px;
+            padding: 12px 16px;
+            border-top: 1px solid var(--color-panel-border, rgba(0,0,0,0.1));
+            background: var(--bg-card, #fff);
+            flex-shrink: 0;
+        }
+        .chat-overlay-input {
+            flex: 1;
+            border: 1px solid var(--color-panel-border, rgba(0,0,0,0.15));
+            border-radius: 22px;
+            padding: 9px 16px;
+            font: inherit;
+            font-size: 0.92rem;
+            background: var(--bg-page, #f5f7fa);
+            resize: none;
+            max-height: 100px;
+            line-height: 1.4;
+        }
+        .chat-overlay-input:focus { outline: none; border-color: var(--color-accent, #4a9eff); }
+        .chat-overlay-send {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: var(--color-accent, #4a9eff);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            align-self: flex-end;
+            transition: opacity 0.15s;
+        }
+        .chat-overlay-send:disabled { opacity: 0.5; }
+        .chat-overlay-msg {
+            margin: 0 16px 6px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 0.83rem;
+            display: none;
+        }
+        .chat-overlay-msg.ok { background: var(--color-success-bg, #d4edda); color: var(--color-success, #155724); }
+        .chat-overlay-msg.error { background: var(--color-danger-bg, #f8d7da); color: var(--color-danger, #721c24); }
 "#;

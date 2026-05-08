@@ -105,25 +105,27 @@ pub async fn friend() -> Html<String> {
 
         </article>
 
-        <article class="chat-card">
-            <h2>Start message with me</h2>
-            <p class="chat-intro">Conversation directe avec l'admin.</p>
-
-            <div id="chat-history" class="chat-history">Chargement de l'historique...</div>
-
-            <label for="chat-subject">Sujet</label>
-            <input id="chat-subject" placeholder="Sujet" />
-
-            <label for="chat-body">Message</label>
-            <textarea id="chat-body" placeholder="Ton message..."></textarea>
-
-            <div class="actions actions-tight">
-                <button id="chat-send-btn" class="profile-btn">Envoyer message</button>
-            </div>
-            <div id="chat-msg" class="chat-msg"></div>
-        </article>
-
     </main>
+
+    <!-- Chat FAB -->
+    <button class="chat-fab" id="chat-open-btn" title="Messages">💬</button>
+
+    <!-- Chat overlay -->
+    <div class="chat-overlay" id="chat-overlay">
+        <div class="chat-overlay-header">
+            <div class="chat-overlay-avatar">A</div>
+            <div class="chat-overlay-title">Admin</div>
+            <button class="chat-overlay-close" id="chat-close-btn">✕</button>
+        </div>
+        <div id="chat-history" class="chat-history">
+            <p class="chat-empty">Chargement...</p>
+        </div>
+        <div id="chat-msg" class="chat-overlay-msg"></div>
+        <div class="chat-overlay-footer">
+            <textarea id="chat-body" class="chat-overlay-input" rows="1" placeholder="Message..."></textarea>
+            <button id="chat-send-btn" class="chat-overlay-send">➤</button>
+        </div>
+    </div>
 
     <script>
         // Get logged-in pseudo from localStorage

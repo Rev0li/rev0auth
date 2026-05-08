@@ -2,20 +2,14 @@ pub const JS_DASHBOARD_CHAT_MODULE: &str = r#"
 function createDashboardChatModule(ctx) {
     const { adminPseudo, adminChatState } = ctx;
 
-    function setAdminReplyMsg(ok, message) {
-        const output = document.getElementById('admin-reply-msg');
-        if (!output) return;
-        output.style.display = 'block';
-        output.style.color = ok ? '#0d9b73' : '#dc4f2f';
-        output.textContent = message;
+    function getInitials(pseudo) {
+        return (pseudo || '?').slice(0, 2).toUpperCase();
     }
 
     function getChatCounterpart(msg) {
         const from = String(msg.from_pseudo || '');
         const to = String(msg.to_pseudo || '');
-        if (from.toLowerCase() === adminPseudo.toLowerCase()) {
-            return to;
-        }
+        if (from.toLowerCase() === adminPseudo.toLowerCase()) return to;
         return from;
     }
 
@@ -26,12 +20,7 @@ function createDashboardChatModule(ctx) {
             if (!counterpart) return;
             const key = counterpart.toLowerCase();
             if (!threads.has(key)) {
-                threads.set(key, {
-                    pseudo: counterpart,
-                    messages: [],
-                    lastEpoch: 0,
-                    unread: 0
-                });
+                threads.set(key, { pseudo: counterpart, messages: [], lastEpoch: 0, unread: 0 });
             }
             const thread = threads.get(key);
             thread.messages.push(msg);
@@ -43,23 +32,12 @@ function createDashboardChatModule(ctx) {
         return Array.from(threads.values()).sort((a, b) => b.lastEpoch - a.lastEpoch);
     }
 
-    function startAdminReply(toPseudo, subject) {
-        const toInput = document.getElementById('admin-reply-to');
-        const subjectInput = document.getElementById('admin-reply-subject');
-        const bodyInput = document.getElementById('admin-reply-body');
-        if (!toInput || !subjectInput || !bodyInput) return;
-        toInput.value = toPseudo || '';
-        subjectInput.value = subject || '';
-        bodyInput.focus();
-        bodyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
     function renderAdminThreadList() {
         const list = document.getElementById('admin-thread-list');
         if (!list) return;
         const threads = groupAdminThreads(adminChatState.messages);
         if (threads.length === 0) {
-            list.textContent = 'Aucune conversation.';
+            list.innerHTML = '<p class="msg-empty">Aucune conversation.</p>';
             return;
         }
 
@@ -69,13 +47,20 @@ function createDashboardChatModule(ctx) {
         }
 
         list.innerHTML = threads.map((thread) => {
-            const active = thread.pseudo.toLowerCase() === adminChatState.selectedThread.toLowerCase();
-            const lastMessage = thread.messages[thread.messages.length - 1];
-            const dt = lastMessage ? new Date(lastMessage.created_at_epoch * 1000).toLocaleString() : '';
-            const preview = lastMessage ? escapeHtml((lastMessage.subject || 'Sans sujet') + ' - ' + (lastMessage.body || '').slice(0, 70)) : '';
-            return '<button class="chat-admin-thread ' + (active ? 'active' : '') + '" data-thread="' + escapeHtml(thread.pseudo) + '">'
-                + '<div class="chat-admin-thread-name">' + escapeHtml(thread.pseudo) + (thread.unread > 0 ? ' • ' + thread.unread + ' non lu' : '') + '</div>'
-                + '<div class="chat-admin-thread-meta">' + preview + (lastMessage && lastMessage.body && lastMessage.body.length > 70 ? '...' : '') + '<br>' + dt + '</div>'
+            const active = thread.pseudo.toLowerCase() === (adminChatState.selectedThread || '').toLowerCase();
+            const last = thread.messages[thread.messages.length - 1];
+            const preview = last ? (last.body || '').slice(0, 55) + (last.body && last.body.length > 55 ? '…' : '') : '';
+            const time = last ? new Date(last.created_at_epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            const initials = getInitials(thread.pseudo);
+            return '<button class="msg-thread-row' + (active ? ' active' : '') + '" data-thread="' + escapeHtml(thread.pseudo) + '">'
+                + '<div class="msg-thread-avatar">' + escapeHtml(initials) + '</div>'
+                + '<div class="msg-thread-info">'
+                + '<div class="msg-thread-name">' + escapeHtml(thread.pseudo)
+                + (thread.unread > 0 ? ' <span class="msg-unread-badge">' + thread.unread + '</span>' : '')
+                + '</div>'
+                + '<div class="msg-thread-preview">' + escapeHtml(preview) + '</div>'
+                + '</div>'
+                + '<div class="msg-thread-time">' + time + '</div>'
                 + '</button>';
         }).join('');
 
@@ -93,7 +78,7 @@ function createDashboardChatModule(ctx) {
         const panel = document.getElementById('admin-messages');
         if (!panel) return;
         if (!adminChatState.selectedThread) {
-            panel.textContent = 'Selectionne une conversation.';
+            panel.innerHTML = '<p class="msg-empty">Selectionne une conversation.</p>';
             return;
         }
 
@@ -107,40 +92,39 @@ function createDashboardChatModule(ctx) {
             });
 
         if (messages.length === 0) {
-            panel.textContent = 'Aucun message dans cette conversation.';
+            panel.innerHTML = '<p class="msg-empty">Aucun message dans cette conversation.</p>';
             return;
         }
 
         panel.innerHTML = messages.map((msg) => {
-            const dt = new Date(msg.created_at_epoch * 1000).toLocaleString();
+            const dt = new Date(msg.created_at_epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const mine = String(msg.from_pseudo || '').toLowerCase() === adminPseudo.toLowerCase();
-            const replySubject = mine ? msg.subject : 'Re: ' + msg.subject;
-            return '<div class="chat-admin-item">'
-                + '<div class="chat-admin-head">'
-                + '<span><strong>' + escapeHtml(mine ? adminPseudo : msg.from_pseudo) + '</strong> -> <strong>' + escapeHtml(mine ? msg.to_pseudo : adminPseudo) + '</strong> [' + (msg.is_read ? 'lu' : 'non lu') + ']</span>'
-                + '<span>' + dt + '</span>'
-                + '</div>'
-                + '<div class="chat-admin-body"><strong>' + escapeHtml(msg.subject || 'Sans sujet') + '</strong><br>' + escapeHtml(msg.body || '') + '</div>'
-                + '<div class="actions actions-tight">'
-                + '<button class="btn-small grant" data-reply-to="' + escapeHtml(adminChatState.selectedThread) + '" data-reply-subject="' + escapeHtml(replySubject) + '">Repondre</button>'
-                + '</div>'
+            return '<div class="msg-bubble ' + (mine ? 'mine' : 'theirs') + '">'
+                + '<div class="msg-bubble-text">' + escapeHtml(msg.body || '') + '</div>'
+                + '<div class="msg-bubble-meta">' + dt + (mine ? '' : (!msg.is_read ? ' · non lu' : '')) + '</div>'
                 + '</div>';
         }).join('');
 
-        panel.querySelectorAll('button[data-reply-to]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                startAdminReply(btn.getAttribute('data-reply-to') || '', btn.getAttribute('data-reply-subject') || '');
-            });
-        });
         panel.scrollTop = panel.scrollHeight;
+
+        // Pre-fill reply to field
+        const replyTo = document.getElementById('admin-reply-to');
+        if (replyTo) replyTo.value = adminChatState.selectedThread;
+    }
+
+    function setAdminReplyMsg(ok, message) {
+        const output = document.getElementById('admin-reply-msg');
+        if (!output) return;
+        output.style.display = 'block';
+        output.style.color = ok ? '#0d9b73' : '#dc4f2f';
+        output.textContent = message;
     }
 
     async function sendAdminReply() {
         const toPseudo = (document.getElementById('admin-reply-to')?.value || '').trim();
-        const subject = (document.getElementById('admin-reply-subject')?.value || '').trim();
         const body = (document.getElementById('admin-reply-body')?.value || '').trim();
-        if (!toPseudo || !subject || !body) {
-            setAdminReplyMsg(false, 'Remplis destinataire, sujet et message.');
+        if (!toPseudo || !body) {
+            setAdminReplyMsg(false, 'Remplis destinataire et message.');
             return;
         }
 
@@ -148,16 +132,11 @@ function createDashboardChatModule(ctx) {
             const res = await fetch('/japprends/messages/reply', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    to_pseudo: toPseudo,
-                    subject,
-                    body
-                })
+                body: JSON.stringify({ to_pseudo: toPseudo, body })
             });
             const data = await res.json();
             setAdminReplyMsg(!!data.ok, data.message || 'Reponse envoyee.');
             if (data.ok) {
-                document.getElementById('admin-reply-subject').value = '';
                 document.getElementById('admin-reply-body').value = '';
                 await loadAdminMessages();
             }
@@ -176,22 +155,21 @@ function createDashboardChatModule(ctx) {
             const list = await res.json();
             adminChatState.messages = Array.isArray(list) ? list : [];
             if (adminChatState.messages.length === 0) {
-                threadPanel.textContent = 'Aucune conversation.';
-                panel.textContent = 'Aucun message membre.';
+                threadPanel.innerHTML = '<p class="msg-empty">Aucune conversation.</p>';
+                panel.innerHTML = '<p class="msg-empty">Aucun message membre.</p>';
                 return;
             }
 
             renderAdminThreadList();
             renderAdminConversation();
         } catch (_err) {
-            panel.textContent = 'Impossible de charger les messages.';
-            threadPanel.textContent = 'Impossible de charger les conversations.';
+            panel.innerHTML = '<p class="msg-empty">Impossible de charger les messages.</p>';
+            threadPanel.innerHTML = '<p class="msg-empty">Erreur chargement.</p>';
         }
     }
 
     return {
         setAdminReplyMsg,
-        startAdminReply,
         sendAdminReply,
         loadAdminMessages,
     };

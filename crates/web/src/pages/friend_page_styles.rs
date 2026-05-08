@@ -78,19 +78,6 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
             transition: opacity 0.15s;
         }
         .profile-btn:hover { opacity: 0.85; }
-        .chat-card {
-            margin-bottom: 14px;
-            border: 1px solid var(--color-panel-border);
-            border-radius: var(--radius-lg);
-            background: var(--color-panel);
-            padding: 16px;
-            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-        }
-        .chat-card h2 {
-            margin: 0 0 10px;
-            font-size: 1rem;
-            font-weight: 600;
-        }
         .onboarding-intro { margin-top: 0; color: var(--color-muted); font-size: 0.875rem; }
         .onboarding-label { display: block; font-weight: 600; font-size: 0.8125rem; margin-top: 10px; }
         .onboarding-field,
@@ -112,65 +99,6 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
         .actions-tight { margin-top: 10px; }
         .mood-label { font-weight: 600; font-size: 0.875rem; color: var(--color-muted); }
         .services-intro { margin-top: 0; color: var(--color-muted); font-size: 0.875rem; }
-        .chat-intro { margin: 0 0 8px; color: var(--color-muted); font-size: 0.875rem; }
-        .chat-card label { display: block; margin: 10px 0 5px; font-weight: 600; font-size: 0.8125rem; }
-        .chat-card input,
-        .chat-card textarea {
-            width: 100%;
-            border: 1px solid var(--color-panel-border);
-            border-radius: var(--radius-md);
-            padding: 8px 10px;
-            box-sizing: border-box;
-            font: inherit;
-            font-size: 0.875rem;
-            background: var(--color-panel);
-            outline: none;
-            transition: border-color 0.15s;
-        }
-        .chat-card input:focus,
-        .chat-card textarea:focus { border-color: var(--color-accent); }
-        .chat-card textarea { min-height: 110px; resize: vertical; }
-        .chat-msg {
-            margin-top: 10px;
-            padding: 8px 10px;
-            border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            display: none;
-        }
-        .chat-msg.ok { display: block; }
-        .chat-msg.error { display: block; }
-        .chat-history {
-            margin-top: 12px;
-            max-height: 300px;
-            overflow: auto;
-            display: grid;
-            gap: 6px;
-            padding-right: 4px;
-        }
-        .chat-bubble {
-            max-width: 80%;
-            padding: 8px 11px;
-            border-radius: 10px;
-            border: 1px solid var(--color-panel-border);
-            white-space: pre-wrap;
-            line-height: 1.45;
-            font-size: 0.875rem;
-        }
-        .chat-bubble.mine {
-            justify-self: end;
-            background: var(--color-accent-bg);
-            border-color: var(--color-accent-border);
-        }
-        .chat-bubble.theirs {
-            justify-self: start;
-            background: var(--color-panel);
-        }
-        .chat-meta {
-            display: block;
-            margin-top: 4px;
-            font-size: 0.75rem;
-            color: var(--color-muted);
-        }
         .card {
             background: var(--color-panel);
             border: 1px solid var(--color-panel-border);

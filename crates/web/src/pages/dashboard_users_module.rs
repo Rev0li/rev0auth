@@ -12,35 +12,61 @@ function createDashboardUsersModule(ctx) {
         console.log('Users stats updated: ' + total + ' users');
     }
 
+    function roleLabel(role) {
+        switch ((role || '').toLowerCase()) {
+            case 'admin': return '<span class="member-badge admin">Admin</span>';
+            case 'mod': return '<span class="member-badge mod">Mod</span>';
+            case 'member': return '<span class="member-badge member">Member</span>';
+            default: return '<span class="member-badge guest">Guest</span>';
+        }
+    }
+
+    function statusDot(status) {
+        switch ((status || '').toLowerCase()) {
+            case 'active': return '<span class="member-status active">●</span>';
+            case 'inactive': return '<span class="member-status inactive">●</span>';
+            default: return '<span class="member-status pending">●</span>';
+        }
+    }
+
     async function loadUsers() {
         try {
             const res = await fetch('/users', { cache: 'no-store' });
             const list = await res.json();
             const panel = document.getElementById('admin-stats');
             if (!Array.isArray(list) || list.length === 0) {
-                panel.innerHTML = '<div class="card"><p>Aucun utilisateur.</p></div>';
+                panel.innerHTML = '<p style="color:var(--color-muted);text-align:center">Aucun utilisateur.</p>';
                 dashboardStats.users = [];
                 return;
             }
 
-            const html = list.map((user) => {
-                const ghLabel = user.access_github ? '🟢 Revoke GH' : '🔴 Grant GH';
-                const jfLabel = user.access_jellyfin ? '🟢 Revoke JF' : '🔴 Grant JF';
-                const ssLabel = user.access_songsurf ? '🟢 Revoke SS' : '🔴 Grant SS';
-
-                return '<div class="card user-card clickable" onclick="openUserProfile(\'' + user.pseudo + '\')">'
-                    + '<h3 class="user-card-title">' + user.pseudo + '</h3>'
-                    + '<p class="label">Status: ' + (user.status ? user.status.toUpperCase() : 'UNKNOWN') + '</p>'
-                    + '<p class="label">Requete ou accès</p>'
-                    + '<div class="user-actions">'
-                    + '<button class="btn-small warn" onclick="event.stopPropagation(); openUserProfile(\'' + user.pseudo + '\')">Profil complet</button>'
-                    + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
-                    + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
-                    + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="event.stopPropagation(); toggleServiceAccess(\'' + user.pseudo + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
-                    + '<button class="btn-small" onclick="event.stopPropagation(); deleteUser(\'' + user.pseudo + '\')">🗑 Supprimer</button>'
-                    + '</div>'
-                    + '</div>';
-            }).join('');
+            const html = '<div class="member-gallery">'
+                + list.map((user) => {
+                    const initials = (user.pseudo || '?').slice(0, 2).toUpperCase();
+                    const avatarSrc = '/members/avatar/' + encodeURIComponent(user.pseudo);
+                    const ghLabel = user.access_github ? 'Revoke GH' : 'Grant GH';
+                    const jfLabel = user.access_jellyfin ? 'Revoke JF' : 'Grant JF';
+                    const ssLabel = user.access_songsurf ? 'Revoke SS' : 'Grant SS';
+                    return '<div class="member-card" onclick="openUserProfile(\'' + escapeHtml(user.pseudo) + '\')">'
+                        + '<div class="member-card-avatar-wrap">'
+                        + '<img class="member-card-avatar" src="' + avatarSrc + '" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+                        + '<div class="member-card-avatar-fallback">' + escapeHtml(initials) + '</div>'
+                        + '</div>'
+                        + '<div class="member-card-pseudo">' + escapeHtml(user.pseudo) + '</div>'
+                        + '<div class="member-card-meta">'
+                        + statusDot(user.status) + ' ' + (user.status || 'unknown')
+                        + ' ' + roleLabel(user.role)
+                        + '</div>'
+                        + '<div class="member-card-actions" onclick="event.stopPropagation()">'
+                        + '<button class="btn-small warn" onclick="openUserProfile(\'' + escapeHtml(user.pseudo) + '\')">Profil</button>'
+                        + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + escapeHtml(user.pseudo) + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
+                        + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + escapeHtml(user.pseudo) + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
+                        + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + escapeHtml(user.pseudo) + '\', \'songsurf\', ' + (!user.access_songsurf) + ')">' + ssLabel + '</button>'
+                        + '<button class="btn-small" onclick="deleteUser(\'' + escapeHtml(user.pseudo) + '\')">🗑</button>'
+                        + '</div>'
+                        + '</div>';
+                }).join('')
+                + '</div>';
 
             dashboardStats.users = list;
             renderAdminStats();

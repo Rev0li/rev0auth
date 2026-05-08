@@ -112,7 +112,6 @@ struct MemberMessage {
     id: u64,
     from_pseudo: String,
     to_pseudo: String,
-    subject: String,
     body: String,
     is_read: bool,
     created_at_epoch: u64,
@@ -234,14 +233,12 @@ struct PasswordUpdateInput {
 #[derive(Debug, Deserialize)]
 struct MessageSendInput {
     from_pseudo: String,
-    subject: String,
     body: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct AdminMessageSendInput {
     to_pseudo: String,
-    subject: String,
     body: String,
 }
 
@@ -329,7 +326,6 @@ struct MemberMessageView {
     id: u64,
     from_pseudo: String,
     to_pseudo: String,
-    subject: String,
     body: String,
     is_read: bool,
     created_at_epoch: u64,
@@ -1829,13 +1825,12 @@ async fn member_message_send(
 ) -> Json<MessageResponse> {
     let from_pseudo = payload.from_pseudo.trim().to_string();
     let to_pseudo = admin_pseudo_from_env();
-    let subject = payload.subject.trim().to_string();
     let body = payload.body.trim().to_string();
 
-    if from_pseudo.is_empty() || subject.is_empty() || body.is_empty() {
+    if from_pseudo.is_empty() || body.is_empty() {
         return Json(MessageResponse {
             ok: false,
-            message: "Expediteur, sujet et message sont requis.".to_string(),
+            message: "Expediteur et message sont requis.".to_string(),
         });
     }
 
@@ -1862,7 +1857,6 @@ async fn member_message_send(
         id,
         from_pseudo,
         to_pseudo,
-        subject,
         body,
         is_read: false,
         created_at_epoch: now_epoch(),
@@ -1887,7 +1881,6 @@ async fn member_messages_inbox(
             id: m.id,
             from_pseudo: m.from_pseudo.clone(),
             to_pseudo: m.to_pseudo.clone(),
-            subject: m.subject.clone(),
             body: m.body.clone(),
             is_read: m.is_read,
             created_at_epoch: m.created_at_epoch,
@@ -1909,7 +1902,6 @@ async fn member_messages_sent(
             id: m.id,
             from_pseudo: m.from_pseudo.clone(),
             to_pseudo: m.to_pseudo.clone(),
-            subject: m.subject.clone(),
             body: m.body.clone(),
             is_read: m.is_read,
             created_at_epoch: m.created_at_epoch,
@@ -2130,7 +2122,6 @@ async fn admin_messages_all(State(state): State<WebState>) -> Json<Vec<MemberMes
                 id: m.id,
                 from_pseudo: m.from_pseudo.clone(),
                 to_pseudo: m.to_pseudo.clone(),
-                subject: m.subject.clone(),
                 body: m.body.clone(),
                 is_read: m.is_read,
                 created_at_epoch: m.created_at_epoch,
@@ -2144,14 +2135,13 @@ async fn admin_message_reply(
     Json(payload): Json<AdminMessageSendInput>,
 ) -> Json<ActionResponse> {
     let to_pseudo = payload.to_pseudo.trim().to_string();
-    let subject = payload.subject.trim().to_string();
     let body = payload.body.trim().to_string();
     let from_pseudo = admin_pseudo_from_env();
 
-    if to_pseudo.is_empty() || subject.is_empty() || body.is_empty() {
+    if to_pseudo.is_empty() || body.is_empty() {
         return Json(ActionResponse {
             ok: false,
-            message: "Destinataire, sujet et message sont requis.",
+            message: "Destinataire et message sont requis.",
         });
     }
 
@@ -2178,7 +2168,6 @@ async fn admin_message_reply(
         id,
         from_pseudo,
         to_pseudo,
-        subject,
         body,
         is_read: false,
         created_at_epoch: now_epoch(),

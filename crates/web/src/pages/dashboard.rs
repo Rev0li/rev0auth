@@ -91,23 +91,17 @@ pub async fn dashboard() -> Html<String> {
         <section class="tab-page" id="tab-messages">
             <div class="row">
                 <strong>Conversations membres</strong>
-                <div class="chat-admin-wrap" style="margin-top:12px">
-                    <div class="chat-admin-layout">
-                        <aside id="admin-thread-list" class="chat-admin-threads">Chargement...</aside>
-                        <div class="chat-admin-panel">
-                            <div id="admin-messages" class="chat-admin-history">Sélectionne une conversation...</div>
-                            <div class="chat-admin-compose">
-                                <label for="admin-reply-to">Destinataire</label>
-                                <input id="admin-reply-to" placeholder="pseudo membre" />
-                                <label for="admin-reply-subject">Sujet</label>
-                                <input id="admin-reply-subject" placeholder="Re: ..." />
-                                <label for="admin-reply-body">Message</label>
-                                <textarea id="admin-reply-body" placeholder="Ta reponse..."></textarea>
-                                <div class="actions actions-no-top">
-                                    <button class="btn-small grant" id="admin-reply-send">Envoyer</button>
-                                </div>
-                                <div id="admin-reply-msg" class="chat-admin-msg"></div>
+                <div class="msg-admin-layout" style="margin-top:12px">
+                    <aside id="admin-thread-list" class="msg-thread-list">Chargement...</aside>
+                    <div class="msg-admin-panel">
+                        <div id="admin-messages" class="msg-conversation"></div>
+                        <div class="msg-compose">
+                            <input id="admin-reply-to" placeholder="Destinataire" style="display:none" />
+                            <div class="msg-compose-row">
+                                <textarea id="admin-reply-body" class="msg-compose-input" rows="1" placeholder="Répondre..."></textarea>
+                                <button class="msg-compose-send" id="admin-reply-send">➤</button>
                             </div>
+                            <div id="admin-reply-msg" class="msg-reply-status"></div>
                         </div>
                     </div>
                 </div>
@@ -146,7 +140,7 @@ pub async fn dashboard() -> Html<String> {
         %%DASHBOARD_QUEUE_MODULE%%
         %%DASHBOARD_STATUS_MODULE%%
         const adminChatModule = createDashboardChatModule({ adminPseudo, adminChatState });
-        const { setAdminReplyMsg, startAdminReply, sendAdminReply, loadAdminMessages } = adminChatModule;
+        const { setAdminReplyMsg, sendAdminReply, loadAdminMessages } = adminChatModule;
 
         // ---- utils ----
         function paint(el, ok, label) {
@@ -498,8 +492,9 @@ pub async fn dashboard() -> Html<String> {
 
         // ---- init ----
         document.getElementById('admin-reply-send').addEventListener('click', sendAdminReply);
-        bindEnterToClick('admin-reply-to', 'admin-reply-send');
-        bindEnterToClick('admin-reply-subject', 'admin-reply-send');
+        document.getElementById('admin-reply-body').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
+        });
         document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
 
         bindTabs();
