@@ -1,5 +1,5 @@
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
-use serde::{Deserialize, Serialize};
+use axum::{extract::FromRequest, http::StatusCode, http::Request, response::{IntoResponse, Response}, Json};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -192,10 +192,32 @@ impl AppError {
     pub(crate) fn forbidden(code: &'static str) -> Self {
         Self::new(StatusCode::FORBIDDEN, code)
     }
+
+    pub(crate) fn internal() -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
+    }
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         (self.status, Json(ErrorResponse { error: self.code })).into_response()
+    }
+}
+
+pub(crate) struct AppJson<T>(pub(crate) T);
+
+#[axum::async_trait]
+impl<T, S> FromRequest<S> for AppJson<T>
+where
+    T: DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request(req: Request<axum::body::Body>, state: &S) -> Result<Self, Self::Rejection> {
+        match Json::<T>::from_request(req, state).await {
+            Ok(value) => Ok(AppJson(value.0)),
+            Err(_) => Err(AppError::bad_request("invalid_request_body")),
+        }
     }
 }

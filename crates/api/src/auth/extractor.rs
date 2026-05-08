@@ -10,8 +10,6 @@ use axum::{
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use uuid::Uuid;
 
-// Dev note: request-scoped identity built from JWT and reused by RBAC + protected handlers.
-// Attached to: routes requiring authenticated user context.
 #[derive(Debug, Clone)]
 pub struct UserClaims {
     pub id: Uuid,
@@ -19,8 +17,6 @@ pub struct UserClaims {
     pub role: Role,
 }
 
-// Dev note: extractor enforces bearer format + signature + expiration in one place.
-// Attached to: any route extracting UserClaims directly or via RoleGuard.
 #[axum::async_trait]
 impl<S> FromRequestParts<S> for UserClaims
 where
@@ -67,7 +63,6 @@ where
     }
 }
 
-// Dev note: keeps extractor rejection payloads uniform with the rest of auth handlers.
 fn err(status: StatusCode, code: &'static str) -> (StatusCode, Json<ErrorResponse>) {
     (status, Json(ErrorResponse { error: code }))
 }

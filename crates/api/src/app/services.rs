@@ -9,10 +9,6 @@ pub(crate) fn is_valid_email(email: &str) -> bool {
     email.contains('@') && email.len() >= 5
 }
 
-pub(crate) fn pseudo_hash(password: &str) -> String {
-    format!("step001::{}", password)
-}
-
 pub(crate) fn role_for_email(email: &str) -> Role {
     if email == "admin@example.com" {
         Role::Admin

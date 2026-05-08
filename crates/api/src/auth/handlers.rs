@@ -21,8 +21,6 @@ pub struct AdminAuditLogsResponse {
     pub items: Vec<AuditEvent>,
 }
 
-// Dev note: issues a CSRF token for unauthenticated browser flows (signup/login).
-// Attached to: GET /csrf bootstrap endpoint before POST mutations.
 pub async fn csrf() -> (HeaderMap, Json<CsrfTokenResponse>) {
     let token = generate_csrf_token();
     let mut headers = HeaderMap::new();
@@ -34,8 +32,6 @@ pub async fn csrf() -> (HeaderMap, Json<CsrfTokenResponse>) {
     (headers, Json(CsrfTokenResponse { csrf_token: token }))
 }
 
-// Dev note: signup remains JSON-token based for now to preserve existing API tests and tooling.
-// Attached to: public onboarding clients and initial auth smoke tests.
 pub async fn signup(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -82,8 +78,6 @@ pub async fn signup(
     }))
 }
 
-// Dev note: login switched to cookie session setup (HttpOnly/Secure) instead of bearer response.
-// Attached to: browser clients that should not store tokens in localStorage.
 pub async fn login(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -184,8 +178,6 @@ pub async fn login(
     ))
 }
 
-// Dev note: refresh now consumes refresh_token from Cookie header and rotates session cookies.
-// Attached to: silent browser session renewal flow.
 pub async fn refresh(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -230,8 +222,6 @@ pub async fn refresh(
     ))
 }
 
-// Dev note: double-submit validation, compares X-CSRF-Token header with csrf_token cookie.
-// Attached to: all state-changing auth mutations.
 fn validate_csrf_headers(headers: &HeaderMap) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
     let header_token = extract_csrf_header_token(headers)?;
     let cookie_token = extract_cookie_from_headers(headers, CSRF_COOKIE_NAME)
@@ -251,13 +241,10 @@ fn extract_csrf_header_token(headers: &HeaderMap) -> Result<String, (StatusCode,
         .ok_or_else(|| err(StatusCode::FORBIDDEN, "missing_csrf_token"))
 }
 
-// Dev note: shared error envelope helper so auth routes expose stable machine-readable codes.
 fn err(status: StatusCode, code: &'static str) -> (StatusCode, Json<ErrorResponse>) {
     (status, Json(ErrorResponse { error: code }))
 }
 
-// Dev note: intentionally minimal email validation for unit test focus.
-// Attached to: signup edge-case behavior tests.
 fn is_valid_email(email: &str) -> bool {
     let e = email.trim();
     e.contains('@') && e.len() >= 5

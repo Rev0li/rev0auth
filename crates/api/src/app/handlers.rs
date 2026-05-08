@@ -1,10 +1,10 @@
 use crate::app::domain::{
-    AdminPanelResponse, AppError, AppState, HealthResponse, LoginRequest, LoginResponse,
+    AdminPanelResponse, AppError, AppJson, AppState, HealthResponse, LoginRequest, LoginResponse,
     MeResponse, RefreshRequest, RefreshResponse, Role, SignupRequest, SignupResponse, UserRecord,
 };
 use crate::app::services::{
     authenticated_user, issue_access_token, issue_refresh_token, is_valid_email, normalize_email,
-    pseudo_hash, role_for_email,
+    role_for_email,
 };
 use axum::{extract::State, http::HeaderMap, routing::get, Json, Router};
 
@@ -28,7 +28,7 @@ async fn health() -> Json<HealthResponse> {
 
 async fn signup(
     State(state): State<AppState>,
-    Json(payload): Json<SignupRequest>,
+    AppJson(payload): AppJson<SignupRequest>,
 ) -> Result<Json<SignupResponse>, AppError> {
     let normalized_email = normalize_email(&payload.email);
 
@@ -46,11 +46,13 @@ async fn signup(
 
     let user_id = state.next_user_id().await;
     let role = role_for_email(&normalized_email);
+    let password_hash = crate::auth::password::hash_password(&payload.password)
+        .map_err(|_| AppError::internal())?;
     let record = UserRecord {
         id: user_id,
         email: normalized_email.clone(),
         role: role.clone(),
-        password_hash: pseudo_hash(&payload.password),
+        password_hash,
     };
     state.insert_user(record).await;
 
@@ -63,7 +65,7 @@ async fn signup(
 
 async fn login(
     State(state): State<AppState>,
-    Json(payload): Json<LoginRequest>,
+    AppJson(payload): AppJson<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AppError> {
     let normalized_email = normalize_email(&payload.email);
     let record = state
@@ -71,7 +73,7 @@ async fn login(
         .await
         .ok_or_else(|| AppError::unauthorized("invalid_credentials"))?;
 
-    if record.password_hash != pseudo_hash(&payload.password) {
+    if !crate::auth::password::verify_password(&payload.password, &record.password_hash) {
         return Err(AppError::unauthorized("invalid_credentials"));
     }
 
@@ -89,7 +91,7 @@ async fn login(
 
 async fn refresh(
     State(state): State<AppState>,
-    Json(payload): Json<RefreshRequest>,
+    AppJson(payload): AppJson<RefreshRequest>,
 ) -> Result<Json<RefreshResponse>, AppError> {
     let user_id = state
         .consume_refresh_token(&payload.refresh_token)

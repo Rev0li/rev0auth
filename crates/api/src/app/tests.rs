@@ -476,7 +476,60 @@ async fn test_login_rejects_missing_required_fields() {
     let app = build_router().await.expect("build router");
 
     let status = post_login_raw(app, r#"{"email":"member@example.com"}"#).await;
-    assert_eq!(status, 422);
+    assert_eq!(status, 400);
+}
+
+#[tokio::test]
+async fn test_refresh_chain_replay_deep() {
+    let app = build_router().await.expect("build router");
+
+    let _ = post_signup(
+        app.clone(),
+        serde_json::json!({ "email": "chain@example.com", "password": "my-strong-password-123" }),
+    )
+    .await;
+
+    let (_, login_body) = post_login(
+        app.clone(),
+        serde_json::json!({ "email": "chain@example.com", "password": "my-strong-password-123" }),
+    )
+    .await;
+
+    let rt1 = login_body["refresh_token"].as_str().unwrap_or_default().to_string();
+
+    let (s1, body1) = post_refresh(app.clone(), serde_json::json!({ "refresh_token": rt1 })).await;
+    assert_eq!(s1, 200);
+    let rt2 = body1["refresh_token"].as_str().unwrap_or_default().to_string();
+
+    let (s2, _) = post_refresh(app.clone(), serde_json::json!({ "refresh_token": rt2 })).await;
+    assert_eq!(s2, 200);
+
+    let (status, body) = post_refresh(app, serde_json::json!({ "refresh_token": rt1 })).await;
+    assert_eq!(status, 401);
+    assert_eq!(body["error"], "invalid_refresh_token");
+}
+
+#[tokio::test]
+async fn test_access_token_rejected_as_refresh() {
+    let app = build_router().await.expect("build router");
+
+    let _ = post_signup(
+        app.clone(),
+        serde_json::json!({ "email": "token-mix@example.com", "password": "my-strong-password-123" }),
+    )
+    .await;
+
+    let (_, login_body) = post_login(
+        app.clone(),
+        serde_json::json!({ "email": "token-mix@example.com", "password": "my-strong-password-123" }),
+    )
+    .await;
+
+    let access_token = login_body["access_token"].as_str().unwrap_or_default().to_string();
+
+    let (status, body) = post_refresh(app, serde_json::json!({ "refresh_token": access_token })).await;
+    assert_eq!(status, 401);
+    assert_eq!(body["error"], "invalid_refresh_token");
 }
 
 #[tokio::test]
