@@ -107,21 +107,26 @@ pub async fn friend() -> Html<String> {
 
     </main>
 
-    <!-- Chat FAB -->
-    <button class="chat-fab" id="chat-open-btn" title="Messages">💬</button>
+    <!-- Chat FAB + badge -->
+    <div class="chat-fab-wrap">
+        <button class="chat-fab" id="chat-open-btn" title="Messages">
+            💬
+            <span class="chat-fab-badge" id="chat-fab-badge"></span>
+        </button>
+    </div>
 
-    <!-- Chat overlay -->
-    <div class="chat-overlay" id="chat-overlay">
-        <div class="chat-overlay-header">
-            <div class="chat-overlay-avatar">A</div>
-            <div class="chat-overlay-title">Admin</div>
-            <button class="chat-overlay-close" id="chat-close-btn">✕</button>
+    <!-- Chat popup (50% screen height) -->
+    <div class="chat-popup" id="chat-popup">
+        <div class="chat-popup-header">
+            <div class="chat-popup-avatar">A</div>
+            <div class="chat-popup-title">Admin</div>
+            <button class="chat-popup-close" id="chat-close-btn">✕</button>
         </div>
         <div id="chat-history" class="chat-history">
             <p class="chat-empty">Chargement...</p>
         </div>
-        <div id="chat-msg" class="chat-overlay-msg"></div>
-        <div class="chat-overlay-footer">
+        <div id="chat-msg" class="chat-popup-msg"></div>
+        <div class="chat-popup-footer">
             <textarea id="chat-body" class="chat-overlay-input" rows="1" placeholder="Message..."></textarea>
             <button id="chat-send-btn" class="chat-overlay-send">➤</button>
         </div>
