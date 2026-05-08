@@ -301,30 +301,63 @@ pub async fn dashboard() -> Html<String> {
                 panel.innerHTML = '<div class="mini">Aucun test lance.</div>'; return;
             }
             dashboardStats.lastRun = runs[0];
+
+            // Build HTML — all collapsed by default, first run gets .open
             panel.innerHTML = runs.slice(0, 8).map((run, idx) => {
                 const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
                 const allOk = run.passed === run.total;
-                return '<div class="test-run" id="run-' + run.run_id + '">'
-                    + '<div class="test-head' + (allOk ? ' ok' : ' fail') + '">'
-                    + 'Run #' + run.run_id + ' — ' + run.passed + '/' + run.total + ' — ' + dt
+                const openClass = idx === 0 ? ' open' : '';
+                return '<div class="test-run' + openClass + '" id="run-' + run.run_id + '">'
+                    + '<div class="test-head' + (allOk ? ' ok' : ' fail') + '" data-run="' + run.run_id + '">'
+                    + '<span>Run #' + run.run_id + ' &nbsp;' + run.passed + '/' + run.total + ' &nbsp; ' + dt + '</span>'
+                    + '<span class="test-head-chevron">▼</span>'
                     + '</div>'
                     + '<ul class="test-cases" id="cases-' + run.run_id + '"></ul>'
                     + '</div>';
             }).join('');
 
-            runs.slice(0, 8).forEach((run, runIdx) => {
-                const ul = document.getElementById('cases-' + run.run_id);
-                if (!ul || !Array.isArray(run.cases)) return;
-                run.cases.forEach((c, i) => {
-                    const delay = runIdx === 0 ? i * 28 : 0;
-                    setTimeout(() => {
-                        const li = document.createElement('li');
-                        li.className = c.ok ? 'case-ok' : 'case-fail';
-                        li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
-                        ul.appendChild(li);
-                    }, delay);
+            // Toggle accordion on header click
+            panel.querySelectorAll('.test-head').forEach((head) => {
+                head.addEventListener('click', () => {
+                    const run = head.closest('.test-run');
+                    const wasOpen = run.classList.contains('open');
+                    run.classList.toggle('open', !wasOpen);
+                    // If opening and ul is empty, populate with cascade
+                    if (!wasOpen) {
+                        const ul = run.querySelector('.test-cases');
+                        if (ul && ul.children.length === 0) {
+                            const runId = parseInt(head.getAttribute('data-run'), 10);
+                            const found = runs.find((r) => r.run_id === runId);
+                            if (found && Array.isArray(found.cases)) {
+                                found.cases.forEach((c, i) => {
+                                    setTimeout(() => {
+                                        const li = document.createElement('li');
+                                        li.className = c.ok ? 'case-ok' : 'case-fail';
+                                        li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
+                                        ul.appendChild(li);
+                                    }, i * 28);
+                                });
+                            }
+                        }
+                    }
                 });
             });
+
+            // Populate first run immediately with cascade
+            const firstRun = runs[0];
+            if (firstRun && Array.isArray(firstRun.cases)) {
+                const ul = document.getElementById('cases-' + firstRun.run_id);
+                if (ul) {
+                    firstRun.cases.forEach((c, i) => {
+                        setTimeout(() => {
+                            const li = document.createElement('li');
+                            li.className = c.ok ? 'case-ok' : 'case-fail';
+                            li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
+                            ul.appendChild(li);
+                        }, i * 28);
+                    });
+                }
+            }
         }
 
         function startProgressBar(estimatedMs) {

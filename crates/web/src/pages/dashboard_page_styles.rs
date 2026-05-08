@@ -178,20 +178,41 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             border: 1px solid var(--color-panel-border);
             border-radius: var(--radius-md);
             background: var(--color-panel);
-            padding: 10px;
+            overflow: hidden;
         }
         .test-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-weight: 600;
             font-size: 0.875rem;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+            gap: 8px;
         }
+        .test-head:hover { background: var(--bg-page); }
         .test-head.ok { color: var(--color-success); }
         .test-head.fail { color: var(--color-error, #e55); }
+        .test-head-chevron {
+            font-size: 0.7rem;
+            transition: transform 0.2s;
+            opacity: 0.5;
+            flex-shrink: 0;
+        }
+        .test-run.open .test-head-chevron { transform: rotate(180deg); }
         .test-cases {
-            margin: 6px 0 0;
-            padding-left: 16px;
+            padding: 0 12px;
             font-size: 0.8125rem;
             color: var(--color-muted);
             list-style: none;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease, padding 0.15s;
+        }
+        .test-run.open .test-cases {
+            max-height: 1200px;
+            padding: 4px 12px 10px;
         }
         .test-cases li {
             opacity: 0;
