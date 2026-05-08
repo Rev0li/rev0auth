@@ -31,7 +31,6 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn" data-tab-btn="messages">Messages</button>
             <button class="tab-btn" data-tab-btn="donations">Donations</button>
             <button class="tab-btn" data-tab-btn="theme">Theme</button>
-            <button class="tab-btn" data-tab-btn="security">Security</button>
         </nav>
 
         <!-- ====== STATUS ====== -->
@@ -181,21 +180,6 @@ pub async fn dashboard() -> Html<String> {
             </div>
         </section>
 
-        <!-- ====== SECURITY ====== -->
-        <section class="tab-page" id="tab-security">
-            <div class="row">
-                <strong>YubiKey / WebAuthn FIDO2</strong>
-                <div id="webauthn-status-block" class="mini" style="margin-top:10px">Chargement...</div>
-                <div class="mini" style="margin-top:12px;color:var(--color-muted)">
-                    La cle s'enregistre via <code>scripts/gen_secret.sh</code> au premier demarrage.<br>
-                    RP ID: <code id="webauthn-rp-id">—</code> &nbsp;|&nbsp; Origin: <code id="webauthn-rp-origin">—</code>
-                </div>
-            </div>
-            <div class="row">
-                <strong>Audit</strong>
-                <div id="admin-audit-list" class="mini" style="margin-top:8px">Chargement...</div>
-            </div>
-        </section>
 
     </main>
 
@@ -494,43 +478,6 @@ pub async fn dashboard() -> Html<String> {
             }
         }
 
-        // ---- security (read-only) ----
-        async function loadWebAuthnStatus() {
-            try {
-                const data = await fetch('/japprends/webauthn/status').then(r => r.json());
-                const block = document.getElementById('webauthn-status-block');
-                if (block) {
-                    block.innerHTML = data.registered
-                        ? '<span style="color:var(--color-success);font-weight:600">● Cle YubiKey active</span> — exigee a chaque connexion admin.'
-                        : '<span style="color:var(--color-muted)">○ Aucune cle enregistree</span> — connexion par mot de passe seul. Lance <code>scripts/gen_secret.sh</code> pour enregistrer.';
-                }
-                const rpId = document.getElementById('webauthn-rp-id');
-                const rpOrigin = document.getElementById('webauthn-rp-origin');
-                if (rpId) rpId.textContent = data.rp_id || '—';
-                if (rpOrigin) rpOrigin.textContent = data.rp_origin || '—';
-            } catch (_) {}
-        }
-
-        async function loadAuditLog() {
-            const panel = document.getElementById('admin-audit-list');
-            if (!panel) return;
-            try {
-                const res = await fetch('/japprends/audit', { cache: 'no-store' });
-                const data = await res.json();
-                const items = Array.isArray(data?.items) ? data.items : [];
-                if (items.length === 0) { panel.textContent = 'Aucun evenement.'; return; }
-                panel.innerHTML = '<ul style="margin:0;padding-left:1.2em">'
-                    + items.slice(-20).reverse().map(e => {
-                        const dt = new Date(e.timestamp_epoch * 1000).toLocaleTimeString();
-                        return '<li style="margin-bottom:4px"><code>' + dt + '</code> — <strong>' + e.action + '</strong>'
-                            + (e.target ? ' · ' + e.target : '')
-                            + (e.detail ? ' · <span style="color:var(--color-muted)">' + e.detail + '</span>' : '')
-                            + '</li>';
-                    }).join('')
-                    + '</ul>';
-            } catch (_) { panel.textContent = 'Erreur chargement audit.'; }
-        }
-
         // ---- tabs ----
         function bindTabs() {
             const buttons = document.querySelectorAll('[data-tab-btn]');
@@ -543,7 +490,6 @@ pub async fn dashboard() -> Html<String> {
                     btn.classList.add('active');
                     const page = document.getElementById('tab-' + tab);
                     if (page) page.classList.add('active');
-                    if (tab === 'security') { loadWebAuthnStatus(); loadAuditLog(); }
                     if (tab === 'messages') loadAdminMessages();
                     if (tab === 'donations') loadAdminDonations();
                     if (tab === 'members') { loadAdminSignupQueue(); loadUsers(); }
@@ -565,7 +511,6 @@ pub async fn dashboard() -> Html<String> {
         loadAdminSignupQueue();
         loadUsers();
         loadAdminMessages();
-        loadWebAuthnStatus();
         setInterval(refreshStatus, 5000);
         setInterval(loadTestsHistory, 15000);
         setInterval(loadAdminSignupQueue, 8000);
