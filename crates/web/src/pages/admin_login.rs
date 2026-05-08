@@ -14,6 +14,7 @@ pub async fn admin_login() -> Html<String> {
     <style>
         %%ADMIN_LOGIN_PAGE_STYLES%%
         #yubikey-step { display: none; }
+        #password-step { display: none; }
         .yubikey-icon {
             font-size: 2.5rem;
             display: block;
@@ -33,6 +34,19 @@ pub async fn admin_login() -> Html<String> {
             <span class="brand-badge">rev0auth admin</span>
         </div>
 
+        <!-- YubiKey-only mode (shown when key is registered) -->
+        <article class="card" id="yubikey-step">
+            <h1>Admin Access</h1>
+            <p class="hint">Insere ta cle et touche-la pour te connecter.</p>
+            <span class="yubikey-icon">🔑</span>
+            <p id="yubikey-waiting" style="text-align:center;color:var(--color-muted);font-size:0.9rem;margin:0 0 12px">En attente de la cle...</p>
+            <div id="yubikey-result" class="result"></div>
+            <button class="btn" id="yubikey-retry-btn" style="display:none;margin-top:8px;background:var(--bg-page);color:var(--color-muted);border:1px solid var(--color-panel-border)">
+                Reessayer
+            </button>
+        </article>
+
+        <!-- Password mode (shown when no key is registered) -->
         <article class="card" id="password-step">
             <h1>Admin Access</h1>
             <p class="hint">Pseudo + seed + mot de passe + OTP 2FA (si actif) + challenge.</p>
@@ -73,17 +87,6 @@ pub async fn admin_login() -> Html<String> {
             <button class="btn" id="login-btn">Se connecter</button>
             <div id="login-result" class="result"></div>
         </article>
-
-        <article class="card" id="yubikey-step">
-            <h1>Verification YubiKey</h1>
-            <p class="hint">Identifiants valides — touche ta cle pour continuer.</p>
-            <span class="yubikey-icon">🔑</span>
-            <p id="yubikey-waiting" style="text-align:center;color:var(--color-muted);font-size:0.9rem;margin:0 0 12px">En attente de la cle...</p>
-            <div id="yubikey-result" class="result"></div>
-            <button class="btn" id="yubikey-back-btn" style="margin-top:8px;background:var(--bg-page);color:var(--color-muted);border:1px solid var(--color-panel-border)">
-                Recommencer
-            </button>
-        </article>
     </main>
 
     <script>
@@ -103,19 +106,115 @@ pub async fn admin_login() -> Html<String> {
             return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
         }
 
-        // ---- State ----
-        let challengeChoice = '';
-        let trapTouched = false;
-        let pendingWebAuthnToken = null;
-        let pendingWebAuthnChallenge = null;
-
         function setResult(el, ok, text) {
             el.className = 'result ' + (ok ? 'ok' : 'down');
             el.textContent = text;
             el.style.display = 'block';
         }
 
-        // ---- Challenge buttons ----
+        // ---- Probe on load: choose mode based on key registration ----
+        async function probeAndInit() {
+            let data;
+            try {
+                const res = await fetch('/japprends/webauthn/auth/start');
+                data = await res.json();
+            } catch (e) {
+                // Network error — fall back to password mode
+                showPasswordMode();
+                return;
+            }
+
+            if (data.locked) {
+                document.getElementById('yubikey-step').style.display = 'block';
+                const output = document.getElementById('yubikey-result');
+                setResult(output, false, data.message || 'Trop de tentatives. Reessaie plus tard.');
+                document.getElementById('yubikey-waiting').style.display = 'none';
+                return;
+            }
+
+            if (data.webauthn_required) {
+                showYubiKeyMode(data.webauthn_token, data.webauthn_challenge);
+            } else {
+                showPasswordMode();
+            }
+        }
+
+        function showPasswordMode() {
+            document.getElementById('password-step').style.display = 'block';
+            document.getElementById('yubikey-step').style.display = 'none';
+        }
+
+        function showYubiKeyMode(token, challenge) {
+            document.getElementById('yubikey-step').style.display = 'block';
+            document.getElementById('password-step').style.display = 'none';
+            startYubiKeyAuth(token, challenge);
+        }
+
+        // ---- YubiKey auth ----
+        async function startYubiKeyAuth(token, challenge) {
+            const output = document.getElementById('yubikey-result');
+            const waiting = document.getElementById('yubikey-waiting');
+            const retryBtn = document.getElementById('yubikey-retry-btn');
+
+            if (!token || !challenge) {
+                setResult(output, false, 'Session expiree. Recharge la page.');
+                retryBtn.style.display = 'block';
+                return;
+            }
+
+            output.style.display = 'none';
+            retryBtn.style.display = 'none';
+            if (waiting) waiting.style.display = 'block';
+
+            try {
+                const options = challenge.publicKey;
+                options.challenge = base64urlToBuffer(options.challenge);
+                if (options.allowCredentials) {
+                    options.allowCredentials = options.allowCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
+                }
+
+                const cred = await navigator.credentials.get({ publicKey: options });
+                if (waiting) waiting.style.display = 'none';
+
+                const credJSON = {
+                    id: cred.id,
+                    rawId: bufferToBase64url(cred.rawId),
+                    type: cred.type,
+                    response: {
+                        authenticatorData: bufferToBase64url(cred.response.authenticatorData),
+                        clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
+                        signature: bufferToBase64url(cred.response.signature),
+                        userHandle: cred.response.userHandle ? bufferToBase64url(cred.response.userHandle) : null,
+                    }
+                };
+
+                const res = await fetch('/japprends/webauthn/auth/finish', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ token, credential: credJSON })
+                });
+                const data = await res.json();
+                setResult(output, data.ok, data.message);
+                if (data.ok) {
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 350);
+                } else {
+                    retryBtn.style.display = 'block';
+                }
+            } catch (err) {
+                if (waiting) waiting.style.display = 'none';
+                setResult(output, false, 'Erreur YubiKey: ' + err.message);
+                retryBtn.style.display = 'block';
+            }
+        }
+
+        document.getElementById('yubikey-retry-btn').addEventListener('click', () => {
+            probeAndInit();
+        });
+
+        // ---- Password mode setup ----
+        let challengeChoice = '';
+        let trapTouched = false;
+
         document.querySelectorAll('.challenge-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 challengeChoice = btn.getAttribute('data-choice') || '';
@@ -137,7 +236,6 @@ pub async fn admin_login() -> Html<String> {
         bindEnter('password', 'login-btn');
         bindEnter('otp', 'login-btn');
 
-        // ---- Step 1: password ----
         document.getElementById('login-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
             const seed = document.getElementById('seed').value.trim();
@@ -161,74 +259,12 @@ pub async fn admin_login() -> Html<String> {
                 body: JSON.stringify({ pseudo, seed, password, otp, challenge_choice: challengeChoice, trap_value: trapTouched ? 'clicked' : website })
             });
             const data = await res.json();
-
-            if (data.webauthn_required) {
-                pendingWebAuthnToken = data.webauthn_token;
-                pendingWebAuthnChallenge = data.webauthn_challenge;
-                document.getElementById('password-step').style.display = 'none';
-                document.getElementById('yubikey-step').style.display = 'block';
-                startYubiKeyAuth();
-                return;
-            }
-
             setResult(output, data.ok, data.message);
             if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
         });
 
-        // ---- Step 2: YubiKey (auto-triggered) ----
-        async function startYubiKeyAuth() {
-            const output = document.getElementById('yubikey-result');
-            const waiting = document.getElementById('yubikey-waiting');
-            if (!pendingWebAuthnToken || !pendingWebAuthnChallenge) {
-                setResult(output, false, 'Session expiree. Recommence la connexion.');
-                return;
-            }
-            try {
-                const options = pendingWebAuthnChallenge.publicKey;
-                options.challenge = base64urlToBuffer(options.challenge);
-                if (options.allowCredentials) {
-                    options.allowCredentials = options.allowCredentials.map(c => ({ ...c, id: base64urlToBuffer(c.id) }));
-                }
-
-                if (waiting) waiting.style.display = 'block';
-                output.style.display = 'none';
-
-                const cred = await navigator.credentials.get({ publicKey: options });
-                if (waiting) waiting.style.display = 'none';
-
-                const credJSON = {
-                    id: cred.id,
-                    rawId: bufferToBase64url(cred.rawId),
-                    type: cred.type,
-                    response: {
-                        authenticatorData: bufferToBase64url(cred.response.authenticatorData),
-                        clientDataJSON: bufferToBase64url(cred.response.clientDataJSON),
-                        signature: bufferToBase64url(cred.response.signature),
-                        userHandle: cred.response.userHandle ? bufferToBase64url(cred.response.userHandle) : null,
-                    }
-                };
-
-                const res = await fetch('/japprends/webauthn/auth/finish', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ token: pendingWebAuthnToken, credential: credJSON })
-                });
-                const data = await res.json();
-                setResult(output, data.ok, data.message);
-                if (data.ok) setTimeout(() => { window.location.href = '/dashboard'; }, 350);
-            } catch (err) {
-                if (waiting) waiting.style.display = 'none';
-                setResult(output, false, 'Erreur YubiKey: ' + err.message);
-            }
-        }
-
-        document.getElementById('yubikey-back-btn').addEventListener('click', () => {
-            pendingWebAuthnToken = null;
-            pendingWebAuthnChallenge = null;
-            document.getElementById('yubikey-step').style.display = 'none';
-            document.getElementById('password-step').style.display = 'block';
-            document.getElementById('login-result').style.display = 'none';
-        });
+        // ---- Start ----
+        probeAndInit();
     </script>
 </body>
 </html>

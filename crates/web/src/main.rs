@@ -50,11 +50,14 @@ struct WebState {
     webauthn_credential: Arc<RwLock<Option<Passkey>>>,
     webauthn_reg_state: Arc<RwLock<Option<PasskeyRegistration>>>,
     webauthn_auth_challenges: Arc<RwLock<std::collections::HashMap<String, (PasskeyAuthentication, u64)>>>,
+    admin_login_attempts: Arc<RwLock<std::collections::HashMap<String, (u32, u64)>>>,
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
 const ADMIN_SESSION_TTL_SECS: u64 = 8 * 60 * 60;
 const WEBAUTHN_PENDING_TTL_SECS: u64 = 5 * 60;
+const ADMIN_MAX_ATTEMPTS: u32 = 5;
+const ADMIN_LOCKOUT_SECS: u64 = 15 * 60;
 
 const AVATAR_MAX_BYTES: usize = 512 * 1024;
 const DONATION_PROOF_MAX_BYTES: usize = 5 * 1024 * 1024;
@@ -356,15 +359,6 @@ struct AdminLoginResponse {
     message: &'static str,
 }
 
-#[derive(Serialize)]
-struct AdminLoginChallengeResponse {
-    ok: bool,
-    message: &'static str,
-    webauthn_required: bool,
-    webauthn_token: String,
-    webauthn_challenge: serde_json::Value,
-}
-
 #[derive(Deserialize)]
 struct WebAuthnRegFinishInput {
     credential: serde_json::Value,
@@ -473,6 +467,7 @@ fn build_router(state: WebState) -> Router {
         .route("/portal/login", post(portal_login))
         .route("/japprends/login", get(admin_login_page))
         .route("/japprends/login", post(admin_login))
+        .route("/japprends/webauthn/auth/start", get(admin_webauthn_auth_start))
         .route("/japprends/webauthn/auth/finish", post(admin_webauthn_auth_finish))
         .route("/japprends/logout", post(admin_logout))
         .route("/home/friend", get(friend_home))
@@ -541,6 +536,7 @@ async fn main() -> anyhow::Result<()> {
         webauthn_credential: Arc::new(RwLock::new(initial_credential)),
         webauthn_reg_state: Arc::new(RwLock::new(None)),
         webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
     };
 
     let app = build_router(state);
@@ -776,146 +772,170 @@ async fn portal_login(
     }
 }
 
-async fn admin_login(
+// ============================================================================
+// ADMIN RATE LIMITING HELPERS
+// ============================================================================
+
+fn admin_ip(headers: &HeaderMap) -> String {
+    headers
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .or_else(|| {
+            headers
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+fn admin_is_locked(attempts: &std::collections::HashMap<String, (u32, u64)>, ip: &str) -> bool {
+    attempts
+        .get(ip)
+        .map_or(false, |&(count, until)| count >= ADMIN_MAX_ATTEMPTS && now_epoch() < until)
+}
+
+fn admin_record_failure(attempts: &mut std::collections::HashMap<String, (u32, u64)>, ip: &str) {
+    let entry = attempts.entry(ip.to_string()).or_insert((0, 0));
+    entry.0 += 1;
+    if entry.0 >= ADMIN_MAX_ATTEMPTS {
+        entry.1 = now_epoch() + ADMIN_LOCKOUT_SECS;
+    }
+}
+
+fn admin_clear_attempts(attempts: &mut std::collections::HashMap<String, (u32, u64)>, ip: &str) {
+    attempts.remove(ip);
+}
+
+// ============================================================================
+// WEBAUTHN AUTH START (public — auto-triggered by login page on load)
+// ============================================================================
+
+async fn admin_webauthn_auth_start(
     State(state): State<WebState>,
-    Json(payload): Json<AdminLoginInput>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
-    if payload
-        .trap_value
-        .as_ref()
-        .map(|v| !v.trim().is_empty())
-        .unwrap_or(false)
+    let ip = admin_ip(&headers);
     {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(AdminLoginResponse {
-                ok: false,
-                message: "tentative invalide",
-            }),
-        )
-            .into_response();
-    }
-
-    if payload.challenge_choice.trim() != "secure-lock" {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(AdminLoginResponse {
-                ok: false,
-                message: "challenge invalide",
-            }),
-        )
-            .into_response();
-    }
-
-    let Some(expected_password) = admin_password_from_env() else {
-        return (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(AdminLoginResponse {
-                ok: false,
-                message: "admin password not configured",
-            }),
-        )
-            .into_response();
-    };
-
-    let expected_pseudo = admin_pseudo_from_env();
-    let expected_seed = admin_seed_from_env();
-
-    if payload.pseudo.trim() != expected_pseudo || payload.seed.trim() != expected_seed {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(AdminLoginResponse {
-                ok: false,
-                message: "identifiants admin invalides",
-            }),
-        )
-            .into_response();
-    }
-
-    if payload.password != expected_password {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(AdminLoginResponse {
-                ok: false,
-                message: "mot de passe admin invalide",
-            }),
-        )
-            .into_response();
-    }
-
-    if let Some(totp_secret) = admin_totp_secret_from_env() {
-        let otp = payload.otp.unwrap_or_default();
-        if !verify_totp_code(&totp_secret, otp.trim(), now_epoch()) {
+        let attempts = state.admin_login_attempts.read().await;
+        if admin_is_locked(&attempts, &ip) {
             return (
-                StatusCode::UNAUTHORIZED,
-                Json(AdminLoginResponse {
-                    ok: false,
-                    message: "code 2FA invalide",
-                }),
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(serde_json::json!({ "webauthn_required": false, "locked": true, "message": "trop de tentatives, reessaie dans 15 minutes" })),
             )
                 .into_response();
         }
     }
 
-    // If a YubiKey is registered, require WebAuthn before issuing session.
-    {
-        let cred_guard = state.webauthn_credential.read().await;
-        if let Some(passkey) = cred_guard.as_ref() {
-            match state.webauthn.start_passkey_authentication(&[passkey.clone()]) {
-                Ok((rcr, auth_state)) => {
-                    drop(cred_guard);
-                    let pending_token = generate_admin_session_token();
-                    let expires_at = now_epoch() + WEBAUTHN_PENDING_TTL_SECS;
-                    {
-                        let mut challenges = state.webauthn_auth_challenges.write().await;
-                        // Expire stale challenges while we're here
-                        let now = now_epoch();
-                        challenges.retain(|_, (_, exp)| *exp > now);
-                        challenges.insert(pending_token.clone(), (auth_state, expires_at));
-                    }
-                    let challenge_val = serde_json::to_value(&rcr).unwrap_or(serde_json::Value::Null);
-                    return (
-                        StatusCode::OK,
-                        Json(AdminLoginChallengeResponse {
-                            ok: false,
-                            message: "webauthn_required",
-                            webauthn_required: true,
-                            webauthn_token: pending_token,
-                            webauthn_challenge: challenge_val,
-                        }),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    tracing::error!("WebAuthn start_passkey_authentication failed: {e}");
-                    // Fall through to password-only session (key error — don't lock admin out)
-                }
+    let cred_guard = state.webauthn_credential.read().await;
+    let Some(passkey) = cred_guard.as_ref() else {
+        return Json(serde_json::json!({ "webauthn_required": false })).into_response();
+    };
+
+    match state.webauthn.start_passkey_authentication(&[passkey.clone()]) {
+        Ok((rcr, auth_state)) => {
+            drop(cred_guard);
+            let pending_token = generate_admin_session_token();
+            let expires_at = now_epoch() + WEBAUTHN_PENDING_TTL_SECS;
+            {
+                let mut challenges = state.webauthn_auth_challenges.write().await;
+                let now = now_epoch();
+                challenges.retain(|_, (_, exp)| *exp > now);
+                challenges.insert(pending_token.clone(), (auth_state, expires_at));
             }
+            let challenge_val = serde_json::to_value(&rcr).unwrap_or(serde_json::Value::Null);
+            Json(serde_json::json!({
+                "webauthn_required": true,
+                "webauthn_token": pending_token,
+                "webauthn_challenge": challenge_val,
+            }))
+            .into_response()
+        }
+        Err(e) => {
+            tracing::error!("WebAuthn auth start failed: {e}");
+            Json(serde_json::json!({ "webauthn_required": false })).into_response()
+        }
+    }
+}
+
+async fn admin_login(
+    State(state): State<WebState>,
+    req_headers: HeaderMap,
+    Json(payload): Json<AdminLoginInput>,
+) -> impl IntoResponse {
+    let ip = admin_ip(&req_headers);
+
+    // Rate limit check
+    {
+        let attempts = state.admin_login_attempts.read().await;
+        if admin_is_locked(&attempts, &ip) {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(AdminLoginResponse { ok: false, message: "trop de tentatives, reessaie dans 15 minutes" }),
+            )
+                .into_response();
         }
     }
 
-    let token = generate_admin_session_token();
-    let expires_at = now_epoch() + ADMIN_SESSION_TTL_SECS;
-    {
-        let mut sessions = state.admin_sessions.write().await;
-        sessions.insert(token.clone(), expires_at);
+    // Honeypot
+    if payload.trap_value.as_ref().map(|v| !v.trim().is_empty()).unwrap_or(false) {
+        admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+        return (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "tentative invalide" })).into_response();
     }
 
-    let mut headers = HeaderMap::new();
-    headers.append(
+    // When a YubiKey is registered, the password path is disabled — use the key
+    if state.webauthn_credential.read().await.is_some() {
+        admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+        return (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "yubikey_required" })).into_response();
+    }
+
+    if payload.challenge_choice.trim() != "secure-lock" {
+        admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+        return (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "challenge invalide" })).into_response();
+    }
+
+    let Some(expected_password) = admin_password_from_env() else {
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(AdminLoginResponse { ok: false, message: "admin password not configured" })).into_response();
+    };
+
+    let expected_pseudo = admin_pseudo_from_env();
+    let expected_seed = admin_seed_from_env();
+
+    if payload.pseudo.trim() != expected_pseudo
+        || payload.seed.trim() != expected_seed
+        || payload.password != expected_password
+    {
+        admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+        return (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "identifiants admin invalides" })).into_response();
+    }
+
+    if let Some(totp_secret) = admin_totp_secret_from_env() {
+        let otp = payload.otp.unwrap_or_default();
+        if !verify_totp_code(&totp_secret, otp.trim(), now_epoch()) {
+            admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+            return (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "code 2FA invalide" })).into_response();
+        }
+    }
+
+    // All checks passed — issue session
+    admin_clear_attempts(&mut *state.admin_login_attempts.write().await, &ip);
+
+    let token = generate_admin_session_token();
+    let expires_at = now_epoch() + ADMIN_SESSION_TTL_SECS;
+    state.admin_sessions.write().await.insert(token.clone(), expires_at);
+
+    let mut response_headers = HeaderMap::new();
+    response_headers.append(
         header::SET_COOKIE,
         HeaderValue::from_str(&build_admin_cookie(&token)).expect("valid admin cookie"),
     );
 
-    (
-        StatusCode::OK,
-        headers,
-        Json(AdminLoginResponse {
-            ok: true,
-            message: "connexion admin validee",
-        }),
-    )
-        .into_response()
+    (StatusCode::OK, response_headers, Json(AdminLoginResponse { ok: true, message: "connexion admin validee" })).into_response()
 }
 
 async fn admin_logout(State(state): State<WebState>, headers: HeaderMap) -> impl IntoResponse {
@@ -1012,10 +1032,22 @@ async fn admin_webauthn_remove(State(state): State<WebState>) -> Json<serde_json
 
 async fn admin_webauthn_auth_finish(
     State(state): State<WebState>,
+    req_headers: HeaderMap,
     Json(payload): Json<WebAuthnAuthFinishInput>,
 ) -> impl IntoResponse {
-    let now = now_epoch();
+    let ip = admin_ip(&req_headers);
+    {
+        let attempts = state.admin_login_attempts.read().await;
+        if admin_is_locked(&attempts, &ip) {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(AdminLoginResponse { ok: false, message: "trop de tentatives, reessaie dans 15 minutes" }),
+            )
+                .into_response();
+        }
+    }
 
+    let now = now_epoch();
     let auth_state = {
         let mut challenges = state.webauthn_auth_challenges.write().await;
         challenges.retain(|_, (_, exp)| *exp > now);
@@ -1023,6 +1055,7 @@ async fn admin_webauthn_auth_finish(
     };
 
     let Some(auth_state) = auth_state else {
+        admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
         return (
             StatusCode::UNAUTHORIZED,
             Json(AdminLoginResponse { ok: false, message: "token WebAuthn invalide ou expire" }),
@@ -1033,11 +1066,12 @@ async fn admin_webauthn_auth_finish(
     let pub_cred: PublicKeyCredential = match serde_json::from_value(payload.credential) {
         Ok(c) => c,
         Err(_) => {
+            admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
             return (
                 StatusCode::BAD_REQUEST,
                 Json(AdminLoginResponse { ok: false, message: "credential WebAuthn invalide" }),
             )
-                .into_response()
+                .into_response();
         }
     };
 
@@ -1050,30 +1084,24 @@ async fn admin_webauthn_auth_finish(
                 }
             }
 
+            admin_clear_attempts(&mut *state.admin_login_attempts.write().await, &ip);
+
             let session_token = generate_admin_session_token();
             let expires_at = now_epoch() + ADMIN_SESSION_TTL_SECS;
             state.admin_sessions.write().await.insert(session_token.clone(), expires_at);
 
-            let mut headers = HeaderMap::new();
-            headers.append(
+            let mut response_headers = HeaderMap::new();
+            response_headers.append(
                 header::SET_COOKIE,
                 HeaderValue::from_str(&build_admin_cookie(&session_token)).expect("valid cookie"),
             );
 
-            (
-                StatusCode::OK,
-                headers,
-                Json(AdminLoginResponse { ok: true, message: "connexion admin validee" }),
-            )
-                .into_response()
+            (StatusCode::OK, response_headers, Json(AdminLoginResponse { ok: true, message: "connexion admin validee" })).into_response()
         }
         Err(e) => {
             tracing::warn!("WebAuthn auth failed: {e}");
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(AdminLoginResponse { ok: false, message: "verification YubiKey echouee" }),
-            )
-                .into_response()
+            admin_record_failure(&mut *state.admin_login_attempts.write().await, &ip);
+            (StatusCode::UNAUTHORIZED, Json(AdminLoginResponse { ok: false, message: "verification YubiKey echouee" })).into_response()
         }
     }
 }
@@ -2706,6 +2734,7 @@ mod tests {
             webauthn_credential: Arc::new(RwLock::new(None)),
             webauthn_reg_state: Arc::new(RwLock::new(None)),
             webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
         }
     }
 
