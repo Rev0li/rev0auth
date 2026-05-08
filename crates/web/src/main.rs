@@ -398,7 +398,7 @@ struct StatusAllResponse {
 
 #[derive(Debug, Clone, Serialize)]
 struct DashboardTestCase {
-    name: &'static str,
+    name: String,
     ok: bool,
     detail: String,
 }
@@ -1210,44 +1210,65 @@ async fn admin_tests_history(State(state): State<WebState>) -> Json<Vec<Dashboar
     Json(runs.iter().cloned().rev().collect())
 }
 
+fn find_cargo_bin() -> String {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let local = format!("{home}/.cargo/bin/cargo");
+    if std::path::Path::new(&local).exists() {
+        local
+    } else {
+        "cargo".to_string()
+    }
+}
+
+fn parse_cargo_test_output(output: &str) -> Vec<DashboardTestCase> {
+    let mut cases: Vec<DashboardTestCase> = output
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("test ")?;
+            let (name, status) = rest.rsplit_once(" ... ")?;
+            let status = status.trim();
+            if status == "ok" || status.starts_with("FAILED") || status == "ignored" {
+                Some(DashboardTestCase {
+                    name: name.trim().to_string(),
+                    ok: status == "ok",
+                    detail: status.to_string(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if cases.is_empty() {
+        cases.push(DashboardTestCase {
+            name: "cargo_test".to_string(),
+            ok: false,
+            detail: "aucun test trouve dans la sortie".to_string(),
+        });
+    }
+    cases
+}
+
 async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<DashboardTestRun> {
-    let api_upstream = api_upstream_addr();
-    let api_ok = timeout(
-        Duration::from_millis(500),
-        tokio::net::TcpStream::connect(api_upstream.as_str()),
-    )
-    .await
-    .map(|r| r.is_ok())
-    .unwrap_or(false);
+    let cargo = find_cargo_bin();
 
-    let admin_pwd_ok = admin_password_from_env().is_some();
-    let users_total = state.users.read().await.len();
-
-    let cases = vec![
-        DashboardTestCase {
-            name: "api_health_socket",
-            ok: api_ok,
-            detail: if api_ok {
-                format!("{api_upstream} reachable")
-            } else {
-                format!("cannot reach {api_upstream}")
-            },
-        },
-        DashboardTestCase {
-            name: "admin_password_configured",
-            ok: admin_pwd_ok,
-            detail: if admin_pwd_ok {
-                "ADMIN_DASH_PASSWORD configured".to_string()
-            } else {
-                "missing ADMIN_DASH_PASSWORD".to_string()
-            },
-        },
-        DashboardTestCase {
-            name: "user_store_access",
-            ok: true,
-            detail: format!("user records in memory: {users_total}"),
-        },
-    ];
+    let cases = match tokio::process::Command::new(&cargo)
+        .args(["test", "-p", "rev0auth-api", "--color", "never"])
+        .output()
+        .await
+    {
+        Ok(out) => {
+            let combined = String::from_utf8_lossy(&out.stdout).to_string()
+                + &String::from_utf8_lossy(&out.stderr);
+            parse_cargo_test_output(&combined)
+        }
+        Err(e) => vec![DashboardTestCase {
+            name: "cargo_test_execution".to_string(),
+            ok: false,
+            detail: format!("impossible de lancer cargo: {e}"),
+        }],
+    };
 
     let passed = cases.iter().filter(|c| c.ok).count();
     let run = DashboardTestRun {
@@ -1262,10 +1283,8 @@ async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<Dashboard
         let mut runs = state.dashboard_test_runs.write().await;
         runs.push(run.clone());
         if runs.len() > 200 {
-            let drain_to = runs.len().saturating_sub(200);
-            if drain_to > 0 {
-                runs.drain(0..drain_to);
-            }
+            let keep_from = runs.len() - 200;
+            runs.drain(0..keep_from);
         }
     }
 
