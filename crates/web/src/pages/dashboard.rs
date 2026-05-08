@@ -30,7 +30,6 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn" data-tab-btn="members">Members</button>
             <button class="tab-btn" data-tab-btn="messages">Messages</button>
             <button class="tab-btn" data-tab-btn="donations">Donations</button>
-            <button class="tab-btn" data-tab-btn="theme">Theme</button>
         </nav>
 
         <!-- ====== STATUS ====== -->
@@ -59,6 +58,12 @@ pub async fn dashboard() -> Html<String> {
                 <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                     <strong>Tests</strong>
                     <button class="btn-small grant" id="launch-tests-now">Lancer maintenant</button>
+                </div>
+                <div id="tests-progress-wrap" style="display:none;margin-top:10px">
+                    <div style="font-size:0.78rem;color:var(--color-muted);margin-bottom:4px" id="tests-progress-label">Execution en cours...</div>
+                    <div style="background:var(--bg-card);border:1px solid var(--color-panel-border);border-radius:4px;height:6px;overflow:hidden">
+                        <div id="tests-progress-bar" style="height:100%;width:0%;background:var(--color-accent);transition:width 0.4s linear"></div>
+                    </div>
                 </div>
                 <div id="tests-history" class="tests-history" style="margin-top:10px"></div>
             </div>
@@ -117,68 +122,6 @@ pub async fn dashboard() -> Html<String> {
             </div>
         </section>
 
-        <!-- ====== THEME ====== -->
-        <section class="tab-page" id="tab-theme">
-            <div class="row">
-                <strong>Theme editor</strong>
-                <div class="mini" style="margin-bottom:12px">Tokens sauvegardes dans le navigateur et appliques via <code>rev0auth_theme</code>.</div>
-                <div class="theme-editor-grid">
-                    <div>
-                        <label for="theme-preset-name" class="field-label">Nom du preset</label>
-                        <input id="theme-preset-name" class="field-input" placeholder="ex: ocean-soft" />
-                    </div>
-                    <div>
-                        <label for="theme-preset-select" class="field-label">Presets enregistres</label>
-                        <select id="theme-preset-select" class="field-select"></select>
-                    </div>
-                </div>
-                <div class="actions">
-                    <button class="btn-small grant" id="theme-preset-save">Sauver</button>
-                    <button class="btn-small" id="theme-preset-update">Mettre a jour</button>
-                    <button class="btn-small" id="theme-preset-apply">Appliquer</button>
-                    <button class="btn-small danger" id="theme-preset-delete">Supprimer</button>
-                </div>
-                <div id="theme-editor-list"></div>
-                <div class="actions">
-                    <button class="btn-small" id="theme-preview-apply">Preview</button>
-                    <button class="btn-small" id="theme-preview-reset">Reset preview</button>
-                    <button class="btn-small grant" id="theme-editor-save">Sauvegarder</button>
-                    <button class="btn-small" id="theme-editor-export-btn">Exporter JSON</button>
-                    <button class="btn-small" id="theme-editor-import-btn">Importer JSON</button>
-                    <button class="btn-small danger" id="theme-editor-reset">Reset theme</button>
-                </div>
-                <textarea id="theme-editor-export" class="field-textarea" placeholder="JSON export theme..."></textarea>
-                <div id="theme-editor-msg" class="mini mini-top"></div>
-            </div>
-            <div class="row">
-                <strong>Preview composants</strong>
-                <div class="grid preview-grid" style="margin-top:10px">
-                    <article class="card preview-card">
-                        <div class="label">Typography</div>
-                        <h3 class="preview-title">Titre exemple</h3>
-                        <div class="meta">Texte secondaire — contraste et lisibilite.</div>
-                    </article>
-                    <article class="card preview-card">
-                        <div class="label">Buttons</div>
-                        <div class="actions actions-tight">
-                            <button class="btn-small primary" type="button">Primary</button>
-                            <button class="btn-small secondary" type="button">Secondary</button>
-                            <button class="btn-small danger" type="button">Danger</button>
-                        </div>
-                    </article>
-                    <article class="card preview-card">
-                        <div class="label">Feedback</div>
-                        <div class="mini ok preview-feedback">Succes</div>
-                        <div class="mini down preview-feedback">Erreur</div>
-                    </article>
-                    <article class="card preview-card">
-                        <div class="label">Input</div>
-                        <label for="theme-preview-input" class="preview-input-label">Champ</label>
-                        <input id="theme-preview-input" class="field-input" value="Preview" />
-                    </article>
-                </div>
-            </div>
-        </section>
 
 
     </main>
@@ -202,11 +145,8 @@ pub async fn dashboard() -> Html<String> {
         %%DASHBOARD_TESTING_MODULE%%
         %%DASHBOARD_QUEUE_MODULE%%
         %%DASHBOARD_STATUS_MODULE%%
-        %%DASHBOARD_THEME_EDITOR_MODULE%%
-
         const adminChatModule = createDashboardChatModule({ adminPseudo, adminChatState });
         const { setAdminReplyMsg, startAdminReply, sendAdminReply, loadAdminMessages } = adminChatModule;
-        const themeEditorModule = createDashboardThemeEditorModule();
 
         // ---- utils ----
         function paint(el, ok, label) {
@@ -357,6 +297,9 @@ pub async fn dashboard() -> Html<String> {
         }
 
         // ---- tests ----
+        let testsRunning = false;
+        let progressTimer = null;
+
         function renderTestsHistory(runs) {
             const panel = document.getElementById('tests-history');
             if (!panel) return;
@@ -364,16 +307,59 @@ pub async fn dashboard() -> Html<String> {
                 panel.innerHTML = '<div class="mini">Aucun test lance.</div>'; return;
             }
             dashboardStats.lastRun = runs[0];
-            panel.innerHTML = runs.slice(0, 8).map(run => {
+            panel.innerHTML = runs.slice(0, 8).map((run, idx) => {
                 const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
-                const cases = Array.isArray(run.cases)
-                    ? run.cases.map(c => '<li>' + (c.ok ? '✓' : '✗') + ' ' + c.name + (c.detail ? ' — ' + c.detail : '') + '</li>').join('')
-                    : '';
-                return '<div class="test-run">'
-                    + '<div class="test-head">Run #' + run.run_id + ' — ' + run.passed + '/' + run.total + ' — ' + dt + '</div>'
-                    + '<ul class="test-cases">' + cases + '</ul>'
+                const allOk = run.passed === run.total;
+                return '<div class="test-run" id="run-' + run.run_id + '">'
+                    + '<div class="test-head' + (allOk ? ' ok' : ' fail') + '">'
+                    + 'Run #' + run.run_id + ' — ' + run.passed + '/' + run.total + ' — ' + dt
+                    + '</div>'
+                    + '<ul class="test-cases" id="cases-' + run.run_id + '"></ul>'
                     + '</div>';
             }).join('');
+
+            runs.slice(0, 8).forEach((run, runIdx) => {
+                const ul = document.getElementById('cases-' + run.run_id);
+                if (!ul || !Array.isArray(run.cases)) return;
+                run.cases.forEach((c, i) => {
+                    const delay = runIdx === 0 ? i * 28 : 0;
+                    setTimeout(() => {
+                        const li = document.createElement('li');
+                        li.className = c.ok ? 'case-ok' : 'case-fail';
+                        li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
+                        ul.appendChild(li);
+                    }, delay);
+                });
+            });
+        }
+
+        function startProgressBar(estimatedMs) {
+            const wrap = document.getElementById('tests-progress-wrap');
+            const bar = document.getElementById('tests-progress-bar');
+            const label = document.getElementById('tests-progress-label');
+            if (!wrap || !bar) return;
+            wrap.style.display = 'block';
+            bar.style.transition = 'none';
+            bar.style.width = '0%';
+            label.textContent = 'Execution en cours...';
+            requestAnimationFrame(() => {
+                bar.style.transition = 'width ' + (estimatedMs / 1000).toFixed(1) + 's linear';
+                bar.style.width = '88%';
+            });
+            if (progressTimer) clearTimeout(progressTimer);
+        }
+
+        function completeProgressBar(passed, total) {
+            const bar = document.getElementById('tests-progress-bar');
+            const label = document.getElementById('tests-progress-label');
+            const wrap = document.getElementById('tests-progress-wrap');
+            if (!bar) return;
+            const allOk = passed === total;
+            bar.style.transition = 'width 0.25s ease';
+            bar.style.width = '100%';
+            bar.style.background = allOk ? 'var(--color-success)' : 'var(--color-error, #e55)';
+            label.textContent = passed + '/' + total + ' tests passes';
+            setTimeout(() => { if (wrap) wrap.style.display = 'none'; bar.style.background = ''; }, 2800);
         }
 
         async function loadTestsHistory() {
@@ -384,8 +370,21 @@ pub async fn dashboard() -> Html<String> {
         }
 
         async function launchTestsNow() {
-            await fetch('/japprends/tests/launch', { method: 'POST' }).catch(() => {});
-            loadTestsHistory();
+            if (testsRunning) return;
+            testsRunning = true;
+            document.getElementById('launch-tests-now').disabled = true;
+            startProgressBar(11000);
+            try {
+                const res = await fetch('/japprends/tests/launch', { method: 'POST' });
+                const run = await res.json();
+                completeProgressBar(run.passed, run.total);
+                loadTestsHistory();
+            } catch (_) {
+                completeProgressBar(0, 1);
+            } finally {
+                testsRunning = false;
+                document.getElementById('launch-tests-now').disabled = false;
+            }
         }
 
         // ---- endpoints + chain ----
@@ -504,7 +503,6 @@ pub async fn dashboard() -> Html<String> {
         document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
 
         bindTabs();
-        themeEditorModule.initThemeEditor();
         refreshStatus();
         loadTestsHistory();
         loadEndpoints();

@@ -184,12 +184,25 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             font-weight: 600;
             font-size: 0.875rem;
         }
+        .test-head.ok { color: var(--color-success); }
+        .test-head.fail { color: var(--color-error, #e55); }
         .test-cases {
             margin: 6px 0 0;
             padding-left: 16px;
             font-size: 0.8125rem;
             color: var(--color-muted);
+            list-style: none;
         }
+        .test-cases li {
+            opacity: 0;
+            animation: fadeInRow 0.18s ease forwards;
+        }
+        @keyframes fadeInRow {
+            from { opacity: 0; transform: translateX(-6px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        .case-ok  { color: var(--color-success); }
+        .case-fail { color: var(--color-error, #e55); font-weight: 600; }
         .user-card {
             border: 1px solid var(--color-panel-border);
             border-radius: var(--radius-md);
