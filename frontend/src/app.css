@@ -1,0 +1,224 @@
+/* ===== Design tokens — light ===== */
+:root {
+    --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+    --background:           #F7F4EF;
+    --foreground:           #111111;
+    --card:                 #FFFFFF;
+    --card-foreground:      #111111;
+    --muted:                #FCFBF8;
+    --muted-foreground:     #6B6B6B;
+    --primary:              #E8B7C4;
+    --primary-foreground:   #111111;
+    --primary-hover:        #DCA2B5;
+    --secondary:            #FCFBF8;
+    --secondary-foreground: #111111;
+    --accent:               #6EDAD3;
+    --accent-foreground:    #111111;
+    --border:               rgba(17,17,17,0.08);
+    --ring:                 rgba(232,183,196,0.35);
+
+    --success:              #65B48A;
+    --success-bg:           rgba(101,180,138,0.12);
+    --success-border:       rgba(101,180,138,0.35);
+    --destructive:          #D96B6B;
+    --destructive-bg:       rgba(217,107,107,0.12);
+    --destructive-border:   rgba(217,107,107,0.35);
+    --warning:              #D9A84C;
+
+    --radius-sm:   0.5rem;
+    --radius-md:   0.875rem;
+    --radius-lg:   1.125rem;
+    --radius-xl:   1.75rem;
+    --radius-full: 9999px;
+
+    --shadow-soft:  0 4px 24px rgba(0,0,0,0.06);
+    --shadow-hover: 0 8px 30px rgba(0,0,0,0.10);
+}
+
+/* ===== Design tokens — dark ===== */
+html.dark {
+    --background:           #111111;
+    --foreground:           #F7F4EF;
+    --card:                 #1A1A1A;
+    --card-foreground:      #F7F4EF;
+    --muted:                #222222;
+    --muted-foreground:     #8A8A8A;
+    --secondary:            #222222;
+    --secondary-foreground: #F7F4EF;
+    --border:               rgba(255,255,255,0.08);
+    --shadow-soft:          0 4px 24px rgba(0,0,0,0.30);
+    --shadow-hover:         0 8px 30px rgba(0,0,0,0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+        --background:           #111111;
+        --foreground:           #F7F4EF;
+        --card:                 #1A1A1A;
+        --card-foreground:      #F7F4EF;
+        --muted:                #222222;
+        --muted-foreground:     #8A8A8A;
+        --secondary:            #222222;
+        --secondary-foreground: #F7F4EF;
+        --border:               rgba(255,255,255,0.08);
+        --shadow-soft:          0 4px 24px rgba(0,0,0,0.30);
+        --shadow-hover:         0 8px 30px rgba(0,0,0,0.45);
+    }
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--foreground);
+    background: var(--background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+}
+
+/* ===== Card ===== */
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+}
+
+/* ===== Forms ===== */
+input:not([type="file"]),
+textarea,
+select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 0.9375rem;
+    background: var(--muted);
+    color: var(--foreground);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:not([type="file"]):focus,
+textarea:focus,
+select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--ring);
+    background: var(--card);
+}
+textarea { min-height: 80px; resize: vertical; }
+select { cursor: pointer; }
+input[type="file"] { font-size: 0.875rem; margin: 6px 0; }
+label {
+    display: block;
+    margin: 0 0 5px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+.field { margin-bottom: 14px; }
+
+/* ===== Buttons ===== */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 22px;
+    font: 600 0.9375rem/1 var(--font-sans);
+    color: var(--primary-foreground);
+    background: var(--primary);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+    box-shadow: var(--shadow-soft);
+}
+.btn-primary:hover {
+    background: var(--primary-hover);
+    box-shadow: var(--shadow-hover);
+    transform: scale(1.02);
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.45; pointer-events: none; }
+
+.btn-full {
+    width: 100%;
+    height: 40px;
+    border: none;
+    border-radius: var(--radius-full);
+    font: 600 0.9375rem/1 var(--font-sans);
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 14px;
+    font: 500 0.8125rem/1 var(--font-sans);
+    color: var(--foreground);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, box-shadow 0.12s;
+}
+.btn-secondary:hover {
+    background: var(--muted);
+    box-shadow: var(--shadow-soft);
+}
+.btn-secondary.grant   { color: var(--success);     border-color: var(--success-border); }
+.btn-secondary.revoke  { color: var(--destructive);  border-color: var(--destructive-border); }
+
+/* ===== State chips ===== */
+.chip-ok {
+    display: block;
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success);
+    border-radius: var(--radius-md);
+    padding: 6px 10px;
+}
+.chip-error {
+    display: block;
+    background: var(--destructive-bg);
+    border: 1px solid var(--destructive-border);
+    color: var(--destructive);
+    border-radius: var(--radius-md);
+    padding: 6px 10px;
+}
+
+/* Form feedback — hidden by default */
+.result {
+    margin-top: 10px;
+    font-size: 0.875rem;
+    display: none;
+}
+
+/* ===== Typography helpers ===== */
+.meta { color: var(--muted-foreground); font-size: 0.875rem; }
+
+/* ===== Nav link ===== */
+.link {
+    display: block;
+    margin-top: 18px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    transition: color 0.15s;
+}
+.link:hover { color: var(--foreground); }

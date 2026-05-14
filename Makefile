@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init gen-secret gen-secret-yubikey
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web launch-frontend stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init gen-secret gen-secret-yubikey frontend-dev frontend-build frontend-check
 
 help:
 	@echo "Targets:"
@@ -65,3 +65,15 @@ gen-secret:
 
 gen-secret-yubikey:
 	./scripts/gen_secret.sh --yubikey
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
+
+frontend-check:
+	cd frontend && npm run check
+
+launch-frontend:
+	cd frontend && npm run dev &

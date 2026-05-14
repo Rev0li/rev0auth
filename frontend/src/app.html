@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script>
+            (function () {
+                /* Anti-FOUC: apply dark/light class before paint */
+                var saved = localStorage.getItem('rev0auth_color_scheme');
+                var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                var isDark = saved === 'dark' || (saved === null && prefersDark);
+                document.documentElement.classList.add(isDark ? 'dark' : 'light');
+
+                /* Custom theme tokens from admin theme editor */
+                try {
+                    var raw = localStorage.getItem('rev0auth_theme');
+                    if (raw) {
+                        var theme = JSON.parse(raw);
+                        if (theme && typeof theme === 'object') {
+                            var root = document.documentElement;
+                            Object.entries(theme).forEach(function (kv) {
+                                if (typeof kv[0] === 'string' && kv[0].startsWith('--') && typeof kv[1] === 'string')
+                                    root.style.setProperty(kv[0], kv[1]);
+                            });
+                        }
+                    }
+                } catch (_) {}
+            })();
+        </script>
+        %sveltekit.head%
+    </head>
+    <body data-sveltekit-preload-data="hover">
+        <div style="display: contents">%sveltekit.body%</div>
+    </body>
+</html>

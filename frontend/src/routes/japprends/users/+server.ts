@@ -1,0 +1,41 @@
+import { json, error } from '@sveltejs/kit';
+import type { RequestHandler } from './$types.js';
+import { db } from '$lib/server/db/index.js';
+import { users, auditLog } from '$lib/server/db/schema.js';
+import { eq } from 'drizzle-orm';
+import { hashPassword } from '$lib/server/auth.js';
+
+function requireAdmin({ locals }: { locals: App.Locals }) {
+    if (!locals.adminSession) throw error(401, 'Non autorisé.');
+}
+
+export const GET: RequestHandler = async ({ locals }) => {
+    requireAdmin({ locals });
+    const all = await db.select().from(users).orderBy(users.createdAt);
+    return json(all.map(u => ({ ...u, passwordHash: undefined })));
+};
+
+export const POST: RequestHandler = async ({ request, locals }) => {
+    requireAdmin({ locals });
+    const { pseudo, role, password } = await request.json();
+    const key = pseudo?.trim()?.toLowerCase();
+    if (!key || !password) return json({ ok: false, message: 'Champs requis.' }, { status: 400 });
+
+    const hash = await hashPassword(password);
+    await db.insert(users).values({
+        pseudo: key,
+        role:   role ?? 'member',
+        active: true,
+        passwordHash: hash,
+        mustChangePassword: true,
+    });
+
+    await db.insert(auditLog).values({
+        timestampEpoch: Date.now(),
+        action: 'create_user',
+        target: key,
+        detail: `role=${role ?? 'member'}`,
+    });
+
+    return json({ ok: true, pseudo: key });
+};
