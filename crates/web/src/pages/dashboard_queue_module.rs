@@ -4,7 +4,7 @@ function createDashboardQueueModule(ctx) {
 
     async function loadAdminSignupQueue() {
         try {
-            const res = await fetch('/japprends/signup-queue', { cache: 'no-store' });
+            const res = await fetch('/japprends/signup-requests', { cache: 'no-store' });
             const list = await res.json();
             const panel = document.getElementById('admin-queue');
             if (!Array.isArray(list) || list.length === 0) {
