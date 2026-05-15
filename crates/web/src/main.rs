@@ -23,6 +23,17 @@ use tracing::info;
 use url::Url;
 use uuid::Uuid;
 use webauthn_rs::prelude::*;
+use jsonwebtoken::{encode, EncodingKey, Header};
+
+#[derive(Serialize, Deserialize)]
+struct SurfClaims {
+    sub: String,
+    role: String,
+    email: String,
+    token_type: String,
+    iat: u64,
+    exp: u64,
+}
 
 #[derive(Debug, Clone, Serialize)]
 struct AdminAuditEntry {
@@ -53,6 +64,7 @@ struct WebState {
     webauthn_reg_state: Arc<RwLock<Option<PasskeyRegistration>>>,
     webauthn_auth_challenges: Arc<RwLock<std::collections::HashMap<String, (PasskeyAuthentication, u64)>>>,
     admin_login_attempts: Arc<RwLock<std::collections::HashMap<String, (u32, u64)>>>,
+    songsurf_jwt_secret: Arc<String>,
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
@@ -511,6 +523,7 @@ fn build_router(state: WebState) -> Router {
         .route("/members/wall", post(member_wall_post))
         .route("/members/wall/:id", delete(member_wall_delete))
         .route("/auth/password-check", post(password_check))
+        .route("/auth/logout", post(auth_logout))
         .route("/static/hero/:filename", get(serve_hero_preview))
         .merge(protected_routes)
         .layer(DefaultBodyLimit::max(UPLOAD_GLOBAL_LIMIT_BYTES))
@@ -541,6 +554,13 @@ async fn main() -> anyhow::Result<()> {
         info!("WebAuthn: no key registered yet — use dashboard Security tab to enroll");
     }
 
+    let songsurf_jwt_secret = std::env::var("AUTH_JWT_SECRET").unwrap_or_default();
+    if songsurf_jwt_secret.is_empty() {
+        info!("AUTH_JWT_SECRET not set — SongSurf JWT issuance disabled");
+    } else {
+        info!("AUTH_JWT_SECRET set — SongSurf JWT will be issued on login for authorized users");
+    }
+
     let state = WebState {
         signup_requests: Arc::new(RwLock::new(Vec::new())),
         next_request_id: Arc::new(AtomicU64::new(1)),
@@ -561,6 +581,7 @@ async fn main() -> anyhow::Result<()> {
         webauthn_reg_state: Arc::new(RwLock::new(None)),
         webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        songsurf_jwt_secret: Arc::new(songsurf_jwt_secret),
     };
 
     let app = build_router(state);
@@ -1402,50 +1423,75 @@ async fn list_users(State(state): State<WebState>) -> Json<Vec<User>> {
 async fn password_check(
     State(state): State<WebState>,
     Json(payload): Json<PasswordCheckInput>,
-) -> Json<PasswordCheckResponse> {
+) -> impl IntoResponse {
     let pseudo = payload.pseudo.trim();
     let password = payload.password.trim();
+
+    let fail = |msg: &'static str| -> Response {
+        (HeaderMap::new(), Json(PasswordCheckResponse { ok: false, state: "invalid", message: msg })).into_response()
+    };
+
     if pseudo.is_empty() || password.is_empty() {
-        return Json(PasswordCheckResponse {
-            ok: false,
-            state: "invalid",
-            message: "Pseudo et mot de passe requis.",
-        });
+        return fail("Pseudo et mot de passe requis.");
     }
 
     let passwords = state.user_passwords.read().await;
-    let stored_password = passwords.get(&pseudo_key(pseudo));
+    let stored = passwords.get(&pseudo_key(pseudo)).cloned();
+    drop(passwords);
 
-    match stored_password {
-        Some(pwd) if pwd == password => {
-            let users = state.users.read().await;
-            let requires_change = users
-                .iter()
-                .find(|u| u.pseudo.eq_ignore_ascii_case(pseudo))
-                .map(|u| u.must_change_password)
-                .unwrap_or(false);
-
-            Json(PasswordCheckResponse {
-                ok: true,
-                state: if requires_change { "onboarding" } else { "ok" },
-                message: if requires_change {
-                    "Mot de passe correct. Onboarding requis."
-                } else {
-                    "Mot de passe correct. Connexion autorisee."
-                },
-            })
-        }
-        Some(_) => Json(PasswordCheckResponse {
-            ok: false,
-            state: "invalid",
-            message: "Mot de passe incorrect.",
-        }),
-        None => Json(PasswordCheckResponse {
-            ok: false,
-            state: "invalid",
-            message: "Mot de passe incorrect.",
-        }),
+    if stored.as_deref() != Some(password) {
+        return fail("Mot de passe incorrect.");
     }
+
+    let users = state.users.read().await;
+    let user_snap = users.iter().find(|u| u.pseudo.eq_ignore_ascii_case(pseudo)).cloned();
+    drop(users);
+
+    let requires_change = user_snap.as_ref().map(|u| u.must_change_password).unwrap_or(false);
+    let access_songsurf = user_snap.as_ref().map(|u| u.access_songsurf).unwrap_or(false);
+    let role = user_snap.as_ref().map(|u| u.role).unwrap_or("member");
+
+    let mut headers = HeaderMap::new();
+    let jwt_secret = state.songsurf_jwt_secret.as_str();
+    if access_songsurf && !jwt_secret.is_empty() {
+        let now = now_epoch();
+        let claims = SurfClaims {
+            sub: pseudo.to_string(),
+            role: role.to_string(),
+            email: String::new(),
+            token_type: "access".to_string(),
+            iat: now,
+            exp: now + 8 * 3600,
+        };
+        if let Ok(token) = encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
+            let cookie = format!(
+                "access_token={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}",
+                token,
+                8 * 3600
+            );
+            if let Ok(val) = HeaderValue::from_str(&cookie) {
+                headers.insert(header::SET_COOKIE, val);
+            }
+        }
+    }
+
+    (headers, Json(PasswordCheckResponse {
+        ok: true,
+        state: if requires_change { "onboarding" } else { "ok" },
+        message: if requires_change {
+            "Mot de passe correct. Onboarding requis."
+        } else {
+            "Mot de passe correct. Connexion autorisee."
+        },
+    })).into_response()
+}
+
+async fn auth_logout() -> impl IntoResponse {
+    let mut headers = HeaderMap::new();
+    if let Ok(val) = HeaderValue::from_str("access_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0") {
+        headers.insert(header::SET_COOKIE, val);
+    }
+    (headers, Json(serde_json::json!({"ok": true}))).into_response()
 }
 
 async fn set_user_busy(
@@ -2748,6 +2794,7 @@ mod tests {
             webauthn_reg_state: Arc::new(RwLock::new(None)),
             webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
             admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            songsurf_jwt_secret: Arc::new(String::new()),
         }
     }
 
