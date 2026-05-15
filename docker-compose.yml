@@ -2,10 +2,13 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    env_file:
+      - .env
+      - .secrets
     environment:
       POSTGRES_DB: rev0auth
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_PASSWORD injecté depuis .secrets
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,9 +25,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/rev0auth}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+    env_file:
+      - .env
+      - .secrets
+    # DATABASE_URL et AUTH_JWT_SECRET injectés depuis .secrets
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
@@ -41,20 +45,15 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    env_file:
+      - .env
+      - .secrets
     environment:
-      ADMIN_DASH_PASSWORD: ${ADMIN_DASH_PASSWORD}
-      ADMIN_DASH_PSEUDO: ${ADMIN_DASH_PSEUDO}
-      ADMIN_DASH_SEED: ${ADMIN_DASH_SEED}
-      ADMIN_DASH_TOTP_SECRET: ${ADMIN_DASH_TOTP_SECRET:-}
-      ADMIN_WEBAUTHN_CREDENTIAL: ${ADMIN_WEBAUTHN_CREDENTIAL:-}
-      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
-      WEBAUTHN_RP_ORIGIN: ${WEBAUTHN_RP_ORIGIN:-http://localhost:3000}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      SONGSURF_URL: ${SONGSURF_URL:-http://localhost:9000}
+      # Valeurs statiques — pas de secrets ici
       REV0AUTH_API_UPSTREAM: api:8080
       WEB_BIND_ADDR: 0.0.0.0:3000
-      DONATION_CRYPTO_ADDRESSES: ${DONATION_CRYPTO_ADDRESSES:-}
+    # Toutes les autres vars (AUTH_JWT_SECRET, ADMIN_*, WEBAUTHN_*, SONGSURF_URL…)
+    # sont chargées depuis .env + .secrets via env_file
     ports:
       - "127.0.0.1:3000:3000"
 
