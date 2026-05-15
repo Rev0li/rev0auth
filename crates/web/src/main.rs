@@ -66,6 +66,7 @@ struct WebState {
     admin_login_attempts: Arc<RwLock<std::collections::HashMap<String, (u32, u64)>>>,
     songsurf_jwt_secret: Arc<String>,
     secure_cookies: bool,
+    cookie_domain: Option<String>,
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
@@ -564,6 +565,10 @@ async fn main() -> anyhow::Result<()> {
     let secure_cookies = std::env::var("WEBAUTHN_RP_ORIGIN")
         .unwrap_or_default()
         .starts_with("https://");
+    let cookie_domain = std::env::var("COOKIE_DOMAIN").ok().filter(|s| !s.is_empty());
+    if let Some(ref d) = cookie_domain {
+        info!("COOKIE_DOMAIN={d} — SongSurf cookie will be shared across subdomains");
+    }
 
     let state = WebState {
         signup_requests: Arc::new(RwLock::new(Vec::new())),
@@ -587,6 +592,7 @@ async fn main() -> anyhow::Result<()> {
         admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
         songsurf_jwt_secret: Arc::new(songsurf_jwt_secret),
         secure_cookies,
+        cookie_domain,
     };
 
     let app = build_router(state);
@@ -1470,8 +1476,11 @@ async fn password_check(
         };
         if let Ok(token) = encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
             let secure = if state.secure_cookies { "; Secure" } else { "" };
+            let domain = state.cookie_domain.as_deref()
+                .map(|d| format!("; Domain={d}"))
+                .unwrap_or_default();
             let cookie = format!(
-                "access_token={}; HttpOnly; SameSite=Lax; Path=/{secure}; Max-Age={}",
+                "access_token={}; HttpOnly; SameSite=Lax; Path=/{secure}{domain}; Max-Age={}",
                 token,
                 8 * 3600
             );
@@ -1492,9 +1501,13 @@ async fn password_check(
     })).into_response()
 }
 
-async fn auth_logout() -> impl IntoResponse {
+async fn auth_logout(State(state): State<WebState>) -> impl IntoResponse {
     let mut headers = HeaderMap::new();
-    if let Ok(val) = HeaderValue::from_str("access_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0") {
+    let domain = state.cookie_domain.as_deref()
+        .map(|d| format!("; Domain={d}"))
+        .unwrap_or_default();
+    let clear = format!("access_token=; HttpOnly; SameSite=Lax; Path=/{domain}; Max-Age=0");
+    if let Ok(val) = HeaderValue::from_str(&clear) {
         headers.insert(header::SET_COOKIE, val);
     }
     (headers, Json(serde_json::json!({"ok": true}))).into_response()
@@ -2802,6 +2815,7 @@ mod tests {
             admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
             songsurf_jwt_secret: Arc::new(String::new()),
             secure_cookies: false,
+            cookie_domain: None,
         }
     }
 
