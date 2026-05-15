@@ -65,6 +65,7 @@ struct WebState {
     webauthn_auth_challenges: Arc<RwLock<std::collections::HashMap<String, (PasskeyAuthentication, u64)>>>,
     admin_login_attempts: Arc<RwLock<std::collections::HashMap<String, (u32, u64)>>>,
     songsurf_jwt_secret: Arc<String>,
+    secure_cookies: bool,
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
@@ -560,6 +561,9 @@ async fn main() -> anyhow::Result<()> {
     } else {
         info!("AUTH_JWT_SECRET set — SongSurf JWT will be issued on login for authorized users");
     }
+    let secure_cookies = std::env::var("WEBAUTHN_RP_ORIGIN")
+        .unwrap_or_default()
+        .starts_with("https://");
 
     let state = WebState {
         signup_requests: Arc::new(RwLock::new(Vec::new())),
@@ -582,6 +586,7 @@ async fn main() -> anyhow::Result<()> {
         webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
         songsurf_jwt_secret: Arc::new(songsurf_jwt_secret),
+        secure_cookies,
     };
 
     let app = build_router(state);
@@ -1464,8 +1469,9 @@ async fn password_check(
             exp: now + 8 * 3600,
         };
         if let Ok(token) = encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
+            let secure = if state.secure_cookies { "; Secure" } else { "" };
             let cookie = format!(
-                "access_token={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}",
+                "access_token={}; HttpOnly; SameSite=Lax; Path=/{secure}; Max-Age={}",
                 token,
                 8 * 3600
             );
@@ -2795,6 +2801,7 @@ mod tests {
             webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
             admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
             songsurf_jwt_secret: Arc::new(String::new()),
+            secure_cookies: false,
         }
     }
 
