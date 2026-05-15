@@ -487,6 +487,7 @@ fn build_router(state: WebState) -> Router {
         .route("/status/set-inactive/:pseudo", post(set_user_inactive))
         .route("/japprends/webauthn/status", get(admin_webauthn_status))
         .route("/japprends/webauthn/remove", post(admin_webauthn_remove))
+        .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/wall/:id", delete(admin_wall_delete))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
 
@@ -502,7 +503,6 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/webauthn/auth/finish", post(admin_webauthn_auth_finish))
         .route("/japprends/webauthn/register/start", get(admin_webauthn_register_start))
         .route("/japprends/webauthn/register/finish", post(admin_webauthn_register_finish))
-        .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/logout", post(admin_logout))
         .route("/home/friend", get(friend_home))
         .route("/members/dashboard", get(members_dashboard))
