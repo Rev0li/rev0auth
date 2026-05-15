@@ -75,9 +75,8 @@ pub async fn admin_login(has_key: bool) -> Html<String> {
 fn yubikey_mode() -> &'static str {
     r#"<article class="card">
     <h1>Admin Access</h1>
-    <p class="hint">Insere ta clé et touche-la pour te connecter.</p>
     <span class="yubikey-icon">🔑</span>
-    <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 12px">En attente de la clé...</p>
+    <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 12px">Attente de connexion...</p>
     <div id="yubikey-result" class="result"></div>
     <button class="btn" id="yubikey-retry-btn" style="display:none;margin-top:8px;background:var(--background);color:var(--muted-foreground);border:1px solid var(--border)">
         Réessayer
