@@ -22,9 +22,10 @@ function createFriendServicesModule(ctx) {
         const body = document.getElementById('songsurf-body');
         if (!body) return;
         if (state.songsurf) {
+            const songsurfHref = sessionStorage.getItem('songsurf_launch_url') || '%%SONGSURF_URL%%';
             body.innerHTML =
                 '<p class="svc-state svc-open">✓ Accès ouvert</p>'
-                + '<a class="svc-btn" href="%%SONGSURF_URL%%" target="_blank" rel="noopener">Ouvrir Songsurf →</a>';
+                + '<a class="svc-btn" href="' + songsurfHref + '">Ouvrir Songsurf →</a>';
         } else if (state.reqSongsurf) {
             body.innerHTML =
                 '<p class="svc-state">⏳ Demande envoyée — en attente de validation.</p>'

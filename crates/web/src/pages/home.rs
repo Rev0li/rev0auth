@@ -127,8 +127,13 @@ pub async fn home() -> Html<String> {
                 } else {
                     localStorage.removeItem('needs_onboarding');
                 }
+                if (data.songsurf_url) {
+                    sessionStorage.setItem('songsurf_launch_url', data.songsurf_url);
+                } else {
+                    sessionStorage.removeItem('songsurf_launch_url');
+                }
                 setTimeout(() => {
-                    window.location.href = data.songsurf_url || '/home/friend';
+                    window.location.href = '/home/friend';
                 }, 600);
             }
         });
