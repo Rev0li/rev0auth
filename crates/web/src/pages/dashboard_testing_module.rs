@@ -27,7 +27,7 @@ function createDashboardTestingModule(ctx) {
 
     async function loadTestsHistory() {
         try {
-            const res = await fetch('/japprends/test-history', { cache: 'no-store' });
+            const res = await fetch('/japprends/tests/history', { cache: 'no-store' });
             const list = await res.json();
             const panel = document.getElementById('admin-test-history');
             if (!Array.isArray(list) || list.length === 0) {
@@ -53,7 +53,7 @@ function createDashboardTestingModule(ctx) {
 
     async function launchTestsNow() {
         try {
-            const res = await fetch('/japprends/run-tests', { method: 'POST', cache: 'no-store' });
+            const res = await fetch('/japprends/tests/launch', { method: 'POST', cache: 'no-store' });
             const data = await res.json();
             alert((data.ok ? '✓ ' : '✗ ') + (data.message || 'Tests lancessss!'));
             await loadTestsHistory();

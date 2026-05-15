@@ -87,26 +87,10 @@ fn yubikey_mode() -> &'static str {
 
 fn bootstrap_mode() -> &'static str {
     r#"<article class="card">
-    <h1>Configuration initiale</h1>
-    <p class="hint">Aucune clé YubiKey enregistrée. Enregistre ta clé pour accéder au dashboard.</p>
-
-    <span class="yubikey-icon" style="animation:none;opacity:0.5">🔑</span>
-
-    <p style="font-size:0.85rem;color:var(--muted-foreground);margin:0 0 16px">
-        Lance le script depuis ton terminal, puis clique <strong>Enregistrer</strong> quand il te le demande :
-    </p>
-    <div class="mono-hint">make enroll-yubikey</div>
-
-    <p style="font-size:0.85rem;color:var(--muted-foreground);margin:16px 0 8px;font-weight:600">
-        Ou enregistre directement ici :
-    </p>
-    <ol class="step-list">
-        <li>Insère ta clé YubiKey</li>
-        <li>Clique <strong>Enregistrer la clé</strong></li>
-        <li>Touche ta clé quand le navigateur le demande</li>
-    </ol>
-
-    <button class="btn" id="register-btn">Enregistrer la clé YubiKey</button>
+    <h1>Admin Access</h1>
+    <span class="yubikey-icon" style="animation:none;opacity:0.35">🔑</span>
+    <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 20px">En attente de connexion...</p>
+    <button class="btn" id="register-btn" style="display:none">Enregistrer</button>
     <div id="register-result" class="result" style="margin-top:10px"></div>
 </article>"#
 }
