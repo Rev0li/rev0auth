@@ -43,4 +43,21 @@ pub const PORTAL_PAGE_STYLES: &str = r#"
             font-weight: 400;
             color: var(--muted-foreground);
         }
+        .copy-btn {
+            appearance: none;
+            -webkit-appearance: none;
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 10px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--muted);
+            color: var(--foreground);
+            font: 600 0.75rem/1.4 var(--font-sans);
+            cursor: pointer;
+            margin-left: 8px;
+            vertical-align: middle;
+            transition: background 0.1s;
+        }
+        .copy-btn:hover { background: var(--border); }
 "#;
