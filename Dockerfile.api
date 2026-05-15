@@ -27,7 +27,7 @@ RUN touch crates/api/src/main.rs \
  && cargo build --release -p rev0auth-api
 
 # ── Runtime ────────────────────────────────────────────────────────────────────
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
  && rm -rf /var/lib/apt/lists/*
