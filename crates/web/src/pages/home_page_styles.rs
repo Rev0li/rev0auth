@@ -38,4 +38,6 @@ pub const HOME_PAGE_STYLES: &str = r#"
             color: var(--muted-foreground);
         }
         .hidden { display: none; }
+        #step-1 .btn, #step-2 .btn { margin-top: 10px; }
+        .result { margin-top: 8px; }
 "#;
