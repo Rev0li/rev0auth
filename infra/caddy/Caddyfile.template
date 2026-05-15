@@ -1,34 +1,53 @@
-# rev0auth dynamic Caddy template
-# Variables are resolved by Caddy at runtime from environment.
-# Required:
-#   API_DOMAIN (e.g. api.revoli.duckdns.org)
-# Optional:
-#   API_UPSTREAM (default: 127.0.0.1:8080)
-#   ACME_EMAIL (for Let's Encrypt account)
-#   CADDY_LOG_LEVEL (default: INFO)
+# rev0auth — Caddyfile template (VPS production)
+#
+# Two services behind Caddy:
+#   auth.example.com  → rev0auth web portal  (Docker :3000)
+#   api.example.com   → rev0auth API          (Docker :8080)  [optional — only if API is public]
+#
+# Required env vars (in /etc/caddy/rev0auth-caddy.env):
+#   WEB_DOMAIN      e.g. auth.rev0univers.com
+#   WEB_UPSTREAM    e.g. 127.0.0.1:3000
+#   API_DOMAIN      e.g. api.rev0univers.com   (leave empty if API is internal only)
+#   API_UPSTREAM    e.g. 127.0.0.1:8080
+#   ACME_EMAIL      e.g. you@example.com
 
 {
-	email {$ACME_EMAIL:admin@example.com}
-	log {
-		level {$CADDY_LOG_LEVEL:INFO}
-	}
+    email {$ACME_EMAIL:admin@example.com}
+    log {
+        level {$CADDY_LOG_LEVEL:INFO}
+    }
 }
 
-{$API_DOMAIN} {
-	encode zstd gzip
+# ── Web portal (auth + member dashboard) ─────────────────────────────────────
+{$WEB_DOMAIN} {
+    encode zstd gzip
 
-	header {
-		X-Content-Type-Options nosniff
-		X-Frame-Options DENY
-		Referrer-Policy no-referrer
-	}
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
 
-	@health path /health
-	handle @health {
-		reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
-	}
+    reverse_proxy {$WEB_UPSTREAM:127.0.0.1:3000}
+}
 
-	handle {
-		reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
-	}
+# ── API (optional — expose only if SongSurf or external clients need it) ─────
+# Comment this block out if the API should only be reachable internally.
+{$API_DOMAIN:disabled.example.com} {
+    encode zstd gzip
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+    }
+
+    @health path /health
+    handle @health {
+        reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
+    }
+
+    handle {
+        reverse_proxy {$API_UPSTREAM:127.0.0.1:8080}
+    }
 }

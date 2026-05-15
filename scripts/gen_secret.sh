@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 # gen_secret.sh — interactive secret generator for rev0auth
-# Generates or prompts for every sensitive value and writes them to .env
+# Creates or updates .env with all required values.
+# Usage: ./scripts/gen_secret.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT/.env"
-ENV_EXAMPLE="$ROOT/.env.example"
 
-# ---- colours ----
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}✓${NC} $*"; }
 warn() { echo -e "${YELLOW}⚠${NC}  $*"; }
 ask()  { echo -e "${CYAN}?${NC}  $*"; }
 sep()  { echo -e "\n${CYAN}──────────────────────────────────────────${NC}"; }
 
-# ---- helpers ----
 gen_hex() { openssl rand -hex "${1:-32}"; }
 gen_b32() {
-    # generate a 20-byte random base32 secret (TOTP standard)
     python3 -c "
 import os, base64
 raw = os.urandom(20)
@@ -25,45 +22,48 @@ print(base64.b32encode(raw).decode().rstrip('='))
 " 2>/dev/null || openssl rand -base64 20 | tr '+/' 'AZ' | tr -d '=' | head -c 32
 }
 
-prompt_value() {
-    # prompt_value KEY "description" "default or empty" "generate_command or empty"
-    local key="$1" desc="$2" default="$3" gen_cmd="${4:-}"
-    local current=""
+# Read current value of a key from .env (strips quotes)
+current_val() {
+    local key="$1"
+    [[ -f "$ENV_FILE" ]] || { echo ""; return; }
+    grep -E "^${key}=" "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d "'" | tr -d '"' || true
+}
 
-    # read existing value from .env if present
-    if [[ -f "$ENV_FILE" ]]; then
-        current=$(grep -E "^${key}=" "$ENV_FILE" | cut -d= -f2- | tr -d "'" | tr -d '"' || true)
-    fi
+prompt_value() {
+    # prompt_value VARNAME "description" "default" "gen_command_or_empty"
+    local key="$1" desc="$2" default="$3" gen_cmd="${4:-}"
+    local current
+    current=$(current_val "$key")
 
     sep
-    echo -e "  Key   : ${CYAN}${key}${NC}"
-    echo    "  Info  : ${desc}"
-    [[ -n "$current" ]] && echo -e "  Current: ${YELLOW}${current:0:40}${current:40:1:+…}${NC}"
-    [[ -n "$gen_cmd" ]] && echo    "  (press Enter to auto-generate)"
-    [[ -n "$default" && -z "$gen_cmd" ]] && echo    "  (press Enter to keep: ${default})"
+    echo -e "  Key  : ${CYAN}${key}${NC}"
+    echo    "  Info : ${desc}"
+    [[ -n "$current" ]]  && echo -e "  Current: ${YELLOW}${current:0:60}${NC}"
+    [[ -n "$gen_cmd" ]]  && echo    "  (Enter = auto-generate)"
+    [[ -z "$gen_cmd" && -n "$current" ]] && echo "  (Enter = keep current)"
+    [[ -z "$gen_cmd" && -z "$current" && -n "$default" ]] && echo "  (Enter = use default: ${default})"
 
-    ask "New value (or Enter to skip/generate):"
+    ask "New value:"
     read -r input
 
     if [[ -z "$input" ]]; then
-        if [[ -n "$gen_cmd" ]]; then
-            input=$(eval "$gen_cmd")
-            ok "Generated: ${input:0:48}…"
+        if   [[ -n "$gen_cmd" ]]; then
+            input=$(eval "$gen_cmd"); ok "Generated."
         elif [[ -n "$current" ]]; then
-            input="$current"
-            ok "Kept existing value."
+            input="$current";        ok "Kept existing."
         elif [[ -n "$default" ]]; then
-            input="$default"
-            ok "Using default."
+            input="$default";        ok "Using default."
         else
-            warn "Skipped — value left empty."
+            warn "Left empty."
         fi
     fi
 
-    echo "$key='$input'" >> "$TMP_ENV"
+    echo "${key}='${input}'" >> "$TMP_ENV"
+    # Export so later prompts can reference it (e.g. DATABASE_URL uses POSTGRES_PASSWORD)
+    export "${key}=${input}"
 }
 
-# ---- init temp file ----
+# ── Init ──────────────────────────────────────────────────────────────────────
 TMP_ENV=$(mktemp)
 trap 'rm -f "$TMP_ENV"' EXIT
 
@@ -72,92 +72,101 @@ echo -e "${CYAN}╔════════════════════�
 echo -e "${CYAN}║    rev0auth — Secret & Config Generator  ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo "  This script creates or updates your ${CYAN}.env${NC} file."
-echo "  Leave a field blank to auto-generate (where applicable) or keep the current value."
+echo "  Creates or updates ${CYAN}.env${NC}. Enter = auto-generate / keep current."
 echo ""
 
-# ---- DATABASE ----
+# ── Database ─────────────────────────────────────────────────────────────────
 sep
 echo -e "  ${CYAN}── Database ──${NC}"
-prompt_value "POSTGRES_PASSWORD"   "Password for the PostgreSQL user"                       "" "gen_hex 24"
-prompt_value "DATABASE_URL"        "Full Postgres connection URL"                            "" ""
+prompt_value "POSTGRES_PASSWORD" \
+    "PostgreSQL password (used by Docker Compose postgres container)" \
+    "" "gen_hex 24"
 
-# ---- JWT ----
+# Auto-build DATABASE_URL from the password just entered
+_suggested_url="postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/rev0auth"
 sep
-echo -e "  ${CYAN}── Auth ──${NC}"
-prompt_value "AUTH_JWT_SECRET"     "JWT signing secret (min 32 bytes — generated = 64 hex)" "" "gen_hex 32"
-
-# ---- Admin credentials ----
-sep
-echo -e "  ${CYAN}── Admin credentials ──${NC}"
-prompt_value "ADMIN_DASH_PSEUDO"   "Admin username (not 'admin')"                           "admin"  ""
-prompt_value "ADMIN_DASH_SEED"     "Admin seed phrase (not 'rev0auth-seed')"                ""       "gen_hex 16"
-prompt_value "ADMIN_DASH_PASSWORD" "Admin login password (strong, min 20 chars)"            ""       ""
-
-# ---- TOTP ----
-sep
-echo -e "  ${CYAN}── TOTP 2FA ──${NC}"
-echo    "  Leave blank to skip 2FA, or press Enter to generate a new TOTP secret."
-echo    "  After generation, scan the QR with your authenticator app (make admin-2fa-init)."
-prompt_value "ADMIN_DASH_TOTP_SECRET" "Base32 TOTP secret (empty = 2FA disabled)"          ""       "gen_b32"
-
-# ---- WebAuthn / YubiKey ----
-sep
-echo -e "  ${CYAN}── WebAuthn / YubiKey ──${NC}"
-echo    "  STEP 1: Set your domain details below."
-echo    "  STEP 2: Start the server, log in, go to Dashboard → Security."
-echo    "  STEP 3: Run this script again with --yubikey to paste the credential JSON."
-echo ""
-prompt_value "WEBAUTHN_RP_ID"      "WebAuthn relying-party ID (your domain, e.g. auth.example.com)" "localhost" ""
-prompt_value "WEBAUTHN_RP_ORIGIN"  "WebAuthn origin (https://auth.example.com or http://localhost:3000)" "http://localhost:3000" ""
-
-# ---- YubiKey credential (optional second pass) ----
-if [[ "${1:-}" == "--yubikey" ]]; then
-    sep
-    echo -e "  ${CYAN}── YubiKey enrollment ──${NC}"
-    echo    "  Paste the JSON credential shown in the Dashboard → Security tab after key registration."
-    echo    "  It starts with: {\"cred_id\":..."
-    echo ""
-    ask "ADMIN_WEBAUTHN_CREDENTIAL JSON (paste and press Enter, or Enter to skip):"
-    read -r yubikey_json
-    if [[ -n "$yubikey_json" ]]; then
-        echo "ADMIN_WEBAUTHN_CREDENTIAL='${yubikey_json}'" >> "$TMP_ENV"
-        ok "YubiKey credential saved."
-    else
-        warn "Skipped — YubiKey credential not set."
-        # preserve existing value if any
-        if [[ -f "$ENV_FILE" ]]; then
-            existing_cred=$(grep -E "^ADMIN_WEBAUTHN_CREDENTIAL=" "$ENV_FILE" | head -1 || true)
-            [[ -n "$existing_cred" ]] && echo "$existing_cred" >> "$TMP_ENV"
-        fi
-    fi
+echo -e "  Key  : ${CYAN}DATABASE_URL${NC}"
+echo    "  Info : Full Postgres connection URL. Leave empty for Docker Compose default."
+echo -e "  Suggested: ${YELLOW}${_suggested_url}${NC}"
+echo    "  (Enter = use suggested, 'skip' = leave empty)"
+ask "New value:"
+read -r _db_input
+if [[ "$_db_input" == "skip" || "$_db_input" == "" ]]; then
+    # Leave empty — docker-compose injects the URL itself from POSTGRES_PASSWORD
+    echo "DATABASE_URL=''" >> "$TMP_ENV"
+    ok "Left empty (Docker Compose will build it from POSTGRES_PASSWORD)."
 else
-    # preserve existing credential
-    if [[ -f "$ENV_FILE" ]]; then
-        existing_cred=$(grep -E "^ADMIN_WEBAUTHN_CREDENTIAL=" "$ENV_FILE" | head -1 || true)
-        if [[ -n "$existing_cred" ]]; then
-            echo "$existing_cred" >> "$TMP_ENV"
-            ok "Preserved existing YubiKey credential."
-        else
-            echo "ADMIN_WEBAUTHN_CREDENTIAL=''" >> "$TMP_ENV"
-        fi
-    else
-        echo "ADMIN_WEBAUTHN_CREDENTIAL=''" >> "$TMP_ENV"
-    fi
+    echo "DATABASE_URL='${_db_input}'" >> "$TMP_ENV"
+    ok "Set."
 fi
 
-# ---- bind addresses ----
+# ── JWT / Auth ────────────────────────────────────────────────────────────────
 sep
-echo -e "  ${CYAN}── Bind addresses (optional) ──${NC}"
-prompt_value "API_BIND_ADDR"       "API listen address (default: 0.0.0.0:8080)" "0.0.0.0:8080" ""
-prompt_value "WEB_BIND_ADDR"       "Web listen address (default: 0.0.0.0:3000)" "0.0.0.0:3000" ""
-prompt_value "REV0AUTH_API_UPSTREAM" "Web → API upstream (default: 127.0.0.1:8080)" "127.0.0.1:8080" ""
+echo -e "  ${CYAN}── Auth ──${NC}"
+echo    "  AUTH_JWT_SECRET must be identical in SongSurf .secrets."
+prompt_value "AUTH_JWT_SECRET" \
+    "JWT signing secret — min 32 bytes. Copy to SongSurf .secrets." \
+    "" "gen_hex 32"
 
-# ---- write .env ----
+# ── Admin credentials ─────────────────────────────────────────────────────────
+sep
+echo -e "  ${CYAN}── Admin credentials ──${NC}"
+prompt_value "ADMIN_DASH_PSEUDO"   "Admin username"                              "admin"   ""
+prompt_value "ADMIN_DASH_SEED"     "Admin seed phrase (used for session signing)" ""       "gen_hex 16"
+prompt_value "ADMIN_DASH_PASSWORD" "Admin login password (strong)"               ""        ""
+
+# ── TOTP 2FA ──────────────────────────────────────────────────────────────────
+sep
+echo -e "  ${CYAN}── TOTP 2FA ──${NC}"
+echo    "  Leave blank to skip. After generation, run: make admin-2fa-init"
+echo    "  then scan the QR displayed with your authenticator app."
+prompt_value "ADMIN_DASH_TOTP_SECRET" \
+    "Base32 TOTP secret (empty = 2FA disabled)" \
+    "" "gen_b32"
+
+# ── WebAuthn / YubiKey ────────────────────────────────────────────────────────
+sep
+echo -e "  ${CYAN}── WebAuthn / YubiKey ──${NC}"
+echo    "  Set domain details now. To enroll your key after first launch:"
+echo    "    1. Start the server (make launch-all)"
+echo    "    2. Log in → Dashboard → Security tab → register key"
+echo    "    3. Run: ./scripts/enroll-yubikey.sh"
+echo ""
+prompt_value "WEBAUTHN_RP_ID" \
+    "WebAuthn relying-party domain (localhost for dev, auth.example.com for prod)" \
+    "localhost" ""
+prompt_value "WEBAUTHN_RP_ORIGIN" \
+    "Full origin URL (http://localhost:3000 for dev, https://auth.example.com for prod)" \
+    "http://localhost:3000" ""
+
+# Preserve existing credential silently
+_existing_cred=$(current_val "ADMIN_WEBAUTHN_CREDENTIAL")
+echo "ADMIN_WEBAUTHN_CREDENTIAL='${_existing_cred}'" >> "$TMP_ENV"
+[[ -n "$_existing_cred" ]] && ok "Preserved existing YubiKey credential." \
+                            || ok "YubiKey credential: empty (enroll later with ./scripts/enroll-yubikey.sh)."
+
+# ── Cookie domain (cross-domain SongSurf) ─────────────────────────────────────
+sep
+echo -e "  ${CYAN}── Cookie domain (SongSurf cross-domain) ──${NC}"
+echo    "  Empty for local dev (cookie stays on localhost)."
+echo    "  Set to root domain for prod: .rev0univers.com"
+echo    "  This lets auth.rev0univers.com share the cookie with songsurf.rev0univers.com."
+prompt_value "COOKIE_DOMAIN" \
+    "Cookie Domain attribute (empty = localhost, .yourdomain.com = prod)" \
+    "" ""
+
+# ── Donations ─────────────────────────────────────────────────────────────────
+sep
+echo -e "  ${CYAN}── Donation addresses (optional) ──${NC}"
+echo    "  Format: NAME:ADDRESS,NAME:ADDRESS  — leave empty to disable."
+prompt_value "DONATION_CRYPTO_ADDRESSES" \
+    "Crypto donation addresses shown to members" \
+    "" ""
+
+# ── Write ─────────────────────────────────────────────────────────────────────
 sep
 echo ""
 
-# Backup existing .env if present
 if [[ -f "$ENV_FILE" ]]; then
     cp "$ENV_FILE" "${ENV_FILE}.bak"
     warn "Backed up existing .env → .env.bak"
@@ -167,12 +176,12 @@ cp "$TMP_ENV" "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 echo ""
-ok "Written to ${ENV_FILE}"
-ok "Permissions set to 600 (owner read/write only)"
+ok "Written to ${ENV_FILE} (chmod 600)"
 echo ""
 echo -e "  ${CYAN}Next steps:${NC}"
-echo    "  1. make launch-all              — start API + Web + DB"
-echo    "  2. Log in at /japprends/login   — verify admin credentials + TOTP"
-echo    "  3. Go to Dashboard → Security   — confirm YubiKey status"
-echo    "  4. (optional) bash scripts/gen_secret.sh --yubikey   — to persist your key credential"
+echo    "  1. make launch-all                  — build Docker images + start all services"
+echo    "  2. Open http://localhost:3000/portal — verify admin login + TOTP"
+echo    "  3. Dashboard → Security tab         — enroll your YubiKey"
+echo    "  4. ./scripts/enroll-yubikey.sh      — persist the YubiKey credential to .env"
+echo    "  5. Copy AUTH_JWT_SECRET to SongSurf .secrets (must be identical)"
 echo ""

@@ -1,19 +1,21 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web launch-frontend stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init gen-secret gen-secret-yubikey frontend-dev frontend-build frontend-check
+.PHONY: help devtools setup-vps caddy-install launch-all launch-api launch-web launch-frontend stop-all stop-api stop-web status test snapshot preflight admin-otp admin-2fa-init gen-secret enroll-yubikey frontend-dev frontend-build frontend-check
 
 help:
 	@echo "Targets:"
+	@echo "  make gen-secret          — create/update .env interactively"
+	@echo "  make enroll-yubikey      — persist YubiKey credential to .env"
+	@echo "  make admin-2fa-init      — generate/display TOTP secret + QR"
+	@echo "  make admin-otp           — print current OTP code"
+	@echo "  make launch-all          — docker compose up -d --build"
+	@echo "  make stop-all            — docker compose down"
+	@echo "  make status              — show container status"
+	@echo "  make test                — security audit + cargo test"
+	@echo "  make preflight           — pre-deploy checks (env + docker build)"
+	@echo "  make snapshot            — tarball of deployable files"
 	@echo "  make setup-vps ARGS='--admin-user deploy --dry-run'"
 	@echo "  make caddy-install ARGS='--dry-run'"
-	@echo "  make launch-all"
-	@echo "  make launch-api"
-	@echo "  make launch-web"
-	@echo "  make stop-all"
-	@echo "  make status"
-	@echo "  make test"
-	@echo "  make snapshot"
-	@echo "  make preflight"
 
 devtools:
 	./scripts/devtools.sh
@@ -63,8 +65,8 @@ admin-2fa-init:
 gen-secret:
 	./scripts/gen_secret.sh
 
-gen-secret-yubikey:
-	./scripts/gen_secret.sh --yubikey
+enroll-yubikey:
+	./scripts/enroll-yubikey.sh
 
 frontend-dev:
 	cd frontend && npm run dev

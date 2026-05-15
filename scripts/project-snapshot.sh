@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# project-snapshot.sh — create a timestamped tarball of deployable files
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,9 +13,13 @@ tar \
   --exclude='.git' \
   --exclude='target' \
   --exclude='backups' \
+  --exclude='.run' \
   -czf "$OUT_FILE" \
   -C "$ROOT_DIR" \
-  Cargo.toml Cargo.lock Makefile .env.example \
-  crates docs scripts infra docker-compose.yml
+  Cargo.toml Cargo.lock Makefile \
+  .env.example .dockerignore \
+  Dockerfile.api Dockerfile.web \
+  docker-compose.yml \
+  crates docs scripts infra static
 
-echo "Snapshot created: $OUT_FILE"
+echo "Snapshot: $OUT_FILE"
