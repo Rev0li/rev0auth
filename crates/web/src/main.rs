@@ -487,6 +487,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/webauthn/status", get(admin_webauthn_status))
         .route("/japprends/webauthn/register/start", get(admin_webauthn_register_start))
         .route("/japprends/webauthn/register/finish", post(admin_webauthn_register_finish))
+        .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/webauthn/remove", post(admin_webauthn_remove))
         .route("/japprends/wall/:id", delete(admin_wall_delete))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
@@ -1106,6 +1107,21 @@ async fn admin_webauthn_remove(State(state): State<WebState>) -> Json<serde_json
         Json(serde_json::json!({ "ok": true, "message": "Cle YubiKey retiree. Connexion par mot de passe seul jusqu'au prochain enregistrement." }))
     } else {
         Json(serde_json::json!({ "ok": false, "message": "Aucune cle enregistree." }))
+    }
+}
+
+async fn admin_webauthn_credential_export(State(state): State<WebState>) -> impl IntoResponse {
+    let guard = state.webauthn_credential.read().await;
+    match guard.as_ref() {
+        Some(passkey) => {
+            let json = serde_json::to_string(passkey).unwrap_or_default();
+            Json(serde_json::json!({ "ok": true, "credential_json": json })).into_response()
+        }
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "ok": false, "message": "no key registered" })),
+        )
+            .into_response(),
     }
 }
 
