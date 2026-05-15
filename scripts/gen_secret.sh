@@ -155,6 +155,16 @@ prompt_value "COOKIE_DOMAIN" \
     "Cookie Domain attribute (empty = localhost, .yourdomain.com = prod)" \
     "" ""
 
+# ── SongSurf URL ─────────────────────────────────────────────────────────────
+sep
+echo -e "  ${CYAN}── SongSurf URL ──${NC}"
+echo    "  URL du bouton 'Ouvrir Songsurf' affiché aux membres autorisés."
+echo    "  Local : http://localhost:9000"
+echo    "  Tailscale : http://<ip-tailscale>:9000 ou https://songsurf.xxx.ts.net"
+prompt_value "SONGSURF_URL" \
+    "URL d'accès à SongSurf (bouton membre)" \
+    "http://localhost:9000" ""
+
 # ── Donations ─────────────────────────────────────────────────────────────────
 sep
 echo -e "  ${CYAN}── Donation addresses (optional) ──${NC}"

@@ -24,7 +24,7 @@ function createFriendServicesModule(ctx) {
         if (state.songsurf) {
             body.innerHTML =
                 '<p class="svc-state svc-open">✓ Accès ouvert</p>'
-                + '<a class="svc-btn" href="https://revoli-songsurf.duckdns.org" target="_blank" rel="noopener">Ouvrir Songsurf →</a>';
+                + '<a class="svc-btn" href="%%SONGSURF_URL%%" target="_blank" rel="noopener">Ouvrir Songsurf →</a>';
         } else if (state.reqSongsurf) {
             body.innerHTML =
                 '<p class="svc-state">⏳ Demande envoyée — en attente de validation.</p>'

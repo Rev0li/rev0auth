@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# enroll-yubikey.sh — automatic YubiKey WebAuthn enrollment
+# enroll-yubikey.sh — YubiKey WebAuthn enrollment (bootstrap, no password needed)
 #
 # Flow:
 #   1. Detects your YubiKey (waits until plugged in)
 #   2. Checks the rev0auth web server is running on :3000
-#   3. Opens the browser at the registration page
-#   4. You register the key there (touch it when prompted)
-#   5. Script auto-logs in via curl + fetches the credential JSON
+#   3. Opens the browser at /japprends/login (shows bootstrap registration UI)
+#   4. You register the key in the browser (touch it when prompted)
+#   5. Script fetches the credential JSON from the server
 #   6. Saves ADMIN_WEBAUTHN_CREDENTIAL to .env
 set -euo pipefail
 
@@ -21,21 +21,13 @@ info()  { echo -e "${CYAN}→${NC} $*"; }
 step()  { echo -e "\n${BOLD}${CYAN}[$1]${NC} $2"; }
 
 WEB_URL="http://localhost:3000"
-DASHBOARD_URL="$WEB_URL/japprends/login"
-EXPORT_URL="$WEB_URL/japprends/webauthn/credential/export"
 LOGIN_URL="$WEB_URL/japprends/login"
+EXPORT_URL="$WEB_URL/japprends/webauthn/credential/export"
 
 # ── Preflight ────────────────────────────────────────────────────────────────
 
 [[ -f "$ENV_FILE" ]] || err ".env not found — run ./scripts/gen_secret.sh first."
 command -v curl >/dev/null 2>&1 || err "curl is required but not found."
-command -v python3 >/dev/null 2>&1 || err "python3 is required but not found."
-
-# Load env
-set -a; source "$ENV_FILE"; set +a
-
-[[ -n "${ADMIN_DASH_PSEUDO:-}"   ]] || err "ADMIN_DASH_PSEUDO not set in .env"
-[[ -n "${ADMIN_DASH_PASSWORD:-}" ]] || err "ADMIN_DASH_PASSWORD not set in .env"
 
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════╗${NC}"
@@ -46,11 +38,17 @@ echo -e "${CYAN}${BOLD}╚══════════════════
 current=$(grep -E '^ADMIN_WEBAUTHN_CREDENTIAL=' "$ENV_FILE" | head -1 \
           | cut -d= -f2- | tr -d "'" | tr -d '"' || true)
 if [[ -n "$current" ]]; then
-    warn "A key is already registered. Proceeding will REPLACE it."
+    warn "Une clé est déjà enregistrée en mémoire. Pour re-enregistrer :"
+    warn "  1. Connecte-toi au dashboard admin"
+    warn "  2. Va dans Sécurité → Supprimer la clé"
+    warn "  3. Relance ce script"
+    echo ""
+    read -r -p "Continuer quand même ? (o/N) : " confirm
+    [[ "$confirm" =~ ^[oO]$ ]] || { info "Annulé."; exit 0; }
 fi
 
 # ── Step 1: Detect YubiKey ────────────────────────────────────────────────────
-step "1/4" "YubiKey detection"
+step "1/3" "Détection YubiKey"
 
 detect_key() {
     if command -v ykman >/dev/null 2>&1; then
@@ -60,109 +58,69 @@ detect_key() {
 }
 
 if detect_key; then
-    ok "YubiKey already connected."
+    ok "YubiKey déjà connectée."
 else
-    info "Please plug in your YubiKey now…"
+    info "Insère ta YubiKey maintenant…"
     while ! detect_key; do
         printf "."
         sleep 1
     done
     echo ""
-    ok "YubiKey detected!"
+    ok "YubiKey détectée !"
 fi
 
-# Show key info if ykman available
 if command -v ykman >/dev/null 2>&1; then
     key_info=$(ykman list 2>/dev/null | grep -i yubikey | head -1 || true)
-    [[ -n "$key_info" ]] && info "Key: $key_info"
+    [[ -n "$key_info" ]] && info "Clé : $key_info"
 fi
 
 # ── Step 2: Check server ──────────────────────────────────────────────────────
-step "2/4" "Server check"
+step "2/3" "Vérification serveur"
 
-if curl -sf "$WEB_URL/health" >/dev/null 2>&1 || \
-   curl -sf "$WEB_URL/"       -o /dev/null 2>&1; then
-    ok "Server running at $WEB_URL"
+if curl -sf "$WEB_URL/japprends/webauthn/status" -o /dev/null 2>&1 || \
+   curl -sf "$WEB_URL/" -o /dev/null 2>&1; then
+    ok "Serveur disponible sur $WEB_URL"
 else
-    err "Server not reachable at $WEB_URL — run: make launch-all"
+    err "Serveur inaccessible sur $WEB_URL — lance : make launch-all"
 fi
 
-# ── Step 3: Open browser for registration ────────────────────────────────────
-step "3/4" "Browser registration"
+# Check bootstrap mode (no credential registered yet)
+STATUS_JSON=$(curl -sf "$WEB_URL/japprends/webauthn/status" 2>/dev/null || echo '{}')
+REGISTERED=$(echo "$STATUS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('registered', False))" 2>/dev/null || echo "False")
 
-info "Opening browser → $DASHBOARD_URL"
+if [[ "$REGISTERED" == "True" ]]; then
+    warn "Le serveur a déjà une clé enregistrée en mémoire (redémarrage requis pour reset)."
+    warn "Si tu veux recommencer, arrête le serveur, vide ADMIN_WEBAUTHN_CREDENTIAL dans .env, et relance."
+    echo ""
+fi
+
+# ── Step 3: Browser registration ─────────────────────────────────────────────
+step "3/3" "Enregistrement via le navigateur"
+
+info "Ouverture du navigateur → $LOGIN_URL"
 if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$DASHBOARD_URL" 2>/dev/null &
+    xdg-open "$LOGIN_URL" 2>/dev/null &
 elif command -v open >/dev/null 2>&1; then
-    open "$DASHBOARD_URL" 2>/dev/null &
+    open "$LOGIN_URL" 2>/dev/null &
 else
-    warn "Could not open browser automatically."
+    warn "Impossible d'ouvrir le navigateur automatiquement."
+    info "Ouvre manuellement : $LOGIN_URL"
 fi
 
 echo ""
-echo -e "  In the browser:"
-echo    "  1. Log in as admin"
-echo    "  2. Go to Dashboard → Security tab"
-echo    "  3. Click 'Register YubiKey'"
-echo    "  4. Touch your key when the browser asks"
+echo -e "  Dans le navigateur :"
+echo    "  1. La page affiche 'Configuration initiale'"
+echo    "  2. Clique 'Enregistrer la clé YubiKey'"
+echo    "  3. Touche ta clé quand le navigateur le demande"
+echo    "  4. Attends la confirmation 'Clé enregistrée !'"
 echo ""
-echo -e "  ${CYAN}?${NC}  Press Enter once the key is registered in the browser…"
+echo -e "  ${CYAN}?${NC}  Appuie sur Entrée une fois la clé enregistrée dans le navigateur…"
 read -r _
 
-# ── Step 4: Auto-fetch credential via curl ────────────────────────────────────
-step "4/4" "Fetching credential from server"
+# ── Fetch credential from server ─────────────────────────────────────────────
 
-# Generate OTP if TOTP is configured
-OTP=""
-TOTP_SECRET="${ADMIN_DASH_TOTP_SECRET:-}"
-TOTP_SECRET_CLEAN=$(echo "$TOTP_SECRET" | tr -d '"' | tr -d "'")
-if [[ -n "$TOTP_SECRET_CLEAN" && "$TOTP_SECRET_CLEAN" != '""' ]]; then
-    info "Generating TOTP code…"
-    OTP=$(python3 - "$TOTP_SECRET_CLEAN" <<'PY'
-import sys, base64, hashlib, hmac, struct, time
-secret = sys.argv[1].strip().replace(' ','').replace('-','').upper()
-padding = "=" * (-len(secret) % 8)
-key = base64.b32decode(secret + padding, casefold=True)
-counter = int(time.time()) // 30
-msg = struct.pack(">Q", counter)
-digest = hmac.new(key, msg, hashlib.sha1).digest()
-offset = digest[-1] & 0x0F
-code = (struct.unpack(">I", digest[offset:offset+4])[0] & 0x7fffffff) % 1_000_000
-print(f"{code:06d}")
-PY
-)
-    ok "OTP generated."
-fi
-
-# Login via curl, capture session cookie
-COOKIE_JAR=$(mktemp)
-trap 'rm -f "$COOKIE_JAR"' EXIT
-
-info "Logging in as '${ADMIN_DASH_PSEUDO}'…"
-LOGIN_BODY=$(python3 -c "
-import json, sys
-d = {'pseudo': sys.argv[1], 'password': sys.argv[2]}
-if sys.argv[3]: d['otp'] = sys.argv[3]
-print(json.dumps(d))
-" "$ADMIN_DASH_PSEUDO" "$ADMIN_DASH_PASSWORD" "$OTP")
-
-LOGIN_RESP=$(curl -sf -X POST "$LOGIN_URL" \
-    -H "Content-Type: application/json" \
-    -d "$LOGIN_BODY" \
-    -c "$COOKIE_JAR" \
-    --output - 2>&1) || true
-
-if ! echo "$LOGIN_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
-    echo "$LOGIN_RESP"
-    err "Admin login failed. Check ADMIN_DASH_PASSWORD / TOTP in .env."
-fi
-ok "Logged in."
-
-# Fetch credential
-info "Fetching credential from server…"
-CRED_RESP=$(curl -sf "$EXPORT_URL" \
-    -b "$COOKIE_JAR" \
-    --output - 2>&1) || true
+info "Récupération du credential depuis le serveur…"
+CRED_RESP=$(curl -sf "$EXPORT_URL" --output - 2>&1) || true
 
 CREDENTIAL_JSON=$(echo "$CRED_RESP" | python3 -c "
 import sys, json
@@ -172,15 +130,15 @@ if not d.get('ok'):
     sys.exit(1)
 print(d['credential_json'])
 " 2>/dev/null) || {
-    warn "Could not auto-fetch credential from server."
-    warn "The key may not have been registered yet — try again after completing the browser step."
+    warn "Impossible de récupérer le credential automatiquement."
+    warn "La clé n'est peut-être pas encore enregistrée — refais le step navigateur."
     echo ""
-    echo "If the problem persists, paste the JSON manually:"
-    echo -e "  ${CYAN}?${NC}  Paste credential JSON (from Dashboard → Security) and press Enter:"
+    echo "Si le problème persiste, colle le JSON manuellement :"
+    echo -e "  ${CYAN}?${NC}  Colle le credential JSON et appuie sur Entrée :"
     read -r CREDENTIAL_JSON
-    [[ -n "$CREDENTIAL_JSON" ]] || err "Nothing entered. Aborted."
+    [[ -n "$CREDENTIAL_JSON" ]] || err "Rien entré. Annulé."
 }
-ok "Credential received."
+ok "Credential reçu."
 
 # ── Save to .env ──────────────────────────────────────────────────────────────
 cp "$ENV_FILE" "${ENV_FILE}.bak"
@@ -199,9 +157,9 @@ fi
 chmod 600 "$ENV_FILE"
 
 echo ""
-ok "Credential saved to .env  (.env.bak created)"
+ok "Credential sauvegardé dans .env  (.env.bak créé)"
 echo ""
-echo -e "  ${CYAN}Next:${NC}"
-echo    "  make stop-all && make launch-all   — restart to activate the key"
-echo    "  Then log in — you will be asked to touch your YubiKey."
+echo -e "  ${CYAN}Ensuite :${NC}"
+echo    "  make stop-all && make launch-all   — redémarre pour activer la clé"
+echo    "  Puis va sur $LOGIN_URL — touche ta YubiKey pour te connecter."
 echo ""

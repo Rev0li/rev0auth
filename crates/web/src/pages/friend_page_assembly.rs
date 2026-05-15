@@ -4,7 +4,7 @@ use super::{
     friend_page_styles,
 };
 
-pub fn assemble_friend_page(template: &str) -> String {
+pub fn assemble_friend_page(template: &str, songsurf_url: &str) -> String {
     page_assembly::assemble_template(
         template,
         &[
@@ -74,4 +74,5 @@ pub fn assemble_friend_page(template: &str) -> String {
             },
         ],
     )
+    .replace("%%SONGSURF_URL%%", songsurf_url)
 }

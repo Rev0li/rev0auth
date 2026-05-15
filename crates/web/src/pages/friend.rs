@@ -2,7 +2,7 @@ use axum::response::Html;
 
 use super::friend_page_assembly;
 
-pub async fn friend() -> Html<String> {
+pub async fn friend(songsurf_url: &str) -> Html<String> {
     Html(friend_page_assembly::assemble_friend_page(
         r##"<!doctype html>
 <html lang="fr">
@@ -315,5 +315,6 @@ pub async fn friend() -> Html<String> {
 </body>
 </html>
 "##,
+        songsurf_url,
     ))
 }

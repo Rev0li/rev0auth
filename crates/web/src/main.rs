@@ -65,6 +65,7 @@ struct WebState {
     webauthn_auth_challenges: Arc<RwLock<std::collections::HashMap<String, (PasskeyAuthentication, u64)>>>,
     admin_login_attempts: Arc<RwLock<std::collections::HashMap<String, (u32, u64)>>>,
     songsurf_jwt_secret: Arc<String>,
+    songsurf_url: Arc<String>,
     secure_cookies: bool,
     cookie_domain: Option<String>,
 }
@@ -485,9 +486,6 @@ fn build_router(state: WebState) -> Router {
         .route("/status/set-active/:pseudo", post(set_user_active))
         .route("/status/set-inactive/:pseudo", post(set_user_inactive))
         .route("/japprends/webauthn/status", get(admin_webauthn_status))
-        .route("/japprends/webauthn/register/start", get(admin_webauthn_register_start))
-        .route("/japprends/webauthn/register/finish", post(admin_webauthn_register_finish))
-        .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/webauthn/remove", post(admin_webauthn_remove))
         .route("/japprends/wall/:id", delete(admin_wall_delete))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
@@ -502,6 +500,9 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/login", post(admin_login))
         .route("/japprends/webauthn/auth/start", get(admin_webauthn_auth_start))
         .route("/japprends/webauthn/auth/finish", post(admin_webauthn_auth_finish))
+        .route("/japprends/webauthn/register/start", get(admin_webauthn_register_start))
+        .route("/japprends/webauthn/register/finish", post(admin_webauthn_register_finish))
+        .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/logout", post(admin_logout))
         .route("/home/friend", get(friend_home))
         .route("/members/dashboard", get(members_dashboard))
@@ -563,6 +564,9 @@ async fn main() -> anyhow::Result<()> {
     } else {
         info!("AUTH_JWT_SECRET set — SongSurf JWT will be issued on login for authorized users");
     }
+    let songsurf_url = std::env::var("SONGSURF_URL")
+        .unwrap_or_else(|_| "http://localhost:9000".to_string());
+    info!("SONGSURF_URL={songsurf_url}");
     let secure_cookies = std::env::var("WEBAUTHN_RP_ORIGIN")
         .unwrap_or_default()
         .starts_with("https://");
@@ -592,6 +596,7 @@ async fn main() -> anyhow::Result<()> {
         webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
         songsurf_jwt_secret: Arc::new(songsurf_jwt_secret),
+        songsurf_url: Arc::new(songsurf_url),
         secure_cookies,
         cookie_domain,
     };
@@ -635,8 +640,9 @@ async fn portal() -> impl axum::response::IntoResponse {
     pages::portal().await
 }
 
-async fn admin_login_page() -> impl axum::response::IntoResponse {
-    pages::admin_login().await
+async fn admin_login_page(State(state): State<WebState>) -> impl axum::response::IntoResponse {
+    let has_key = state.webauthn_credential.read().await.is_some();
+    pages::admin_login(has_key).await
 }
 
 async fn dashboard() -> impl axum::response::IntoResponse {
@@ -651,12 +657,12 @@ async fn dashboard_decoy() -> impl axum::response::IntoResponse {
     )
 }
 
-async fn friend_home() -> impl axum::response::IntoResponse {
-    pages::friend().await
+async fn friend_home(State(state): State<WebState>) -> impl axum::response::IntoResponse {
+    pages::friend(&state.songsurf_url).await
 }
 
-async fn members_dashboard() -> impl axum::response::IntoResponse {
-    pages::friend().await
+async fn members_dashboard(State(state): State<WebState>) -> impl axum::response::IntoResponse {
+    pages::friend(&state.songsurf_url).await
 }
 
 async fn members_profile_page() -> impl axum::response::IntoResponse {
@@ -1053,7 +1059,20 @@ async fn admin_webauthn_status(State(state): State<WebState>) -> Json<serde_json
     }))
 }
 
-async fn admin_webauthn_register_start(State(state): State<WebState>) -> impl IntoResponse {
+async fn admin_webauthn_register_start(
+    State(state): State<WebState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if state.webauthn_credential.read().await.is_some()
+        && !is_admin_authenticated(&headers, &state).await
+    {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "admin session required to re-enroll" })),
+        )
+            .into_response();
+    }
+
     let admin_pseudo = admin_pseudo_from_env();
     let user_id = Uuid::new_v5(&Uuid::NAMESPACE_DNS, admin_pseudo.as_bytes());
 
@@ -1073,8 +1092,15 @@ async fn admin_webauthn_register_start(State(state): State<WebState>) -> impl In
 
 async fn admin_webauthn_register_finish(
     State(state): State<WebState>,
+    headers: HeaderMap,
     Json(payload): Json<WebAuthnRegFinishInput>,
 ) -> Json<serde_json::Value> {
+    if state.webauthn_credential.read().await.is_some()
+        && !is_admin_authenticated(&headers, &state).await
+    {
+        return Json(serde_json::json!({ "ok": false, "message": "admin session required to re-enroll" }));
+    }
+
     let reg_state = state.webauthn_reg_state.write().await.take();
     let Some(reg_state) = reg_state else {
         return Json(serde_json::json!({ "ok": false, "message": "Aucune inscription en cours. Recommence depuis 'Enregistrer'." }));
@@ -2830,6 +2856,7 @@ mod tests {
             webauthn_auth_challenges: Arc::new(RwLock::new(std::collections::HashMap::new())),
             admin_login_attempts: Arc::new(RwLock::new(std::collections::HashMap::new())),
             songsurf_jwt_secret: Arc::new(String::new()),
+            songsurf_url: Arc::new(String::new()),
             secure_cookies: false,
             cookie_domain: None,
         }

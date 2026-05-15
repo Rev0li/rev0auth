@@ -1,3 +1,0 @@
-When i parameter yubico key, and i connecte me it's explicite ask Key, i juste want to display, stay about you....
-My project in dashboard Admin it's old You modify for better and simply dashboard manager. you are free about modification
-For next step stop critical information in env and creat gen_secret.sh for generate or ask me a secret and Here ask me a configuration a yubico key. Delete the create delete and modiy in a dashboard security
