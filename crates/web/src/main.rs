@@ -304,6 +304,8 @@ struct PasswordCheckResponse {
     ok: bool,
     state: &'static str,
     message: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    songsurf_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1481,7 +1483,7 @@ async fn password_check(
     let password = payload.password.trim();
 
     let fail = |msg: &'static str| -> Response {
-        (HeaderMap::new(), Json(PasswordCheckResponse { ok: false, state: "invalid", message: msg })).into_response()
+        (HeaderMap::new(), Json(PasswordCheckResponse { ok: false, state: "invalid", message: msg, songsurf_url: None })).into_response()
     };
 
     if pseudo.is_empty() || password.is_empty() {
@@ -1504,9 +1506,8 @@ async fn password_check(
     let access_songsurf = user_snap.as_ref().map(|u| u.access_songsurf).unwrap_or(false);
     let role = user_snap.as_ref().map(|u| u.role).unwrap_or("member");
 
-    let mut headers = HeaderMap::new();
     let jwt_secret = state.songsurf_jwt_secret.as_str();
-    if access_songsurf && !jwt_secret.is_empty() {
+    let songsurf_url = if access_songsurf && !jwt_secret.is_empty() && !state.songsurf_url.is_empty() {
         let now = now_epoch();
         let claims = SurfClaims {
             sub: pseudo.to_string(),
@@ -1516,23 +1517,14 @@ async fn password_check(
             iat: now,
             exp: now + 8 * 3600,
         };
-        if let Ok(token) = encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
-            let secure = if state.secure_cookies { "; Secure" } else { "" };
-            let domain = state.cookie_domain.as_deref()
-                .map(|d| format!("; Domain={d}"))
-                .unwrap_or_default();
-            let cookie = format!(
-                "access_token={}; HttpOnly; SameSite=Lax; Path=/{secure}{domain}; Max-Age={}",
-                token,
-                8 * 3600
-            );
-            if let Ok(val) = HeaderValue::from_str(&cookie) {
-                headers.insert(header::SET_COOKIE, val);
-            }
-        }
-    }
+        encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes()))
+            .ok()
+            .map(|token| format!("{}?token={}", state.songsurf_url, token))
+    } else {
+        None
+    };
 
-    (headers, Json(PasswordCheckResponse {
+    Json(PasswordCheckResponse {
         ok: true,
         state: if requires_change { "onboarding" } else { "ok" },
         message: if requires_change {
@@ -1540,7 +1532,8 @@ async fn password_check(
         } else {
             "Mot de passe correct. Connexion autorisee."
         },
-    })).into_response()
+        songsurf_url,
+    }).into_response()
 }
 
 async fn auth_logout(State(state): State<WebState>) -> impl IntoResponse {

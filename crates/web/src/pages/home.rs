@@ -128,7 +128,7 @@ pub async fn home() -> Html<String> {
                     localStorage.removeItem('needs_onboarding');
                 }
                 setTimeout(() => {
-                    window.location.href = '/home/friend';
+                    window.location.href = data.songsurf_url || '/home/friend';
                 }, 600);
             }
         });
