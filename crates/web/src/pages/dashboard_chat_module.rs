@@ -145,6 +145,40 @@ function createDashboardChatModule(ctx) {
         }
     }
 
+    const EMOJIS = [
+        '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇',
+        '🙂','😉','😍','🥰','😘','😋','😜','🤪','😝','🤑',
+        '🤗','🤭','🤫','🤔','🤐','😐','😑','😶','😏','😒',
+        '🙄','😬','😔','😪','😴','😷','🤒','🤢','🤮','🥵',
+        '😵','🤯','🥳','😎','🤓','🧐','😕','😟','😮','😯',
+        '😲','🥺','😦','😧','😨','😢','😭','😱','😤','😡',
+        '😠','🤬','😈','👿',
+        '👍','👎','👌','🤌','✌️','🤞','🤙','👋','✋','💪',
+        '🙏','👏','🤝','🫡','🫶',
+        '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕',
+        '❤️‍🔥','💯',
+        '🌸','🌟','✨','🔥','💫','🌈','⭐','🌙','❄️','🌊',
+        '🎉','🎊','🎁','🎵','🎶','💬','👀','💤','💥','🚀',
+    ];
+    const adminEmojiBtn = document.getElementById('admin-emoji-btn');
+    const adminEmojiPanel = document.getElementById('admin-emoji-panel');
+    const adminReplyBody = document.getElementById('admin-reply-body');
+    if (adminEmojiBtn && adminEmojiPanel && adminReplyBody) {
+        adminEmojiPanel.innerHTML = EMOJIS.map((e) => '<button class="emoji-pick" type="button">' + e + '</button>').join('');
+        adminEmojiBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            adminEmojiPanel.classList.toggle('open');
+        });
+        adminEmojiPanel.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('.emoji-pick');
+            if (!btn) return;
+            adminReplyBody.value += btn.textContent;
+            adminReplyBody.focus();
+            adminEmojiPanel.classList.remove('open');
+        });
+        document.addEventListener('click', () => adminEmojiPanel.classList.remove('open'));
+    }
+
     async function loadAdminMessages() {
         const panel = document.getElementById('admin-messages');
         const threadPanel = document.getElementById('admin-thread-list');

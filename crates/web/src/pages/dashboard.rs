@@ -56,35 +56,43 @@ pub async fn dashboard() -> Html<String> {
             </div>
 
             <div class="row">
+                <strong>Endpoints</strong>
+                <div class="mini" style="margin-bottom:8px">Etat par scope — non cliquable.</div>
+                <div id="endpoints-system-list" class="endpoint-grid">—</div>
+            </div>
+
+            <div class="row">
                 <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                     <strong>Tests</strong>
                     <button class="btn-small grant" id="launch-tests-now">Lancer maintenant</button>
                 </div>
                 <div id="tests-progress-wrap" style="display:none;margin-top:10px">
-                    <div style="font-size:0.78rem;color:var(--color-muted);margin-bottom:4px" id="tests-progress-label">Execution en cours...</div>
-                    <div style="background:var(--bg-card);border:1px solid var(--color-panel-border);border-radius:4px;height:6px;overflow:hidden">
-                        <div id="tests-progress-bar" style="height:100%;width:0%;background:var(--color-accent);transition:width 0.4s linear"></div>
+                    <div style="font-size:0.78rem;color:var(--muted-foreground);margin-bottom:4px" id="tests-progress-label">Execution en cours...</div>
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:4px;height:6px;overflow:hidden">
+                        <div id="tests-progress-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.4s linear"></div>
                     </div>
                 </div>
                 <div id="tests-history" class="tests-history" style="margin-top:10px"></div>
-            </div>
-
-            <div class="row">
-                <strong>Endpoints</strong>
-                <div class="mini" style="margin-bottom:8px">Etat par scope — non cliquable.</div>
-                <div id="endpoints-system-list" class="endpoint-grid">—</div>
             </div>
         </section>
 
         <!-- ====== MEMBERS ====== -->
         <section class="tab-page" id="tab-members">
             <div class="row">
-                <strong>Demandes d'inscription</strong>
-                <div id="admin-signup-queue" class="mini" style="margin-top:8px">Chargement...</div>
+                <strong>Membres</strong>
+                <div id="users-list" style="margin-top:10px">Chargement...</div>
             </div>
             <div class="row">
-                <strong>Utilisateurs</strong>
-                <div id="users-list" class="mini" style="margin-top:8px">Chargement...</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+                    <strong>Mur communautaire</strong>
+                    <button class="btn-small" id="wall-refresh-btn">↺ Rafraîchir</button>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                    <input id="admin-wall-input" type="text" class="field-input" placeholder="Écrire un post (140 car. max)…" maxlength="140" style="flex:1" />
+                    <button class="btn-small grant" id="admin-wall-send-btn">Poster</button>
+                </div>
+                <div id="admin-wall-msg" class="mini" style="display:none;margin-top:4px"></div>
+                <div id="admin-wall-list" class="mini" style="margin-top:8px">Chargement...</div>
             </div>
         </section>
 
@@ -99,6 +107,10 @@ pub async fn dashboard() -> Html<String> {
                         <div class="msg-compose">
                             <input id="admin-reply-to" placeholder="Destinataire" style="display:none" />
                             <div class="msg-compose-row">
+                                <div class="msg-emoji-wrap">
+                                    <button id="admin-emoji-btn" class="msg-emoji-btn" type="button" title="Emojis">😊</button>
+                                    <div id="admin-emoji-panel" class="msg-emoji-panel"></div>
+                                </div>
                                 <textarea id="admin-reply-body" class="msg-compose-input" rows="1" placeholder="Répondre..."></textarea>
                                 <button class="msg-compose-send" id="admin-reply-send">➤</button>
                             </div>
@@ -112,7 +124,10 @@ pub async fn dashboard() -> Html<String> {
         <!-- ====== DONATIONS ====== -->
         <section class="tab-page" id="tab-donations">
             <div class="row">
-                <strong>Preuves donations</strong>
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+                    <strong>Preuves donations</strong>
+                    <button class="btn-small" id="donations-refresh-btn">↺ Rafraîchir</button>
+                </div>
                 <div id="admin-donations" class="mini" style="margin-top:8px">Chargement...</div>
             </div>
         </section>
@@ -166,47 +181,6 @@ pub async fn dashboard() -> Html<String> {
             if (navigator.clipboard?.writeText) navigator.clipboard.writeText(password).catch(() => {});
         }
 
-        // ---- signup queue ----
-        function requestRow(req) {
-            const dt = new Date(req.created_at_epoch * 1000).toLocaleTimeString();
-            const canAct = req.status === 'pending';
-            const actions = canAct
-                ? '<button data-act="approve" data-id="' + req.id + '">Approuver</button> '
-                    + '<button data-act="reject" data-id="' + req.id + '">Rejeter</button>'
-                : '';
-            return '<div class="request-row">'
-                + '<strong>#' + req.id + ' — ' + req.pseudo + '</strong> [' + req.status + ']'
-                + '<br>referral: ' + req.referral + ' &nbsp;•&nbsp; ' + dt
-                + (actions ? '<div class="request-actions">' + actions + '</div>' : '')
-                + '</div>';
-        }
-
-        async function loadAdminSignupQueue() {
-            const panel = document.getElementById('admin-signup-queue');
-            if (!panel) return;
-            const res = await fetch('/japprends/signup-requests', { cache: 'no-store' });
-            const list = await res.json();
-            dashboardStats.pendingSignups = Array.isArray(list)
-                ? list.filter(r => r.status === 'pending').length : 0;
-            if (!Array.isArray(list) || list.length === 0) {
-                panel.textContent = 'Aucune demande.'; return;
-            }
-            panel.innerHTML = list.slice().reverse().map(requestRow).join('');
-            panel.querySelectorAll('button[data-act]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.getAttribute('data-id');
-                    const act = btn.getAttribute('data-act');
-                    const res = await fetch('/japprends/signup-requests/' + id + '/' + act, { method: 'POST' });
-                    const data = await res.json();
-                    if (data?.ok && data.temp_password) {
-                        copyTempPassword(data.temp_password);
-                        alert('Mot de passe temporaire: ' + data.temp_password);
-                    }
-                    await loadAdminSignupQueue();
-                });
-            });
-        }
-
         // ---- users ----
         async function loadUsers() {
             const panel = document.getElementById('users-list');
@@ -214,31 +188,38 @@ pub async fn dashboard() -> Html<String> {
             const res = await fetch('/users', { cache: 'no-store' });
             const list = await res.json();
             if (!Array.isArray(list) || list.length === 0) {
-                panel.textContent = 'Aucun utilisateur.'; return;
+                panel.innerHTML = '<span class="mini">Aucun utilisateur.</span>'; return;
             }
             dashboardStats.users = list;
-            panel.innerHTML = list.map(user => {
-                const dt = new Date(user.created_at_epoch * 1000).toLocaleDateString('fr-FR');
-                const statusDot = user.status === 'actif' ? '🟢' : user.status === 'occupe' ? '🟡' : '🔴';
-                const reqBadges = [
-                    user.request_github && 'GitHub',
-                    user.request_jellyfin && 'Jellyfin',
-                    user.request_songsurf && 'Songsurf'
-                ].filter(Boolean);
-                return '<div class="user-card">'
-                    + '<div class="user-info">'
-                    + '<div class="user-name">' + user.pseudo + ' <span style="font-weight:400;color:var(--color-muted)">' + statusDot + ' ' + dt + '</span></div>'
-                    + (reqBadges.length ? '<div class="user-meta user-request-badges">Demandes: ' + reqBadges.join(', ') + '</div>' : '')
-                    + '</div>'
-                    + '<div class="user-actions">'
-                    + '<button class="btn-small warn" onclick="openUserProfile(\'' + user.pseudo + '\')">Profil</button>'
-                    + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\',\'github\',' + (!user.access_github) + ')">GitHub ' + (user.access_github ? 'ON' : 'OFF') + '</button>'
-                    + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\',\'jellyfin\',' + (!user.access_jellyfin) + ')">Jellyfin ' + (user.access_jellyfin ? 'ON' : 'OFF') + '</button>'
-                    + '<button class="btn-small ' + (user.access_songsurf ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + user.pseudo + '\',\'songsurf\',' + (!user.access_songsurf) + ')">Songsurf ' + (user.access_songsurf ? 'ON' : 'OFF') + '</button>'
-                    + '<button class="btn-small" onclick="deleteUser(\'' + user.pseudo + '\')">🗑</button>'
-                    + '</div>'
-                    + '</div>';
-            }).join('');
+            panel.innerHTML = '<div class="member-gallery">'
+                + list.map(user => {
+                    const dt = new Date(user.created_at_epoch * 1000).toLocaleDateString('fr-FR');
+                    const statusLabel = user.status === 'actif' ? 'actif' : user.status === 'occupe' ? 'occupé' : 'inactif';
+                    const statusCls = user.status === 'actif' ? 'active' : user.status === 'occupe' ? 'pending' : 'inactive';
+                    const roleCls = ['admin','mod','member','guest'].includes(user.role) ? user.role : 'guest';
+                    const p = encodeURIComponent(user.pseudo);
+                    const reqBadges = [
+                        user.request_github && 'GH',
+                        user.request_jellyfin && 'JF',
+                        user.request_songsurf && 'SS'
+                    ].filter(Boolean);
+                    const safePseudo = escapeHtml(user.pseudo);
+                    return '<div class="member-card" onclick="openUserProfile(\'' + safePseudo + '\')">'
+                        + '<div class="member-card-avatar-wrap">'
+                        + '<img class="member-card-avatar" src="/members/avatar/' + p + '?t=' + Date.now() + '" alt="" '
+                        + 'onerror="this.onerror=null;this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+                        + '<div class="member-card-avatar-fallback" style="display:none">' + safePseudo.charAt(0).toUpperCase() + '</div>'
+                        + '</div>'
+                        + '<div class="member-card-pseudo">' + safePseudo + '</div>'
+                        + '<div class="member-card-meta">'
+                        + '<span class="member-status ' + statusCls + '">● ' + statusLabel + '</span>'
+                        + '<span class="member-badge ' + roleCls + '">' + user.role + '</span>'
+                        + '</div>'
+                        + '<div class="member-card-meta">' + dt + '</div>'
+                        + (reqBadges.length ? '<div class="member-card-pending">⏳ ' + reqBadges.join(' · ') + '</div>' : '')
+                        + '</div>';
+                }).join('')
+                + '</div>';
         }
 
         async function toggleServiceAccess(pseudo, service, nextValue) {
@@ -264,6 +245,61 @@ pub async fn dashboard() -> Html<String> {
             if (data.ok) loadUsers(); else alert('Erreur: ' + data.message);
         }
 
+        // ---- wall ----
+        async function loadAdminWall() {
+            const panel = document.getElementById('admin-wall-list');
+            if (!panel) return;
+            try {
+                const res = await fetch('/members/wall', { cache: 'no-store' });
+                const list = await res.json();
+                if (!Array.isArray(list) || list.length === 0) {
+                    panel.textContent = 'Aucun post sur le mur.'; return;
+                }
+                panel.innerHTML = list.map(p => {
+                    const dt = new Date(p.created_at_epoch * 1000).toLocaleString();
+                    return '<div class="donation-row" style="display:flex;align-items:flex-start;gap:8px;justify-content:space-between">'
+                        + '<div><strong>' + escapeHtml(p.pseudo) + '</strong><span class="mini" style="margin-left:8px">' + dt + '</span>'
+                        + '<div style="margin-top:4px">' + escapeHtml(p.body) + '</div></div>'
+                        + '<button class="btn-small danger" onclick="deleteWallPost(' + p.id + ')">🗑</button>'
+                        + '</div>';
+                }).join('');
+            } catch (_) { panel.textContent = 'Erreur chargement mur.'; }
+        }
+
+        async function deleteWallPost(id) {
+            if (!confirm('Supprimer ce post ?')) return;
+            try {
+                await fetch('/japprends/wall/' + id, { method: 'DELETE' });
+                await loadAdminWall();
+            } catch (_) {}
+        }
+
+        async function postAdminWallMessage() {
+            const input = document.getElementById('admin-wall-input');
+            const msgEl = document.getElementById('admin-wall-msg');
+            const body = input.value.trim();
+            if (!body) return;
+            try {
+                const res = await fetch('/members/wall', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ pseudo: adminPseudo, body })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    input.value = '';
+                    msgEl.style.display = 'none';
+                    await loadAdminWall();
+                } else {
+                    msgEl.textContent = data.message || 'Erreur.';
+                    msgEl.style.display = 'block';
+                }
+            } catch (err) {
+                msgEl.textContent = 'Erreur: ' + err.message;
+                msgEl.style.display = 'block';
+            }
+        }
+
         // ---- donations ----
         async function loadAdminDonations() {
             const panel = document.getElementById('admin-donations');
@@ -283,10 +319,8 @@ pub async fn dashboard() -> Html<String> {
                     return '<div class="donation-row">'
                         + '<strong>#' + row.id + '</strong> • ' + row.pseudo + ' • ' + row.method
                         + '<br>code: ' + row.code + ' • etat: ' + state + ' • ' + dt
-                        + '<div class="donation-actions">'
-                        + '<a class="btn-small warn" target="_blank" href="/members/donations/proof/' + row.id + '/photo">Photo</a>'
-                        + actions
-                        + '</div></div>';
+                        + (actions ? '<div class="donation-actions">' + actions + '</div>' : '')
+                        + '</div>';
                 }).join('');
                 panel.querySelectorAll('button[data-donation-review="1"]').forEach(btn => {
                     btn.addEventListener('click', async () => {
@@ -305,20 +339,39 @@ pub async fn dashboard() -> Html<String> {
         // ---- tests ----
         let testsRunning = false;
         let progressTimer = null;
+        const openTestRuns = new Set();  // run IDs the user left open
+        const seenTestRuns = new Set();  // run IDs ever rendered (to detect new runs)
+        let initialRenderDone = false;   // suppress auto-open on fresh page load
 
         function renderTestsHistory(runs) {
             const panel = document.getElementById('tests-history');
             if (!panel) return;
-            if (!Array.isArray(runs) || runs.length === 0) {
-                panel.innerHTML = '<div class="mini">Aucun test lance.</div>'; return;
-            }
+            // if (!Array.isArray(runs) || runs.length === 0) {
+            //     panel.innerHTML = '<div class="mini">Aucun test lance.</div>'; return;
+            // }
             dashboardStats.lastRun = runs[0];
 
-            // Build HTML — all collapsed by default, first run gets .open
+            // Capture user's open/closed state before wiping the DOM
+            panel.querySelectorAll('.test-run').forEach(el => {
+                const idStr = el.id.replace('run-', '');
+                if (el.classList.contains('open')) {
+                    openTestRuns.add(idStr);
+                } else {
+                    openTestRuns.delete(idStr);
+                }
+            });
+
+            // Build HTML — auto-open only brand-new runs at position 0
             panel.innerHTML = runs.slice(0, 8).map((run, idx) => {
                 const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
                 const allOk = run.passed === run.total;
-                const openClass = idx === 0 ? ' open' : '';
+                const idStr = String(run.run_id);
+                const isNew = !seenTestRuns.has(idStr);
+                seenTestRuns.add(idStr);
+                // auto-open only for runs that appear AFTER the initial page load
+                const shouldOpen = openTestRuns.has(idStr) || (isNew && idx === 0 && initialRenderDone);
+                if (shouldOpen) openTestRuns.add(idStr);
+                const openClass = shouldOpen ? ' open' : '';
                 return '<div class="test-run' + openClass + '" id="run-' + run.run_id + '">'
                     + '<div class="test-head' + (allOk ? ' ok' : ' fail') + '" data-run="' + run.run_id + '">'
                     + '<span>Run #' + run.run_id + ' &nbsp;' + run.passed + '/' + run.total + ' &nbsp; ' + dt + '</span>'
@@ -328,48 +381,44 @@ pub async fn dashboard() -> Html<String> {
                     + '</div>';
             }).join('');
 
-            // Toggle accordion on header click
+            // Pre-fill all runs instantly (no animation on load)
+            runs.slice(0, 8).forEach((run) => {
+                const ul = document.getElementById('cases-' + run.run_id);
+                if (!ul || !Array.isArray(run.cases)) return;
+                ul.innerHTML = run.cases.map((c) =>
+                    '<li class="' + (c.ok ? 'case-ok' : 'case-fail') + '">'
+                    + (c.ok ? '✓ ' : '✗ ') + c.name + '</li>'
+                ).join('');
+            });
+
+            // Toggle accordion — cascade only on manual click-to-open
             panel.querySelectorAll('.test-head').forEach((head) => {
                 head.addEventListener('click', () => {
-                    const run = head.closest('.test-run');
-                    const wasOpen = run.classList.contains('open');
-                    run.classList.toggle('open', !wasOpen);
-                    // If opening and ul is empty, populate with cascade
+                    const runEl = head.closest('.test-run');
+                    const wasOpen = runEl.classList.contains('open');
+                    runEl.classList.toggle('open', !wasOpen);
+                    const idStr = String(head.getAttribute('data-run'));
+                    if (!wasOpen) { openTestRuns.add(idStr); } else { openTestRuns.delete(idStr); }
                     if (!wasOpen) {
-                        const ul = run.querySelector('.test-cases');
-                        if (ul && ul.children.length === 0) {
-                            const runId = parseInt(head.getAttribute('data-run'), 10);
-                            const found = runs.find((r) => r.run_id === runId);
-                            if (found && Array.isArray(found.cases)) {
-                                found.cases.forEach((c, i) => {
-                                    setTimeout(() => {
-                                        const li = document.createElement('li');
-                                        li.className = c.ok ? 'case-ok' : 'case-fail';
-                                        li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
-                                        ul.appendChild(li);
-                                    }, i * 28);
-                                });
-                            }
+                        // Re-animate cases on expand
+                        const ul = runEl.querySelector('.test-cases');
+                        const runId = parseInt(head.getAttribute('data-run'), 10);
+                        const found = runs.find((r) => r.run_id === runId);
+                        if (ul && found && Array.isArray(found.cases)) {
+                            ul.innerHTML = '';
+                            found.cases.forEach((c, i) => {
+                                setTimeout(() => {
+                                    const li = document.createElement('li');
+                                    li.className = c.ok ? 'case-ok' : 'case-fail';
+                                    li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
+                                    ul.appendChild(li);
+                                }, i * 28);
+                            });
                         }
                     }
                 });
             });
-
-            // Populate first run immediately with cascade
-            const firstRun = runs[0];
-            if (firstRun && Array.isArray(firstRun.cases)) {
-                const ul = document.getElementById('cases-' + firstRun.run_id);
-                if (ul) {
-                    firstRun.cases.forEach((c, i) => {
-                        setTimeout(() => {
-                            const li = document.createElement('li');
-                            li.className = c.ok ? 'case-ok' : 'case-fail';
-                            li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
-                            ul.appendChild(li);
-                        }, i * 28);
-                    });
-                }
-            }
+            initialRenderDone = true;
         }
 
         function startProgressBar(estimatedMs) {
@@ -396,7 +445,7 @@ pub async fn dashboard() -> Html<String> {
             const allOk = passed === total;
             bar.style.transition = 'width 0.25s ease';
             bar.style.width = '100%';
-            bar.style.background = allOk ? 'var(--color-success)' : 'var(--color-error, #e55)';
+            bar.style.background = allOk ? 'var(--success)' : 'var(--color-error, #e55)';
             label.textContent = passed + '/' + total + ' tests passes';
             setTimeout(() => { if (wrap) wrap.style.display = 'none'; bar.style.background = ''; }, 2800);
         }
@@ -438,14 +487,47 @@ pub async fn dashboard() -> Html<String> {
             if (!panel) return;
             const data = dashboardStats.endpoints;
             if (!Array.isArray(data) || data.length === 0) { panel.textContent = '—'; return; }
-            panel.innerHTML = data.map(ep => {
-                const ok = endpointScopeOk(ep);
-                return '<div class="endpoint-item">'
-                    + '<div><strong>' + ep.method + '</strong> ' + ep.path
-                    + '<div class="endpoint-meta">scope: ' + ep.scope + '</div></div>'
-                    + (ok ? '<span class="badge-ok">OK</span>' : '<span class="badge-ko">KO</span>')
+
+            const SCOPE_ORDER = ['admin', 'member', 'public'];
+            const SCOPE_LABEL = { admin: 'Admin', member: 'Membre', public: 'Public' };
+            const groups = {};
+            data.forEach(ep => {
+                const s = SCOPE_ORDER.includes(ep.scope) ? ep.scope : 'public';
+                if (!groups[s]) groups[s] = [];
+                groups[s].push(ep);
+            });
+
+            // Preserve open state across re-renders (refreshStatus fires every 5s)
+            const openScopes = new Set();
+            panel.querySelectorAll('.ep-section.open').forEach(el => openScopes.add(el.getAttribute('data-scope')));
+
+            panel.innerHTML = SCOPE_ORDER.filter(s => groups[s] && groups[s].length > 0).map(scope => {
+                const eps = groups[scope];
+                const allOk = eps.every(ep => endpointScopeOk(ep));
+                const label = SCOPE_LABEL[scope] || scope;
+                const isOpen = openScopes.has(scope);
+                const items = eps.map(ep => {
+                    const ok = endpointScopeOk(ep);
+                    return '<div class="endpoint-item">'
+                        + '<div><strong>' + ep.method + '</strong> ' + ep.path + '</div>'
+                        + (ok ? '<span class="badge-ok">OK</span>' : '<span class="badge-ko">KO</span>')
+                        + '</div>';
+                }).join('');
+                return '<div class="ep-section' + (isOpen ? ' open' : '') + '" data-scope="' + scope + '">'
+                    + '<div class="ep-section-head">'
+                    + '<span class="ep-section-label">' + label + ' <span class="ep-section-count">(' + eps.length + ')</span></span>'
+                    + (allOk ? '<span class="badge-ok">OK</span>' : '<span class="badge-ko">KO</span>')
+                    + '<span class="ep-chevron">›</span>'
+                    + '</div>'
+                    + '<div class="ep-section-items">' + items + '</div>'
                     + '</div>';
             }).join('');
+
+            panel.querySelectorAll('.ep-section-head').forEach(head => {
+                head.addEventListener('click', () => {
+                    head.closest('.ep-section').classList.toggle('open');
+                });
+            });
         }
 
         function renderChainChecks() {
@@ -517,21 +599,26 @@ pub async fn dashboard() -> Html<String> {
         }
 
         // ---- tabs ----
-        function bindTabs() {
+        function activateTab(tab) {
             const buttons = document.querySelectorAll('[data-tab-btn]');
             const pages = document.querySelectorAll('.tab-page');
-            buttons.forEach(btn => {
+            buttons.forEach(b => b.classList.remove('active'));
+            pages.forEach(p => p.classList.remove('active'));
+            const btn = document.querySelector('[data-tab-btn="' + tab + '"]');
+            if (btn) btn.classList.add('active');
+            const page = document.getElementById('tab-' + tab);
+            if (page) page.classList.add('active');
+            history.replaceState(null, '', '#' + tab);
+            if (tab === 'messages') loadAdminMessages();
+            if (tab === 'donations') loadAdminDonations();
+            if (tab === 'members') { loadUsers(); loadAdminWall(); }
+            if (tab === 'logs') runSweep();
+        }
+
+        function bindTabs() {
+            document.querySelectorAll('[data-tab-btn]').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const tab = btn.getAttribute('data-tab-btn');
-                    buttons.forEach(b => b.classList.remove('active'));
-                    pages.forEach(p => p.classList.remove('active'));
-                    btn.classList.add('active');
-                    const page = document.getElementById('tab-' + tab);
-                    if (page) page.classList.add('active');
-                    if (tab === 'messages') loadAdminMessages();
-                    if (tab === 'donations') loadAdminDonations();
-                    if (tab === 'members') { loadAdminSignupQueue(); loadUsers(); }
-                    if (tab === 'logs') runSweep();
+                    activateTab(btn.getAttribute('data-tab-btn'));
                 });
             });
         }
@@ -582,17 +669,29 @@ pub async fn dashboard() -> Html<String> {
             const log = document.getElementById('sweep-log');
             if (log) log.textContent = 'Pret. Clique sur "Lancer le sweep".';
         });
+        document.getElementById('wall-refresh-btn').addEventListener('click', loadAdminWall);
+        document.getElementById('admin-wall-send-btn').addEventListener('click', postAdminWallMessage);
+        document.getElementById('admin-wall-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); postAdminWallMessage(); }
+        });
+        document.getElementById('donations-refresh-btn').addEventListener('click', loadAdminDonations);
 
         bindTabs();
+
+        // Restore tab from URL hash (e.g. back-navigation from profile with #members)
+        const initHash = window.location.hash.slice(1);
+        if (initHash && document.querySelector('[data-tab-btn="' + initHash + '"]')) {
+            activateTab(initHash);
+        }
+
         refreshStatus();
         loadTestsHistory();
         loadEndpoints();
-        loadAdminSignupQueue();
         loadUsers();
+        loadAdminWall();
         loadAdminMessages();
         setInterval(refreshStatus, 5000);
         setInterval(loadTestsHistory, 15000);
-        setInterval(loadAdminSignupQueue, 8000);
         setInterval(loadUsers, 10000);
         setInterval(loadAdminMessages, 12000);
     </script>

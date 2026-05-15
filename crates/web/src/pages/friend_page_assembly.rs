@@ -1,6 +1,7 @@
 use super::{
     friend_avatar_module, friend_chat_module, friend_onboarding_module, friend_services_module,
-    friend_status_module, frontend_modules, frontend_theme, page_assembly, friend_page_styles,
+    friend_status_module, friend_wall_module, frontend_modules, frontend_theme, page_assembly,
+    friend_page_styles,
 };
 
 pub fn assemble_friend_page(template: &str) -> String {
@@ -62,6 +63,14 @@ pub fn assemble_friend_page(template: &str) -> String {
             page_assembly::PageModule {
                 placeholder: "%%FRIEND_AVATAR_JS%%",
                 content: friend_avatar_module::JS_FRIEND_AVATAR_MODULE,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%FRIEND_WALL_CSS%%",
+                content: friend_wall_module::CSS_FRIEND_WALL_STYLES,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%FRIEND_WALL_JS%%",
+                content: friend_wall_module::JS_FRIEND_WALL_MODULE,
             },
         ],
     )

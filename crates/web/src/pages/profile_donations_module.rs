@@ -10,6 +10,44 @@ function createProfileDonationsModule(ctx) {
         el.textContent = text;
     }
 
+    async function loadCryptoAddresses() {
+        try {
+            const res = await fetch('/members/donations/crypto-addresses', { cache: 'no-store' });
+            const list = await res.json();
+            const container = document.getElementById('crypto-addresses-list');
+            if (!container) return;
+            if (!Array.isArray(list) || list.length === 0) {
+                container.innerHTML = '<span style="color:var(--muted-foreground);font-size:0.875rem">Aucune adresse configuree.</span>';
+                return;
+            }
+            container.innerHTML = list.map((a) =>
+                '<div class="crypto-addr-row">'
+                + '<span class="crypto-addr-name">' + escapeHtml(a.name) + '</span>'
+                + '<code class="crypto-addr-val" title="Cliquer pour copier" onclick="navigator.clipboard.writeText(\'' + escapeHtml(a.address) + '\').then(() => this.classList.add(\'copied\'))">'
+                + escapeHtml(a.address)
+                + '</code>'
+                + '</div>'
+            ).join('');
+        } catch (_) {}
+    }
+
+    function onMethodChange() {
+        const method = document.getElementById('donation-method').value;
+        const cryptoSection = document.getElementById('crypto-addresses-section');
+        const pcsSection = document.getElementById('pcs-info-section');
+        if (cryptoSection) {
+            if (method === 'crypto') {
+                cryptoSection.style.display = 'block';
+                loadCryptoAddresses();
+            } else {
+                cryptoSection.style.display = 'none';
+            }
+        }
+        if (pcsSection) {
+            pcsSection.style.display = method === 'pcs' ? 'flex' : 'none';
+        }
+    }
+
     async function loadDonations() {
         if (adminMode) return;
         try {
@@ -22,14 +60,25 @@ function createProfileDonationsModule(ctx) {
             }
 
             panel.innerHTML = list.slice().reverse().map((row) => {
-                const dt = new Date(row.created_at_epoch * 1000).toLocaleString();
+                const dt = new Date(row.created_at_epoch * 1000).toLocaleDateString('fr-FR');
+                const isApproved = row.reviewed && row.approved;
+                const isRefused = row.reviewed && !row.approved;
+                const chipCls = isApproved ? ' approved' : isRefused ? ' refused' : '';
                 const verdict = !row.reviewed
-                    ? 'En attente'
-                    : (row.approved ? 'Validee' : 'Refusee');
-                return '<div class="list-item">'
-                    + '<div><strong>#' + row.id + '</strong> • ' + escapeHtml(row.method) + ' • ' + escapeHtml(row.code) + '</div>'
-                    + '<div class="meta">' + dt + ' • ' + verdict + '</div>'
-                    + '<div class="donation-proof-link"><a class="btn secondary" href="/members/donations/proof/' + row.id + '/photo" target="_blank" rel="noopener noreferrer">Voir photo</a></div>'
+                    ? '<span class="don-pending">En attente</span>'
+                    : (row.approved
+                        ? '<span class="don-ok">✓ Validée</span>'
+                        : '<span class="don-ko">✗ Refusée</span>');
+                return '<div class="don-chip' + chipCls + '">'
+                    + '<span class="don-ref">#' + row.id + '</span>'
+                    + '<span class="don-sep">•</span>'
+                    + escapeHtml(row.method)
+                    + '<span class="don-sep">•</span>'
+                    + escapeHtml(row.code)
+                    + '<span class="don-sep">•</span>'
+                    + dt
+                    + '<span class="don-sep">•</span>'
+                    + verdict
                     + '</div>';
             }).join('');
         } catch (err) {
@@ -40,37 +89,32 @@ function createProfileDonationsModule(ctx) {
     async function uploadDonation() {
         const method = document.getElementById('donation-method').value;
         const code = document.getElementById('donation-code').value.trim();
-        const photo = document.getElementById('donation-photo');
         if (!code) {
-            setMsg(false, 'Entre un code/reference.');
+            setMsg(false, 'Entre un code/reference de transaction.');
             return;
         }
-        if (!photo.files || photo.files.length === 0) {
-            setMsg(false, 'Ajoute une photo justificative.');
-            return;
-        }
-
-        const form = new FormData();
-        form.append('pseudo', currentPseudo);
-        form.append('method', method);
-        form.append('code', code);
-        form.append('photo', photo.files[0]);
 
         try {
             const res = await fetch('/members/donations/proof', {
                 method: 'POST',
-                body: form
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ pseudo: currentPseudo, method, code })
             });
             const data = await res.json();
             setMsg(!!data.ok, data.message || 'Preuve envoyee.');
             if (data.ok) {
                 document.getElementById('donation-code').value = '';
-                photo.value = '';
                 await loadDonations();
             }
         } catch (err) {
             setMsg(false, 'Erreur: ' + err.message);
         }
+    }
+
+    const methodSelect = document.getElementById('donation-method');
+    if (methodSelect) {
+        methodSelect.addEventListener('change', onMethodChange);
+        onMethodChange();
     }
 
     document.getElementById('upload-donation').addEventListener('click', uploadDonation);

@@ -42,6 +42,8 @@ struct WebState {
     next_message_id: Arc<AtomicU64>,
     donation_proofs: Arc<RwLock<Vec<DonationProof>>>,
     next_donation_id: Arc<AtomicU64>,
+    wall_posts: Arc<RwLock<Vec<WallPost>>>,
+    next_wall_id: Arc<AtomicU64>,
     user_passwords: Arc<RwLock<std::collections::HashMap<String, String>>>,
     admin_sessions: Arc<RwLock<std::collections::HashMap<String, u64>>>,
     dashboard_test_runs: Arc<RwLock<Vec<DashboardTestRun>>>,
@@ -60,7 +62,6 @@ const ADMIN_MAX_ATTEMPTS: u32 = 5;
 const ADMIN_LOCKOUT_SECS: u64 = 15 * 60;
 
 const AVATAR_MAX_BYTES: usize = 512 * 1024;
-const DONATION_PROOF_MAX_BYTES: usize = 5 * 1024 * 1024;
 const UPLOAD_GLOBAL_LIMIT_BYTES: usize = 10 * 1024 * 1024;
 const AVATAR_ALLOWED_EXTS: &[&str] = &["jpg", "jpeg", "png", "webp", "gif", "svg"];
 const ALLOWED_IMAGE_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
@@ -99,6 +100,7 @@ struct User {
     request_songsurf: bool,
     github_star_claimed: bool,
     github_username: Option<String>,
+    linkedin_name: Option<String>,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
     avatar_mime_type: Option<String>,
@@ -123,11 +125,16 @@ struct DonationProof {
     pseudo: String,
     method: String,
     code: String,
-    photo_filename: Option<String>,
-    photo_mime_type: String,
-    photo_bytes: Vec<u8>,
     reviewed: bool,
     approved: bool,
+    created_at_epoch: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct WallPost {
+    id: u64,
+    pseudo: String,
+    body: String,
     created_at_epoch: u64,
 }
 
@@ -195,6 +202,7 @@ struct AccessRequestInput {
     pseudo: String,
     service: String,
     github_username: Option<String>,
+    linkedin_name: Option<String>,
     starred: Option<bool>,
 }
 
@@ -258,6 +266,13 @@ struct DonationReviewInput {
 }
 
 #[derive(Debug, Deserialize)]
+struct DonationSendInput {
+    pseudo: String,
+    method: String,
+    code: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct AdminLoginInput {
     pseudo: String,
     seed: String,
@@ -315,6 +330,7 @@ struct MemberProfileResponse {
     request_songsurf: bool,
     github_star_claimed: bool,
     github_username: Option<String>,
+    linkedin_name: Option<String>,
     avatar_present: bool,
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
@@ -337,10 +353,15 @@ struct DonationProofView {
     pseudo: String,
     method: String,
     code: String,
-    photo_filename: Option<String>,
     reviewed: bool,
     approved: bool,
     created_at_epoch: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct CryptoAddress {
+    name: String,
+    address: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -453,6 +474,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/webauthn/register/start", get(admin_webauthn_register_start))
         .route("/japprends/webauthn/register/finish", post(admin_webauthn_register_finish))
         .route("/japprends/webauthn/remove", post(admin_webauthn_remove))
+        .route("/japprends/wall/:id", delete(admin_wall_delete))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
 
     Router::new()
@@ -479,13 +501,17 @@ fn build_router(state: WebState) -> Router {
         .route("/members/messages/sent", get(member_messages_sent))
         .route("/members/messages/:id/read", post(member_mark_message_read))
         .route("/members/donations/proof", post(member_upload_donation_proof))
-        .route("/members/donations/proof/:id/photo", get(member_donation_photo))
+        .route("/members/donations/crypto-addresses", get(member_crypto_addresses))
         .route("/members/donations", get(member_donations))
         .route("/members/account", delete(member_delete_account))
         .route("/members/avatar", post(member_upload_avatar))
         .route("/members/avatar/:pseudo", get(member_avatar))
         .route("/members/avatar/:pseudo", delete(member_delete_avatar))
+        .route("/members/wall", get(member_wall_list))
+        .route("/members/wall", post(member_wall_post))
+        .route("/members/wall/:id", delete(member_wall_delete))
         .route("/auth/password-check", post(password_check))
+        .route("/static/hero/:filename", get(serve_hero_preview))
         .merge(protected_routes)
         .layer(DefaultBodyLimit::max(UPLOAD_GLOBAL_LIMIT_BYTES))
         .with_state(state)
@@ -524,6 +550,8 @@ async fn main() -> anyhow::Result<()> {
         next_message_id: Arc::new(AtomicU64::new(1)),
         donation_proofs: Arc::new(RwLock::new(Vec::new())),
         next_donation_id: Arc::new(AtomicU64::new(1)),
+        wall_posts: Arc::new(RwLock::new(Vec::new())),
+        next_wall_id: Arc::new(AtomicU64::new(1)),
         user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
         dashboard_test_runs: Arc::new(RwLock::new(Vec::new())),
@@ -547,6 +575,24 @@ async fn main() -> anyhow::Result<()> {
 // ============================================================================
 // PAGE HANDLERS - Delegated to modules
 // ============================================================================
+
+async fn serve_hero_preview(Path(filename): Path<String>) -> impl IntoResponse {
+    if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let path = format!("static/hero/{filename}");
+    match tokio::fs::read(&path).await {
+        Ok(bytes) => {
+            let ct = if filename.ends_with(".png") { "image/png" }
+                else if filename.ends_with(".jpg") || filename.ends_with(".jpeg") { "image/jpeg" }
+                else if filename.ends_with(".webp") { "image/webp" }
+                else if filename.ends_with(".gif") { "image/gif" }
+                else { "application/octet-stream" };
+            (StatusCode::OK, [(header::CONTENT_TYPE, ct)], bytes).into_response()
+        }
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
 
 async fn home() -> impl axum::response::IntoResponse {
     pages::home().await
@@ -707,6 +753,7 @@ async fn portal_signup_request(
         request_songsurf: false,
         github_star_claimed: false,
         github_username: None,
+        linkedin_name: None,
         avatar_filename: None,
         avatar_size_bytes: None,
         avatar_mime_type: None,
@@ -1151,6 +1198,7 @@ async fn admin_approve_signup_request(
             request_songsurf: false,
             github_star_claimed: false,
             github_username: None,
+            linkedin_name: None,
             avatar_filename: None,
             avatar_size_bytes: None,
             avatar_mime_type: None,
@@ -1331,10 +1379,13 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
         EndpointInfo { method: "POST", path: "/members/messages/:id/read", scope: "member" },
         EndpointInfo { method: "POST", path: "/members/donations/proof", scope: "member" },
         EndpointInfo { method: "GET", path: "/members/donations", scope: "member" },
-        EndpointInfo { method: "GET", path: "/members/donations/proof/:id/photo", scope: "member" },
+        EndpointInfo { method: "GET", path: "/members/donations/crypto-addresses", scope: "public" },
         EndpointInfo { method: "PUT", path: "/members/status", scope: "member" },
         EndpointInfo { method: "DELETE", path: "/members/account", scope: "member" },
         EndpointInfo { method: "POST", path: "/members/avatar", scope: "member" },
+        EndpointInfo { method: "GET", path: "/members/wall", scope: "member" },
+        EndpointInfo { method: "POST", path: "/members/wall", scope: "member" },
+        EndpointInfo { method: "DELETE", path: "/members/wall/:id", scope: "member" },
         EndpointInfo { method: "POST", path: "/auth/password-check", scope: "member" },
     ])
 }
@@ -1659,6 +1710,7 @@ async fn member_profile_data(
             request_songsurf: user.request_songsurf,
             github_star_claimed: user.github_star_claimed,
             github_username: user.github_username.clone(),
+            linkedin_name: user.linkedin_name.clone(),
             avatar_present: user.avatar_bytes.is_some(),
             avatar_filename: user.avatar_filename.clone(),
             avatar_size_bytes: user.avatar_size_bytes,
@@ -1681,6 +1733,7 @@ async fn member_profile_data(
         request_songsurf: false,
         github_star_claimed: false,
         github_username: None,
+        linkedin_name: None,
         avatar_present: false,
         avatar_filename: None,
         avatar_size_bytes: None,
@@ -1775,44 +1828,33 @@ async fn member_request_access(
 
     match service.as_str() {
         "jellyfin" => {
+            let name = payload.linkedin_name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
+            if name.is_none() {
+                return Json(ActionResponse {
+                    ok: false,
+                    message: "Nom LinkedIn requis.",
+                });
+            }
             user.request_jellyfin = true;
+            user.linkedin_name = name;
             Json(ActionResponse {
                 ok: true,
                 message: "Demande Jellyfin envoyee a l'admin.",
             })
         }
         "songsurf" => {
-            user.request_songsurf = true;
-            Json(ActionResponse {
-                ok: true,
-                message: "Demande Songsurf envoyee a l'admin.",
-            })
-        }
-        "github" => {
-            let Some(true) = payload.starred else {
-                return Json(ActionResponse {
-                    ok: false,
-                    message: "Confirme la star GitHub avant de demander l'acces.",
-                });
-            };
-
-            let username = payload
-                .github_username
-                .map(|u| u.trim().to_string())
-                .filter(|u| !u.is_empty());
+            let username = payload.github_username.map(|u| u.trim().to_string()).filter(|u| !u.is_empty());
             if username.is_none() {
                 return Json(ActionResponse {
                     ok: false,
-                    message: "GitHub username requis.",
+                    message: "Pseudo GitHub requis.",
                 });
             }
-
-            user.request_github = true;
-            user.github_star_claimed = true;
+            user.request_songsurf = true;
             user.github_username = username;
             Json(ActionResponse {
                 ok: true,
-                message: "Demande GitHub envoyee, en attente de validation admin.",
+                message: "Demande Songsurf envoyee a l'admin.",
             })
         }
         _ => Json(ActionResponse {
@@ -1843,16 +1885,6 @@ async fn member_message_send(
             message: "Tu ne peux pas t'envoyer un message a toi-meme.".to_string(),
         });
     }
-
-    let users = state.users.read().await;
-    let sender_exists = users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&from_pseudo));
-    if !sender_exists {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Expediteur introuvable.".to_string(),
-        });
-    }
-    drop(users);
 
     let mut messages = state.member_messages.write().await;
     let id = state.next_message_id.fetch_add(1, Ordering::Relaxed);
@@ -1939,108 +1971,21 @@ async fn member_mark_message_read(
 
 async fn member_upload_donation_proof(
     State(state): State<WebState>,
-    mut multipart: Multipart,
+    Json(payload): Json<DonationSendInput>,
 ) -> Json<MessageResponse> {
-    let mut pseudo: Option<String> = None;
-    let mut method: Option<String> = None;
-    let mut code: Option<String> = None;
-    let mut photo_filename: Option<String> = None;
-    let mut photo_bytes: Option<Vec<u8>> = None;
+    let pseudo = payload.pseudo.trim().to_string();
+    let method = payload.method.trim().to_ascii_lowercase();
+    let code = payload.code.trim().to_string();
 
-    while let Ok(Some(field)) = multipart.next_field().await {
-        let field_name = field.name().unwrap_or_default().to_string();
-        if field_name == "pseudo" {
-            if let Ok(text) = field.text().await {
-                pseudo = Some(text);
-            }
-            continue;
-        }
-        if field_name == "method" {
-            if let Ok(text) = field.text().await {
-                method = Some(text);
-            }
-            continue;
-        }
-        if field_name == "code" {
-            if let Ok(text) = field.text().await {
-                code = Some(text);
-            }
-            continue;
-        }
-        if field_name == "photo" {
-            let filename = field.file_name().map(|s| s.to_string());
-            let content_type = field.content_type().map(|s| s.to_string());
-            if let Ok(bytes) = field.bytes().await {
-                if bytes.len() > DONATION_PROOF_MAX_BYTES {
-                    return Json(MessageResponse {
-                        ok: false,
-                        message: format!("Photo trop volumineuse (max {}MB).", DONATION_PROOF_MAX_BYTES / 1024 / 1024),
-                    });
-                }
-                if let Some(fname) = &filename {
-                    let ext = fname.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
-                    if !AVATAR_ALLOWED_EXTS.contains(&ext.as_str()) {
-                        return Json(MessageResponse {
-                            ok: false,
-                            message: "Extension non autorisee. Formats acceptes: jpg, jpeg, png, webp, gif.".to_string(),
-                        });
-                    }
-                }
-                if let Some(mime) = &content_type {
-                    let mime_lower = mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
-                    if !ALLOWED_IMAGE_MIMES.contains(&mime_lower.as_str()) {
-                        return Json(MessageResponse {
-                            ok: false,
-                            message: "Type MIME non autorise.".to_string(),
-                        });
-                    }
-                }
-                photo_filename = filename;
-                photo_bytes = Some(bytes.to_vec());
-            }
-        }
+    if pseudo.is_empty() {
+        return Json(MessageResponse { ok: false, message: "Pseudo manquant.".to_string() });
     }
-
-    let Some(pseudo) = pseudo.map(|v| v.trim().to_string()).filter(|v| !v.is_empty()) else {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Pseudo manquant.".to_string(),
-        });
-    };
-    let Some(method) = method.map(|v| v.trim().to_ascii_lowercase()).filter(|v| !v.is_empty()) else {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Methode donation manquante (crypto|pcs).".to_string(),
-        });
-    };
-    let Some(code) = code.map(|v| v.trim().to_string()).filter(|v| !v.is_empty()) else {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Code/reference donation manquant.".to_string(),
-        });
-    };
-    let Some(photo_bytes) = photo_bytes else {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Photo justificative manquante.".to_string(),
-        });
-    };
-
     if method != "crypto" && method != "pcs" {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Methode invalide. Utilise crypto ou pcs.".to_string(),
-        });
+        return Json(MessageResponse { ok: false, message: "Methode invalide. Utilise crypto ou pcs.".to_string() });
     }
-
-    let users = state.users.read().await;
-    if !users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
-        return Json(MessageResponse {
-            ok: false,
-            message: "Utilisateur introuvable.".to_string(),
-        });
+    if code.is_empty() {
+        return Json(MessageResponse { ok: false, message: "Code/reference donation manquant.".to_string() });
     }
-    drop(users);
 
     let id = state.next_donation_id.fetch_add(1, Ordering::Relaxed);
     let mut donations = state.donation_proofs.write().await;
@@ -2049,9 +1994,6 @@ async fn member_upload_donation_proof(
         pseudo,
         method,
         code,
-        photo_filename: photo_filename.clone(),
-        photo_mime_type: guess_avatar_mime(photo_filename.as_deref()).to_string(),
-        photo_bytes,
         reviewed: false,
         approved: false,
         created_at_epoch: now_epoch(),
@@ -2063,34 +2005,27 @@ async fn member_upload_donation_proof(
     })
 }
 
-async fn member_donation_photo(
-    Path(id): Path<u64>,
-    State(state): State<WebState>,
-) -> Response {
-    let donations = state.donation_proofs.read().await;
-    let Some(item) = donations.iter().find(|d| d.id == id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            [
-                (header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=utf-8")),
-                (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-            ],
-            "preuve donation introuvable",
-        )
-            .into_response();
-    };
-
-    let content_type = HeaderValue::from_str(&item.photo_mime_type)
-        .unwrap_or_else(|_| HeaderValue::from_static("image/png"));
-    (
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, content_type),
-            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-        ],
-        item.photo_bytes.clone(),
-    )
-        .into_response()
+async fn member_crypto_addresses() -> Json<Vec<CryptoAddress>> {
+    let raw = std::env::var("DONATION_CRYPTO_ADDRESSES").unwrap_or_default();
+    let from_env: Vec<CryptoAddress> = raw
+        .split(',')
+        .filter_map(|entry| {
+            let mut parts = entry.splitn(2, ':');
+            let name = parts.next()?.trim().to_string();
+            let address = parts.next()?.trim().to_string();
+            if name.is_empty() || address.is_empty() { return None; }
+            Some(CryptoAddress { name, address })
+        })
+        .collect();
+    if !from_env.is_empty() {
+        return Json(from_env);
+    }
+    // Fallback — set DONATION_CRYPTO_ADDRESSES in .env to override
+    Json(vec![
+        CryptoAddress { name: "Bitcoin (BTC)".into(),  address: "À configurer".into() },
+        CryptoAddress { name: "Ethereum (ETH)".into(), address: "À configurer".into() },
+        CryptoAddress { name: "Solana (SOL)".into(),   address: "À configurer".into() },
+    ])
 }
 
 async fn member_donations(
@@ -2107,7 +2042,6 @@ async fn member_donations(
             pseudo: d.pseudo.clone(),
             method: d.method.clone(),
             code: d.code.clone(),
-            photo_filename: d.photo_filename.clone(),
             reviewed: d.reviewed,
             approved: d.approved,
             created_at_epoch: d.created_at_epoch,
@@ -2192,7 +2126,6 @@ async fn admin_donations_all(State(state): State<WebState>) -> Json<Vec<Donation
                 pseudo: d.pseudo.clone(),
                 method: d.method.clone(),
                 code: d.code.clone(),
-                photo_filename: d.photo_filename.clone(),
                 reviewed: d.reviewed,
                 approved: d.approved,
                 created_at_epoch: d.created_at_epoch,
@@ -2494,6 +2427,75 @@ async fn member_delete_avatar(
 async fn admin_audit_log_view(State(state): State<WebState>) -> Json<Vec<AdminAuditEntry>> {
     let log = state.admin_audit_log.read().await;
     Json(log.iter().cloned().rev().collect())
+}
+
+// ============================================================================
+// COMMUNITY WALL
+// ============================================================================
+
+async fn member_wall_list(State(state): State<WebState>) -> Json<Vec<WallPost>> {
+    let posts = state.wall_posts.read().await;
+    Json(posts.iter().rev().take(10).cloned().collect())
+}
+
+#[derive(Deserialize)]
+struct WallPostInput {
+    pseudo: String,
+    body: String,
+}
+
+async fn member_wall_post(
+    State(state): State<WebState>,
+    Json(payload): Json<WallPostInput>,
+) -> Json<ActionResponse> {
+    let body = payload.body.trim().to_string();
+    let char_count = body.chars().count();
+    if body.is_empty() || char_count > 140 {
+        return Json(ActionResponse { ok: false, message: "Message invalide (1-140 caractères)." });
+    }
+    let pseudo = payload.pseudo.trim().to_string();
+    if pseudo.is_empty() {
+        return Json(ActionResponse { ok: false, message: "Pseudo manquant." });
+    }
+    let id = state.next_wall_id.fetch_add(1, Ordering::Relaxed);
+    let mut posts = state.wall_posts.write().await;
+    posts.push(WallPost { id, pseudo, body, created_at_epoch: now_epoch() });
+    Json(ActionResponse { ok: true, message: "Message posté." })
+}
+
+#[derive(Deserialize)]
+struct WallDeleteInput {
+    pseudo: String,
+}
+
+async fn member_wall_delete(
+    Path(id): Path<u64>,
+    State(state): State<WebState>,
+    Json(payload): Json<WallDeleteInput>,
+) -> Json<ActionResponse> {
+    let pseudo = payload.pseudo.trim().to_string();
+    let mut posts = state.wall_posts.write().await;
+    let before = posts.len();
+    posts.retain(|p| !(p.id == id && p.pseudo.eq_ignore_ascii_case(&pseudo)));
+    let deleted = posts.len() < before;
+    Json(ActionResponse {
+        ok: deleted,
+        message: if deleted { "Message supprimé." } else { "Introuvable ou non autorisé." },
+    })
+}
+
+async fn admin_wall_delete(
+    Path(id): Path<u64>,
+    State(state): State<WebState>,
+) -> Json<ActionResponse> {
+    let mut posts = state.wall_posts.write().await;
+    let before = posts.len();
+    posts.retain(|p| p.id != id);
+    let deleted = posts.len() < before;
+    Json(ActionResponse {
+        ok: deleted,
+        message: if deleted { "Message supprimé." } else { "Introuvable." },
+    })
 }
 
 // ============================================================================

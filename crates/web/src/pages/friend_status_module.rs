@@ -33,18 +33,15 @@ function createFriendStatusModule(ctx) {
         }
     }
 
-    // Setup status buttons
-    document.getElementById('happy-btn').addEventListener('click', async () => {
-        await setStatus('content');
-    });
+    // Setup status buttons (null-guarded — module may be used on pages without these elements)
+    const happyBtn = document.getElementById('happy-btn');
+    if (happyBtn) happyBtn.addEventListener('click', async () => { await setStatus('content'); });
 
-    document.getElementById('meh-btn').addEventListener('click', async () => {
-        await setStatus('bof');
-    });
+    const mehBtn = document.getElementById('meh-btn');
+    if (mehBtn) mehBtn.addEventListener('click', async () => { await setStatus('bof'); });
 
-    document.getElementById('question-btn').addEventListener('click', async () => {
-        await setStatus('question');
-    });
+    const questionBtn = document.getElementById('question-btn');
+    if (questionBtn) questionBtn.addEventListener('click', async () => { await setStatus('question'); });
 
     return {
         setStatus
@@ -54,26 +51,31 @@ function createFriendStatusModule(ctx) {
 
 pub const CSS_FRIEND_STATUS_STYLES: &str = r#"
         .header-status { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .status-buttons { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .status-buttons { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
         .status-btn {
-            padding: 7px 13px;
-            border: 1px solid var(--color-success-border);
+            display: inline-flex;
+            align-items: center;
+            height: 32px;
+            padding: 0 13px;
+            border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            font-weight: 600;
+            background: var(--muted);
+            color: var(--muted-foreground);
+            font: 500 0.8125rem/1 var(--font-sans);
             cursor: pointer;
-            font-size: 0.875rem;
-            transition: opacity 0.1s;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
         }
-        .status-btn:hover { opacity: 0.8; }
+        .status-btn:hover { background: var(--card); color: var(--foreground); border-color: var(--foreground); }
+        .status-btn.actif   { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+        .status-btn.occupe  { border-color: #fed7aa; background: #fff7ed; color: #c2410c; }
+        .status-btn.inactif { border-color: var(--border); background: var(--muted); color: var(--muted-foreground); }
         .status-msg {
-            margin-top: 10px;
-            padding: 8px 10px;
+            margin-top: 8px;
+            padding: 7px 10px;
             border-radius: var(--radius-md);
             font-size: 0.875rem;
             display: none;
         }
-        .status-msg.ok { display: block; background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-success-border); }
-        .status-msg.error { display: block; background: var(--color-danger-bg); color: var(--color-danger); border: 1px solid var(--color-danger-border); }
+        .status-msg.ok    { display: block; background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+        .status-msg.error { display: block; background: var(--destructive-bg);  color: var(--destructive);  border: 1px solid var(--destructive-border); }
 "#;

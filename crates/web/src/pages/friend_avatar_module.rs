@@ -32,21 +32,32 @@ function createFriendAvatarModule(ctx) {
         headerAvatar.src = fallbackAvatar(pseudo);
     }
 
+    function loadAvatar() {
+        // Show fallback immediately so the img is never blank or broken
+        headerAvatar.src = fallbackAvatar(pseudo);
+        // Probe the real avatar in the background; swap only on success
+        const probe = new Image();
+        probe.onload = () => { headerAvatar.src = probe.src; };
+        probe.src = '/members/avatar/' + encodeURIComponent(pseudo) + '?t=' + Date.now();
+    }
+
     return {
         fallbackAvatar,
-        setHeaderAvatarSrc
+        setHeaderAvatarSrc,
+        loadAvatar
     };
 }
 "#;
 
 pub const CSS_FRIEND_AVATAR_STYLES: &str = r#"
         .header-avatar {
-            width: 62px;
-            height: 62px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 2px solid rgba(19, 35, 49, 0.16);
-            background: #f3f7fa;
+            border: 1px solid var(--border);
+            background: var(--muted);
             object-fit: cover;
-            box-shadow: 0 6px 14px rgba(19, 35, 49, 0.16);
+            display: block;
+            flex-shrink: 0;
         }
 "#;

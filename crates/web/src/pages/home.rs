@@ -25,7 +25,7 @@ pub async fn home() -> Html<String> {
             <div id="step-1">
                 <label for="pseudo">Pseudo</label>
                 <input id="pseudo" placeholder="ton_pseudo" />
-                <button class="btn btn-primary" id="pseudo-btn">Verifier</button>
+                <button class="btn btn-primary" id="pseudo-btn">Vérifier</button>
                 <div id="pseudo-result" class="result"></div>
             </div>
 
@@ -44,6 +44,15 @@ pub async fn home() -> Html<String> {
 
     <script>
         let currentPseudo = '';
+
+        // Auto-fill pseudo from previous session
+        (function () {
+            const stored = localStorage.getItem('logged_pseudo');
+            if (stored) {
+                const input = document.getElementById('pseudo');
+                if (input) input.value = stored;
+            }
+        })();
 
         function setResult(el, ok, text) {
             el.className = 'result ' + (ok ? 'ok' : 'down');
@@ -119,7 +128,7 @@ pub async fn home() -> Html<String> {
                     localStorage.removeItem('needs_onboarding');
                 }
                 setTimeout(() => {
-                    window.location.href = '/members/dashboard';
+                    window.location.href = '/home/friend';
                 }, 600);
             }
         });

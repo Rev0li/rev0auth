@@ -18,15 +18,21 @@ pub async fn profile() -> Html<String> {
     </style>
 </head>
 <body>
-    <div class="profile-topbar">
-        <a class="btn-back" id="back-link" href="/home/friend">← Retour</a>
-        <div id="admin-note" class="admin-note" style="display:none">Mode admin — modification du profil utilisateur</div>
-    </div>
+    <nav class="profile-navbar">
+        <div class="profile-navbar-left">
+            <a class="btn-back" id="back-link" href="/home/friend">← Retour</a>
+            <div id="admin-note" class="admin-note" style="display:none">Mode admin</div>
+        </div>
+        <div class="profile-navbar-right">
+            <img id="profile-nav-avatar" class="profile-nav-avatar" alt="" />
+            <span id="profile-nav-pseudo" class="profile-nav-pseudo"></span>
+        </div>
+    </nav>
 
     <main class="page">
         <div id="admin-nav" class="admin-nav" style="display:none">
-            <button id="prev-user" class="secondary">← Précédent</button>
-            <button id="next-user" class="secondary">Suivant →</button>
+            <button id="prev-user" class="btn-profile-action secondary">← Précédent</button>
+            <button id="next-user" class="btn-profile-action secondary">Suivant →</button>
             <span id="admin-nav-meta" class="meta"></span>
         </div>
 
@@ -40,6 +46,12 @@ pub async fn profile() -> Html<String> {
                 <div class="info-item admin-only" id="commentary-row"><span class="info-label">Note admin</span><span id="info-commentary" class="info-val">--</span></div>
                 <div class="info-item"><span class="info-label">Membre depuis</span><span id="info-created" class="info-val">--</span></div>
             </div>
+        </article>
+
+        <article class="card admin-only" id="services-admin-card">
+            <h2>Accès services</h2>
+            <div id="services-admin-grid" class="services-admin-grid"></div>
+            <div id="services-admin-msg" class="msg"></div>
         </article>
 
         <article class="card">
@@ -75,25 +87,31 @@ pub async fn profile() -> Html<String> {
         </article>
 
         <article class="card" id="donation-card">
-            <h2>Donation</h2>
+            <h2>Don</h2>
             <label for="donation-method" class="field-label">Méthode</label>
             <select id="donation-method" class="field-input">
+                <option value="pcs" selected>Coupon PCS</option>
                 <option value="crypto">Crypto</option>
-                <option value="pcs">Coupon PCS</option>
             </select>
+
+            <div id="pcs-info-section" style="display:none" class="donation-hint">
+                <span class="donation-hint-icon">ℹ</span>
+                <span>Les coupons PCS Mastercard s'achètent en tabac avec un <strong>montant libre</strong> (5 €, 10 €, 20 €, 50 €…). Gratte le code au dos et colle-le dans le champ ci-dessous.</span>
+            </div>
+
+            <div id="crypto-addresses-section" style="display:none">
+                <p class="field-label" style="margin-top:10px">Adresses :</p>
+                <div id="crypto-addresses-list" class="list-box" style="margin-top:4px"></div>
+            </div>
+
             <label for="donation-code" class="field-label">Code / Référence</label>
-            <input id="donation-code" type="text" placeholder="Code coupon ou tx id" class="field-input" />
-            <label for="donation-photo" class="field-label">Photo justificative</label>
-            <input id="donation-photo" type="file" accept="image/*" />
+            <input id="donation-code" type="text" placeholder="TX ID ou code coupon" class="field-input" />
             <div class="actions">
-                <button id="upload-donation" class="btn-profile-action">Envoyer preuve</button>
-                <button id="refresh-donations" class="btn-profile-action secondary">Rafraichir</button>
+                <button id="upload-donation" class="btn-profile-action">Don</button>
+                <button id="refresh-donations" class="btn-profile-action secondary">↺</button>
             </div>
             <div id="donation-msg" class="msg"></div>
-            <div class="list-box">
-                <strong>Mes preuves envoyées</strong>
-                <div id="donations-list" class="meta list-meta-gap">Aucune preuve envoyée.</div>
-            </div>
+            <div id="donations-list" class="don-list"></div>
         </article>
 
         <article class="card card-danger">
@@ -150,11 +168,23 @@ pub async fn profile() -> Html<String> {
 
         if (!pseudo) { window.location.href = '/'; }
 
+        // Populate navbar
+        document.getElementById('profile-nav-pseudo').textContent = pseudo;
+        (function() {
+            const navAvatar = document.getElementById('profile-nav-avatar');
+            const probe = new Image();
+            probe.onload = () => { navAvatar.src = probe.src; };
+            probe.onerror = () => { navAvatar.style.display = 'none'; };
+            probe.src = '/members/avatar/' + encodeURIComponent(pseudo) + '?t=' + Date.now();
+        })();
+
         if (adminMode) {
             document.getElementById('admin-note').style.display = 'block';
             document.getElementById('admin-nav').style.display = 'flex';
-            document.getElementById('back-link').setAttribute('href', '/japprends/tdd');
-            document.querySelectorAll('.admin-only').forEach((el) => { el.style.display = 'flex'; });
+            document.getElementById('back-link').setAttribute('href', '/japprends/tdd#members');
+            document.querySelectorAll('.admin-only').forEach((el) => {
+                el.style.display = el.classList.contains('info-item') ? 'flex' : 'block';
+            });
             document.getElementById('donation-card').style.display = 'none';
             document.getElementById('chat-fab-wrap').style.display = 'none';
         }
@@ -200,6 +230,56 @@ pub async fn profile() -> Html<String> {
             avatarModule.uploadAvatar();
         });
 
+        function renderServicesAdmin(data) {
+            const grid = document.getElementById('services-admin-grid');
+            if (!grid) return;
+            const services = [
+                { key: 'songsurf', label: 'Songsurf', req: data.request_songsurf, access: data.access_songsurf,
+                  meta: data.github_username ? '⭐ GitHub : @' + data.github_username : null },
+                { key: 'jellyfin', label: 'Jellyfin', req: data.request_jellyfin, access: data.access_jellyfin,
+                  meta: data.linkedin_name ? '🤝 LinkedIn : ' + data.linkedin_name : null },
+            ];
+            grid.innerHTML = services.map(s =>
+                '<div class="svc-admin-row">'
+                + '<div>'
+                + '<span class="svc-admin-label">' + escapeHtml(s.label) + '</span>'
+                + (s.req ? ' <span class="svc-req-badge">⏳ demande en cours</span>' : '')
+                + (s.meta ? '<div class="svc-admin-meta">' + escapeHtml(s.meta) + '</div>' : '')
+                + '</div>'
+                + '<button class="btn-profile-action' + (s.access ? ' danger' : '') + '" onclick="toggleServiceAdmin(\'' + s.key + '\',' + !s.access + ')">'
+                + (s.access ? 'Révoquer' : 'Accorder')
+                + '</button>'
+                + '</div>'
+            ).join('');
+        }
+
+        async function toggleServiceAdmin(service, value) {
+            const payload = {};
+            payload['access_' + service] = !!value;
+            try {
+                const res = await fetch('/japprends/users/' + pseudo, {
+                    method: 'PUT',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                const msgEl = document.getElementById('services-admin-msg');
+                if (data.ok) {
+                    const profileData = await infoModule.loadProfile();
+                    if (profileData) renderServicesAdmin(profileData);
+                    msgEl.className = 'msg ok';
+                    msgEl.textContent = 'Accès mis à jour.';
+                    setTimeout(() => { msgEl.className = 'msg'; msgEl.textContent = ''; }, 2000);
+                } else {
+                    msgEl.className = 'msg down';
+                    msgEl.textContent = data.message || 'Erreur.';
+                }
+            } catch (err) {
+                document.getElementById('services-admin-msg').className = 'msg down';
+                document.getElementById('services-admin-msg').textContent = 'Erreur: ' + err.message;
+            }
+        }
+
         (async () => {
             if (adminMode) {
                 const ok = await ensureAdminSession();
@@ -210,7 +290,8 @@ pub async fn profile() -> Html<String> {
                 }
                 await adminNavigatorModule.loadAdminUsersNavigator();
             }
-            await infoModule.loadProfile();
+            const profileData = await infoModule.loadProfile();
+            if (adminMode && profileData) renderServicesAdmin(profileData);
             await avatarModule.loadAvatarState();
             if (!adminMode) {
                 await donationsModule.loadDonations();

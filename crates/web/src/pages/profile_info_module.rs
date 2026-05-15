@@ -22,7 +22,6 @@ function createProfileInfoModule(ctx) {
                 document.getElementById('info-status-emoji').textContent = statusEmoji(data.status);
                 document.getElementById('info-commentary').textContent = data.commentary || 'Aucun commentaire.';
                 document.getElementById('info-created').textContent = data.created_at_epoch ? new Date(data.created_at_epoch * 1000).toLocaleString() : '--';
-                document.getElementById('info-avatar').textContent = data.avatar_filename || 'none';
                 return data;
             }
         } catch (_err) {

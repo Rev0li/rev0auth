@@ -16,6 +16,7 @@ pub mod friend_services_module;
 pub mod friend_chat_module;
 pub mod friend_status_module;
 pub mod friend_avatar_module;
+pub mod friend_wall_module;
 pub mod profile_info_module;
 pub mod profile_edit_module;
 pub mod profile_avatar_module;

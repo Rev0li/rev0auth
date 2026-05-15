@@ -35,7 +35,7 @@ function createDashboardUsersModule(ctx) {
             const list = await res.json();
             const panel = document.getElementById('admin-stats');
             if (!Array.isArray(list) || list.length === 0) {
-                panel.innerHTML = '<p style="color:var(--color-muted);text-align:center">Aucun utilisateur.</p>';
+                panel.innerHTML = '<p style="color:var(--muted-foreground);text-align:center">Aucun utilisateur.</p>';
                 dashboardStats.users = [];
                 return;
             }

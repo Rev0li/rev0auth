@@ -12,88 +12,178 @@ pub async fn friend() -> Html<String> {
     <title>Home - rev0auth</title>
     %%FRONTEND_THEME_BOOT%%
     <style>
-        %%FRONTEND_SHARED_CSS%%
         %%FRIEND_PAGE_STYLES%%
+        %%FRIEND_ONBOARDING_CSS%%
+        %%FRIEND_SERVICES_CSS%%
+        %%FRIEND_CHAT_CSS%%
+        %%FRIEND_STATUS_CSS%%
+        %%FRIEND_AVATAR_CSS%%
+        %%FRIEND_WALL_CSS%%
     </style>
 </head>
 <body>
+
+    <!-- Onboarding modal — first login -->
     <div id="onboarding-modal" class="onboarding-modal">
         <div class="onboarding-card">
-            <h2>Premiere connexion</h2>
-            <p class="onboarding-intro">Change ton mot de passe temporaire avant de continuer.</p>
+            <h2>Première connexion</h2>
+            <p class="onboarding-intro">Choisis ton mot de passe et une photo de profil avant de continuer.</p>
 
             <label for="onboarding-new-password" class="onboarding-label">Nouveau mot de passe</label>
             <input id="onboarding-new-password" class="onboarding-field" type="password" placeholder="nouveau mot de passe" />
 
-            <label for="onboarding-confirm-password" class="onboarding-label">Confirmer le nouveau mot de passe</label>
+            <label for="onboarding-confirm-password" class="onboarding-label">Confirmer le mot de passe</label>
             <input id="onboarding-confirm-password" class="onboarding-field" type="password" placeholder="retape le nouveau mot de passe" />
 
-            <label for="onboarding-message" class="onboarding-label">Message de presentation</label>
-            <textarea id="onboarding-message" class="onboarding-textarea" placeholder="Presente-toi rapidement..."></textarea>
+            <span class="onboarding-label" style="margin-top:14px;display:block">Choisis un avatar (optionnel)</span>
+            <div id="onboarding-avatar-grid" class="onboarding-avatar-grid"></div>
 
             <div class="actions actions-tight">
-                <button id="onboarding-submit" class="profile-btn">Valider</button>
+                <button id="onboarding-submit" class="btn-action">Valider et continuer</button>
             </div>
             <div id="onboarding-msg" class="onboarding-msg"></div>
         </div>
     </div>
 
-    <main class="container">
-        <div class="header">
-            <div class="header-actions">
-                <img id="header-avatar" class="header-avatar" alt="Photo de profil" />
-                <div class="header-action-row">
-                    <a class="profile-btn" href="/members/profile">Mon profil</a>
-                    <button class="logout-btn" id="logout-btn">Déconnexion</button>
-                </div>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <span class="navbar-brand">rev0auth</span>
+        <div class="navbar-user">
+            <img id="header-avatar" class="header-avatar" alt="Avatar" />
+            <span id="pseudo-display" class="navbar-pseudo"></span>
+            <a class="nav-btn" href="/members/profile">Profil</a>
+            <button class="nav-btn nav-btn-logout" id="logout-btn">Déconnexion</button>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <p class="hero-sub">Cet espace est un réseau privé réservé à un cercle de confiance. Tes données restent chez nous — hébergées sur nos propres machines, sans publicité, sans tracking, sans tiers. Tu accèdes à des services sélectionnés, partages avec la communauté et gardes le contrôle.</p>
+        <div class="hero-steps">
+            <div class="hero-step"
+                 data-popup-title="GitHub"
+                 data-popup-desc="Consulte le profil GitHub de Rev0li."
+                 data-popup-href="https://github.com/Rev0li"
+                 data-popup-img="/static/hero/github.png"
+                 data-popup-target="_blank">
+                <span class="hero-step-icon">🐙</span>
+                <span class="hero-step-label">GitHub</span>
+                <span class="hero-step-hint">Consulte le profil</span>
+            </div>
+            <span class="hero-step-arrow">→</span>
+            <div class="hero-step"
+                 data-popup-title="Star le repo"
+                 data-popup-desc="Star rev0auth sur GitHub pour soutenir le projet."
+                 data-popup-href="https://github.com/Rev0li/rev0auth"
+                 data-popup-img="/static/hero/repo.png"
+                 data-popup-target="_blank">
+                <span class="hero-step-icon">⭐</span>
+                <span class="hero-step-label">Star le repo</span>
+                <span class="hero-step-hint">rev0auth sur GitHub</span>
+            </div>
+            <span class="hero-step-arrow">→</span>
+            <div class="hero-step"
+                 data-popup-title="Inscription"
+                 data-popup-desc="Demande ton accès au réseau privé rev0auth."
+                 data-popup-href="/portal"
+                 data-popup-img="/static/hero/portal.png"
+                 data-popup-target="">
+                <span class="hero-step-icon">✍️</span>
+                <span class="hero-step-label">Inscription</span>
+                <span class="hero-step-hint">Demande ton accès</span>
             </div>
         </div>
+    </section>
 
-        <article class="card">
-            <h2>Presentation du projet</h2>
-            <p class="greeting">
-                Bienvenue <strong id="pseudo-display">ami</strong>.
-                <br>rev0auth est un projet self-host Rust pour apprendre, construire et partager un systeme auth clair.
-            </p>
-            <p class="greeting">
-                Si le projet t'aide, tu peux soutenir son evolution via un don.
-                <br>Chaque contribution aide a maintenir l'infra, les tests et la documentation publique.
-            </p>
-            <div class="actions">
-                <a class="profile-btn" href="https://github.com/sponsors/Rev0li" target="_blank" rel="noopener noreferrer">Faire un don</a>
+    <!-- Hero step preview popup -->
+    <div id="step-popup-overlay" class="step-popup-overlay">
+        <div class="step-popup-panel">
+            <button class="step-popup-close" id="step-popup-close">✕</button>
+            <div class="step-popup-img-wrap">
+                <img id="step-popup-img" class="step-popup-img" alt="" />
+                <div class="step-popup-img-placeholder" id="step-popup-placeholder"></div>
             </div>
-        </article>
+            <div class="step-popup-body">
+                <div class="step-popup-icon" id="step-popup-icon"></div>
+                <strong class="step-popup-title" id="step-popup-title"></strong>
+                <p class="step-popup-desc" id="step-popup-desc"></p>
+                <a class="btn-action step-popup-btn" id="step-popup-link" rel="noopener noreferrer">Ouvrir →</a>
+            </div>
+        </div>
+    </div>
 
-        <article class="card">
-            <h2>Services intégrés</h2>
-            <p class="services-intro">Par defaut tu n'as acces a rien. Demande l'acces service par service.</p>
-            <div class="services">
-                <div class="service-card">
-                    <h3>Songsurf</h3>
-                    <img class="service-media" src="https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=900&q=80" alt="Songsurf - musique" />
-                    <p>Acces au service musique.</p>
-                    <div class="service-state" id="songsurf-state">Etat: verrouille</div>
-                    <button class="service-btn locked" id="songsurf-btn">Demander acces Songsurf</button>
+    <main class="page-content">
+
+        <!-- Services -->
+        <section class="section" id="section-services">
+            <h2 class="section-heading">Services</h2>
+            <p class="section-sub">Chaque service a ses conditions d'accès. Suis les étapes pour débloquer.</p>
+            <div class="services-grid">
+
+                <div class="svc-card">
+                    <div class="svc-card-banner svc-banner-songsurf">
+                        <span class="svc-icon">🎵</span>
+                        <span>Songsurf</span>
+                    </div>
+                    <div class="svc-card-body" id="songsurf-body"></div>
                 </div>
-                <div class="service-card">
-                    <h3>Jellyfin</h3>
-                    <img class="service-media" src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=900&q=80" alt="Jellyfin - streaming video" />
-                    <p>Acces streaming media.</p>
-                    <div class="service-state" id="jellyfin-state">Etat: verrouille</div>
-                    <button class="service-btn locked" id="jellyfin-btn">Demander acces Jellyfin</button>
+
+                <div class="svc-card">
+                    <div class="svc-card-banner svc-banner-jellyfin">
+                        <span class="svc-icon">🎬</span>
+                        <span>Jellyfin</span>
+                    </div>
+                    <div class="svc-card-body" id="jellyfin-body"></div>
                 </div>
-                <div class="service-card">
-                    <h3>GitHub</h3>
-                    <img class="service-media" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 400'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop stop-color='%23142331'/%3E%3Cstop offset='1' stop-color='%230d9b73'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='400' rx='26' fill='url(%23g)'/%3E%3Ccircle cx='165' cy='160' r='88' fill='%23ffffff' fill-opacity='.12'/%3E%3Ccircle cx='165' cy='145' r='48' fill='%23ffffff'/%3E%3Cpath d='M95 275c24-42 57-61 70-61s46 19 70 61' fill='%23ffffff'/%3E%3Ctext x='305' y='175' fill='%23ffffff' font-family='Space Grotesk, Arial, sans-serif' font-size='62' font-weight='700'%3EGitHub Profile%3C/text%3E%3Ctext x='305' y='238' fill='%23d9f0ff' font-family='Space Grotesk, Arial, sans-serif' font-size='28'%3EAcces conditionne par star + demande%3C/text%3E%3C/svg%3E" alt="GitHub profile" />
-                    <p>Acces conditionne: compte cree + star sur ce projet.</p>
-                    <div class="service-state" id="github-state">Etat: verrouille</div>
-                    <input id="github-username" class="service-input" placeholder="Ton username GitHub" />
-                    <button class="service-btn locked" id="github-btn">J'ai mis une star, demander acces GitHub</button>
-                </div>
+
             </div>
             <div id="service-msg" class="service-msg"></div>
+        </section>
 
-        </article>
+        <!-- GitHub Support -->
+        <section class="section" id="section-support">
+            <h2 class="section-heading">Soutenir le projet</h2>
+            <div class="support-card">
+                <div class="support-text">
+                    <p>rev0auth est un projet open-source self-hosted.</p>
+                    <p>Chaque contribution aide à maintenir l'infra, les tests et la doc publique.</p>
+                </div>
+                <a class="btn-action" href="https://github.com/sponsors/Rev0li" target="_blank" rel="noopener noreferrer">
+                    ❤️ Faire un don
+                </a>
+            </div>
+        </section>
+
+        <!-- Community Wall -->
+        <section class="section" id="section-wall">
+            <h2 class="section-heading">Mur communautaire</h2>
+            <p class="section-sub">Messages courts visibles par tous les membres.</p>
+            <div id="wall-list" class="wall-list">
+                <p class="wall-empty">Chargement...</p>
+            </div>
+            <div class="wall-compose">
+                <textarea id="wall-input" class="wall-input" maxlength="140" rows="2" placeholder="Laisse un message... (140 car. max)"></textarea>
+                <div class="wall-compose-footer">
+                    <span id="wall-char-count" class="wall-char-count">140</span>
+                    <button id="wall-send-btn" class="btn-action">Poster</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Socials / Portfolio -->
+        <section class="section" id="section-socials">
+            <h2 class="section-heading">Liens</h2>
+            <div class="socials-row">
+                <a class="social-card" href="https://github.com/Rev0li" target="_blank" rel="noopener noreferrer">
+                    <span class="social-icon">⭐</span>
+                    <span>GitHub</span>
+                </a>
+                <a class="social-card" href="#PORTFOLIO_URL" target="_blank" rel="noopener noreferrer">
+                    <span class="social-icon">🌐</span>
+                    <span>Portfolio</span>
+                </a>
+            </div>
+        </section>
 
     </main>
 
@@ -105,7 +195,7 @@ pub async fn friend() -> Html<String> {
         </button>
     </div>
 
-    <!-- Chat popup (50% screen height) -->
+    <!-- Chat popup -->
     <div class="chat-popup" id="chat-popup">
         <div class="chat-popup-header">
             <div class="chat-popup-avatar">A</div>
@@ -127,54 +217,39 @@ pub async fn friend() -> Html<String> {
     </div>
 
     <script>
-        // Get logged-in pseudo from localStorage
         const pseudo = localStorage.getItem('logged_pseudo');
-
-        if (!pseudo) {
-            window.location.href = '/';
-        } else {
-            const pseudoDisplay = document.getElementById('pseudo-display');
-            if (pseudoDisplay) pseudoDisplay.textContent = pseudo;
-        }
+        if (!pseudo) { window.location.href = '/'; }
 
         const needsOnboarding = localStorage.getItem('needs_onboarding') === '1';
 
         %%COMMON_JS_UTILS%%
 
-        // Initialize avatar module
         const avatarModule = createFriendAvatarModule({ pseudo });
-        avatarModule.setHeaderAvatarSrc(false);
+        avatarModule.loadAvatar();
 
-        // Initialize status module
         const statusModule = createFriendStatusModule({ pseudo });
-
-        // Initialize services module
         const servicesModule = createFriendServicesModule({ pseudo });
-
-        // Initialize chat module
         const chatModule = createFriendChatModule({ pseudo });
+        const wallModule = createFriendWallModule({ pseudo });
+        const onboardingModule = createFriendOnboardingModule({ pseudo, avatarModule });
 
-        // Initialize onboarding module
-        const onboardingModule = createFriendOnboardingModule({ pseudo });
+        // Populate pseudo displays
+        const pseudoDisplay = document.getElementById('pseudo-display');
+        if (pseudoDisplay) pseudoDisplay.textContent = pseudo;
+        const heroPseudo = document.getElementById('hero-pseudo');
+        if (heroPseudo) heroPseudo.textContent = pseudo;
 
-        // Logout function
         async function logout() {
             if (!confirm('Confirmer la déconnexion ?')) return;
-            
             try {
-                // Mark user as inactive
                 await fetch('/status/set-inactive/' + pseudo, { method: 'POST', cache: 'no-store' });
-            } catch (err) {
-                console.log('Logout error:', err);
-            }
-            
-            // Clear session and redirect
+            } catch (_) {}
             localStorage.removeItem('logged_pseudo');
             window.location.href = '/';
         }
 
         document.getElementById('logout-btn').addEventListener('click', logout);
-        
+
         if (needsOnboarding) {
             onboardingModule.openOnboardingModal();
         }
@@ -184,6 +259,58 @@ pub async fn friend() -> Html<String> {
         %%FRIEND_CHAT_JS%%
         %%FRIEND_STATUS_JS%%
         %%FRIEND_AVATAR_JS%%
+        %%FRIEND_WALL_JS%%
+
+        // Hero step popups
+        (function() {
+            const overlay = document.getElementById('step-popup-overlay');
+            const closeBtn = document.getElementById('step-popup-close');
+            const popupImg = document.getElementById('step-popup-img');
+            const popupPlaceholder = document.getElementById('step-popup-placeholder');
+            const popupIcon = document.getElementById('step-popup-icon');
+            const popupTitle = document.getElementById('step-popup-title');
+            const popupDesc = document.getElementById('step-popup-desc');
+            const popupLink = document.getElementById('step-popup-link');
+
+            document.querySelectorAll('.hero-step[data-popup-href]').forEach(el => {
+                el.addEventListener('click', () => {
+                    const imgSrc = el.getAttribute('data-popup-img') || '';
+                    const title = el.getAttribute('data-popup-title') || '';
+                    const desc = el.getAttribute('data-popup-desc') || '';
+                    const href = el.getAttribute('data-popup-href') || '';
+                    const target = el.getAttribute('data-popup-target') || '';
+                    const iconEl = el.querySelector('.hero-step-icon');
+
+                    popupIcon.textContent = iconEl ? iconEl.textContent : '';
+                    popupTitle.textContent = title;
+                    popupDesc.textContent = desc;
+                    popupLink.href = href;
+                    popupLink.target = target;
+                    popupLink.textContent = target === '_blank' ? 'Ouvrir dans un nouvel onglet →' : 'Accéder →';
+
+                    popupPlaceholder.textContent = iconEl ? iconEl.textContent : '';
+                    popupImg.style.display = 'none';
+                    popupPlaceholder.style.display = 'flex';
+
+                    if (imgSrc) {
+                        const probe = new Image();
+                        probe.onload = () => {
+                            popupImg.src = probe.src;
+                            popupImg.style.display = 'block';
+                            popupPlaceholder.style.display = 'none';
+                        };
+                        probe.src = imgSrc;
+                    }
+
+                    overlay.classList.add('open');
+                });
+            });
+
+            function closePopup() { overlay.classList.remove('open'); }
+            if (closeBtn) closeBtn.addEventListener('click', closePopup);
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
+        })();
     </script>
 </body>
 </html>

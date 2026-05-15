@@ -39,9 +39,9 @@ pub async fn admin_login() -> Html<String> {
             <h1>Admin Access</h1>
             <p class="hint">Insere ta cle et touche-la pour te connecter.</p>
             <span class="yubikey-icon">🔑</span>
-            <p id="yubikey-waiting" style="text-align:center;color:var(--color-muted);font-size:0.9rem;margin:0 0 12px">En attente de la cle...</p>
+            <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 12px">En attente de la cle...</p>
             <div id="yubikey-result" class="result"></div>
-            <button class="btn" id="yubikey-retry-btn" style="display:none;margin-top:8px;background:var(--bg-page);color:var(--color-muted);border:1px solid var(--color-panel-border)">
+            <button class="btn" id="yubikey-retry-btn" style="display:none;margin-top:8px;background:var(--background);color:var(--muted-foreground);border:1px solid var(--border)">
                 Reessayer
             </button>
         </article>
@@ -64,7 +64,7 @@ pub async fn admin_login() -> Html<String> {
                 <input id="password" type="password" placeholder="admin password" autocomplete="current-password" />
             </div>
             <div class="field">
-                <label for="otp">Code OTP 2FA <span style="font-weight:400;color:var(--color-muted)">(optionnel)</span></label>
+                <label for="otp">Code OTP 2FA <span style="font-weight:400;color:var(--muted-foreground)">(optionnel)</span></label>
                 <input id="otp" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" />
             </div>
 

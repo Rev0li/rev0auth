@@ -1,250 +1,227 @@
-// Services module for GitHub, Jellyfin, Songsurf access requests
 pub const JS_FRIEND_SERVICES_MODULE: &str = r#"
 function createFriendServicesModule(ctx) {
     const { pseudo } = ctx;
-    
-    const accessState = {
-        github: false,
-        jellyfin: false,
-        songsurf: false,
-        requestGithub: false,
-        requestJellyfin: false,
-        requestSongsurf: false
+
+    const state = {
+        songsurf: false, jellyfin: false,
+        reqSongsurf: false, reqJellyfin: false,
+        githubUsername: null, linkedinName: null
     };
 
-    const serviceMsg = document.getElementById('service-msg');
+    const msgEl = document.getElementById('service-msg');
 
-    function setServiceMsg(ok, message) {
-        serviceMsg.className = 'service-msg ' + (ok ? 'ok' : 'error');
-        serviceMsg.textContent = message;
-        serviceMsg.style.display = 'block';
+    function setMsg(ok, text) {
+        if (!msgEl) return;
+        msgEl.className = 'service-msg ' + (ok ? 'ok' : 'error');
+        msgEl.textContent = text;
+        msgEl.style.display = 'block';
+        if (ok) setTimeout(() => { msgEl.style.display = 'none'; }, 3500);
     }
 
-    function renderServiceButtons() {
-        const songsurfBtn = document.getElementById('songsurf-btn');
-        const jellyfinBtn = document.getElementById('jellyfin-btn');
-        const githubBtn = document.getElementById('github-btn');
-
-        const songsurfState = document.getElementById('songsurf-state');
-        const jellyfinState = document.getElementById('jellyfin-state');
-        const githubState = document.getElementById('github-state');
-
-        if (accessState.songsurf) {
-            songsurfState.textContent = 'Etat: ACCES OUVERT';
-            songsurfBtn.textContent = 'Ouvrir Songsurf';
-            songsurfBtn.classList.remove('locked');
-        } else if (accessState.requestSongsurf) {
-            songsurfState.textContent = 'Etat: demande envoyee, en attente admin';
-            songsurfBtn.textContent = 'Demande Songsurf envoyee';
-            songsurfBtn.classList.add('locked');
+    function renderSongsurf() {
+        const body = document.getElementById('songsurf-body');
+        if (!body) return;
+        if (state.songsurf) {
+            body.innerHTML =
+                '<p class="svc-state svc-open">✓ Accès ouvert</p>'
+                + '<a class="svc-btn" href="https://revoli-songsurf.duckdns.org" target="_blank" rel="noopener">Ouvrir Songsurf →</a>';
+        } else if (state.reqSongsurf) {
+            body.innerHTML =
+                '<p class="svc-state">⏳ Demande envoyée — en attente de validation.</p>'
+                + (state.githubUsername
+                    ? '<p class="svc-submitted">GitHub : <strong>@' + escapeHtml(state.githubUsername) + '</strong></p>'
+                    : '');
         } else {
-            songsurfState.textContent = 'Etat: verrouille';
-            songsurfBtn.textContent = 'Demander acces Songsurf';
-            songsurfBtn.classList.add('locked');
-        }
-
-        if (accessState.jellyfin) {
-            jellyfinState.textContent = 'Etat: ACCES OUVERT';
-            jellyfinBtn.textContent = 'Ouvrir Jellyfin';
-            jellyfinBtn.classList.remove('locked');
-        } else if (accessState.requestJellyfin) {
-            jellyfinState.textContent = 'Etat: demande envoyee, en attente admin';
-            jellyfinBtn.textContent = 'Demande Jellyfin envoyee';
-            jellyfinBtn.classList.add('locked');
-        } else {
-            jellyfinState.textContent = 'Etat: verrouille';
-            jellyfinBtn.textContent = 'Demander acces Jellyfin';
-            jellyfinBtn.classList.add('locked');
-        }
-
-        if (accessState.github) {
-            githubState.textContent = 'Etat: ACCES OUVERT';
-            githubBtn.textContent = 'Ouvrir GitHub';
-            githubBtn.classList.remove('locked');
-        } else if (accessState.requestGithub) {
-            githubState.textContent = 'Etat: demande envoyee, en attente admin';
-            githubBtn.textContent = 'Demande GitHub envoyee';
-            githubBtn.classList.add('locked');
-        } else {
-            githubState.textContent = 'Etat: verrouille';
-            githubBtn.textContent = 'J\'ai mis une star, demander acces GitHub';
-            githubBtn.classList.add('locked');
+            body.innerHTML =
+                '<ol class="svc-steps">'
+                + '<li>⭐ <a href="https://github.com/Rev0li/SongSurf" target="_blank" rel="noopener">Star le repo SongSurf</a></li>'
+                + '<li>👤 <a href="https://github.com/Rev0li" target="_blank" rel="noopener">Follow Rev0li sur GitHub</a></li>'
+                + '<li>Entre ton pseudo GitHub ci-dessous</li>'
+                + '</ol>'
+                + '<input id="songsurf-gh-input" class="svc-input" placeholder="Ton pseudo GitHub"'
+                + ' value="' + escapeHtml(state.githubUsername || '') + '" />'
+                + '<button class="svc-btn svc-btn-request" id="songsurf-req-btn">Envoyer ma demande</button>';
+            document.getElementById('songsurf-req-btn').addEventListener('click', submitSongsurf);
         }
     }
 
-    async function loadMemberAccessState() {
-        try {
-            const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
-            const data = await res.json();
-            accessState.github = !!data.access_github;
-            accessState.jellyfin = !!data.access_jellyfin;
-            accessState.songsurf = !!data.access_songsurf;
-            accessState.requestGithub = !!data.request_github;
-            accessState.requestJellyfin = !!data.request_jellyfin;
-            accessState.requestSongsurf = !!data.request_songsurf;
-
-            if (data.github_username) {
-                document.getElementById('github-username').value = data.github_username;
-            }
-            renderServiceButtons();
-        } catch (err) {
-            setServiceMsg(false, 'Impossible de charger l\'etat des acces: ' + err.message);
+    function renderJellyfin() {
+        const body = document.getElementById('jellyfin-body');
+        if (!body) return;
+        if (state.jellyfin) {
+            body.innerHTML =
+                '<p class="svc-state svc-open">✓ Accès ouvert</p>'
+                + '<a class="svc-btn" href="https://revoli-jellyfin.duckdns.org" target="_blank" rel="noopener">Ouvrir Jellyfin →</a>';
+        } else if (state.reqJellyfin) {
+            body.innerHTML =
+                '<p class="svc-state">⏳ Demande envoyée — en attente de validation.</p>'
+                + (state.linkedinName
+                    ? '<p class="svc-submitted">LinkedIn : <strong>' + escapeHtml(state.linkedinName) + '</strong></p>'
+                    : '');
+        } else {
+            body.innerHTML =
+                '<ol class="svc-steps">'
+                + '<li>🤝 <a href="https://linkedin.com/in/oliver-kientzler" target="_blank" rel="noopener">Se connecter sur LinkedIn</a></li>'
+                + '<li>⭐ Me recommander sur LinkedIn</li>'
+                + '<li>Entre ton nom LinkedIn ci-dessous</li>'
+                + '</ol>'
+                + '<input id="jellyfin-li-input" class="svc-input" placeholder="Ton nom LinkedIn"'
+                + ' value="' + escapeHtml(state.linkedinName || '') + '" />'
+                + '<button class="svc-btn svc-btn-request" id="jellyfin-req-btn">Envoyer ma demande</button>';
+            document.getElementById('jellyfin-req-btn').addEventListener('click', submitJellyfin);
         }
     }
 
-    async function requestService(service, extraPayload) {
+    async function submitSongsurf() {
+        const input = document.getElementById('songsurf-gh-input');
+        const username = input ? input.value.trim() : '';
+        if (!username) { setMsg(false, 'Entre ton pseudo GitHub avant d\'envoyer.'); return; }
         try {
             const res = await fetch('/members/access/request', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(Object.assign({ pseudo, service }, extraPayload || {}))
+                body: JSON.stringify({ pseudo, service: 'songsurf', github_username: username })
             });
             const data = await res.json();
-            setServiceMsg(!!data.ok, data.message || 'Reponse recue.');
-            if (data.ok) {
-                await loadMemberAccessState();
-            }
+            setMsg(!!data.ok, data.message || 'Réponse reçue.');
+            if (data.ok) await loadState();
+        } catch (err) { setMsg(false, 'Erreur: ' + err.message); }
+    }
+
+    async function submitJellyfin() {
+        const input = document.getElementById('jellyfin-li-input');
+        const name = input ? input.value.trim() : '';
+        if (!name) { setMsg(false, 'Entre ton nom LinkedIn avant d\'envoyer.'); return; }
+        try {
+            const res = await fetch('/members/access/request', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ pseudo, service: 'jellyfin', linkedin_name: name })
+            });
+            const data = await res.json();
+            setMsg(!!data.ok, data.message || 'Réponse reçue.');
+            if (data.ok) await loadState();
+        } catch (err) { setMsg(false, 'Erreur: ' + err.message); }
+    }
+
+    async function loadState() {
+        try {
+            const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+            const data = await res.json();
+            state.songsurf     = !!data.access_songsurf;
+            state.jellyfin     = !!data.access_jellyfin;
+            state.reqSongsurf  = !!data.request_songsurf;
+            state.reqJellyfin  = !!data.request_jellyfin;
+            state.githubUsername = data.github_username || null;
+            state.linkedinName   = data.linkedin_name || null;
+            renderSongsurf();
+            renderJellyfin();
         } catch (err) {
-            setServiceMsg(false, 'Erreur: ' + err.message);
+            setMsg(false, 'Impossible de charger l\'état des accès.');
         }
     }
 
-    // Setup service button handlers
-    document.getElementById('songsurf-btn').addEventListener('click', async () => {
-        if (accessState.songsurf) {
-            window.location.href = 'https://revoli-songsurf.duckdns.org';
-            return;
-        }
-        await requestService('songsurf');
-    });
-
-    document.getElementById('jellyfin-btn').addEventListener('click', async () => {
-        if (accessState.jellyfin) {
-            window.location.href = 'https://revoli-jellyfin.duckdns.org';
-            return;
-        }
-        await requestService('jellyfin');
-    });
-
-    document.getElementById('github-btn').addEventListener('click', async () => {
-        if (accessState.github) {
-            window.location.href = 'https://github.com/Rev0li';
-            return;
-        }
-
-        const githubUsername = document.getElementById('github-username').value.trim();
-        if (!githubUsername) {
-            setServiceMsg(false, 'Renseigne ton username GitHub avant la demande.');
-            return;
-        }
-
-        await requestService('github', {
-            github_username: githubUsername,
-            starred: true
-        });
-    });
-
-    // Load initial state
-    loadMemberAccessState();
-
-    return {
-        setServiceMsg,
-        renderServiceButtons,
-        loadMemberAccessState,
-        requestService,
-        accessState
-    };
+    loadState();
+    return { loadState };
 }
 "#;
 
 pub const CSS_FRIEND_SERVICES_STYLES: &str = r#"
-        .services {
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+        }
+        .svc-card {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            background: var(--card);
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            margin-top: 14px;
+            box-shadow: var(--shadow-soft);
+            transition: box-shadow 0.15s;
         }
-        .service-card {
-            border: 1px solid rgba(19, 35, 49, 0.12);
-            border-radius: 12px;
-            background: #fff;
-            padding: 14px;
-            width: 100%;
-            box-sizing: border-box;
+        .svc-card:hover { box-shadow: var(--shadow-soft); }
+        .svc-card-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 14px;
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+        .svc-banner-songsurf { background: #0f0f0f; color: #fafafa; }
+        .svc-banner-jellyfin { background: #00a4dc; color: #fff; }
+        .svc-icon { font-size: 1rem; }
+        .svc-card-body {
+            padding: 12px 14px 14px;
             display: flex;
             flex-direction: column;
             gap: 8px;
+            flex: 1;
         }
-        .service-media {
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            height: auto;
-            object-fit: cover;
-            border-radius: 10px;
-            border: 1px solid rgba(19, 35, 49, 0.12);
-            background: #f3f7fa;
-        }
-        .service-card h3 {
-            margin: 0 0 6px;
-            font-size: 1rem;
-        }
-        .service-card p {
-            margin: 0 0 10px;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        .service-btn {
-            width: 100%;
-            border: 1px solid var(--color-success-border);
-            border-radius: var(--radius-md);
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            font-weight: 600;
-            padding: 8px 10px;
-            cursor: pointer;
+        .svc-steps {
+            margin: 0;
+            padding-left: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
             font-size: 0.875rem;
-            transition: opacity 0.1s;
+            color: var(--muted-foreground);
+            line-height: 1.5;
         }
-        .service-btn:hover { opacity: 0.8; }
-        .service-btn.locked {
-            background: var(--bg-page);
-            color: var(--color-muted);
-            border-color: var(--color-panel-border);
+        .svc-steps a {
+            color: var(--foreground);
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
         }
-        .service-state { font-size: 0.8125rem; margin: 6px 0; color: var(--color-muted); }
-        .service-input {
+        .svc-input {
             width: 100%;
-            border: 1px solid var(--color-panel-border);
+            border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: 8px 10px;
-            box-sizing: border-box;
+            padding: 7px 10px;
             font: inherit;
             font-size: 0.875rem;
-            margin-bottom: 8px;
+            background: var(--muted);
+            color: var(--foreground);
             outline: none;
             transition: border-color 0.15s;
         }
-        .service-input:focus { border-color: var(--color-accent); }
-        .service-msg { margin-top: 8px; padding: 8px 10px; border-radius: var(--radius-md); font-size: 0.875rem; display: none; }
-        .service-msg.ok {
-            display: block;
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            border: 1px solid var(--color-success-border);
+        .svc-input:focus { border-color: var(--foreground); background: var(--card); }
+        .svc-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 34px;
+            border-radius: var(--radius-md);
+            border: none;
+            font: 600 0.875rem/1 var(--font-sans);
+            cursor: pointer;
+            text-decoration: none;
+            background: var(--primary);
+            color: var(--primary-foreground);
+            transition: background 0.15s;
         }
-        .service-msg.error {
-            display: block;
-            background: var(--color-danger-bg);
-            color: var(--color-danger);
-            border: 1px solid var(--color-danger-border);
+        .svc-btn:hover { background: var(--primary-hover); }
+        .svc-btn-request {
+            background: var(--card);
+            color: var(--foreground);
+            border: 1px solid var(--border);
         }
-        @media (max-width: 900px) {
-            .service-card {
-                aspect-ratio: 1 / 1;
-                overflow: hidden;
-            }
-            .service-media {
-                aspect-ratio: 1 / 1;
-            }
+        .svc-btn-request:hover { background: var(--muted); }
+        .svc-state          { font-size: 0.8125rem; color: var(--muted-foreground); margin: 0; }
+        .svc-state.svc-open { color: var(--success); font-weight: 600; }
+        .svc-submitted      { font-size: 0.8125rem; color: var(--muted-foreground); margin: 0; }
+        .service-msg {
+            margin-top: 8px;
+            padding: 7px 11px;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            display: none;
         }
+        .service-msg.ok    { display: block; background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+        .service-msg.error { display: block; background: var(--destructive-bg);  color: var(--destructive);  border: 1px solid var(--destructive-border); }
 "#;

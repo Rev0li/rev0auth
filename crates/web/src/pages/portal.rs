@@ -27,9 +27,10 @@ pub async fn portal() -> Html<String> {
 
             <label for="pseudo">Pseudo *</label>
             <input id="pseudo" placeholder="ton_pseudo" required />
+            <small class="hint-warn">⚠ Ton pseudo est définitif — il ne pourra jamais être modifié.</small>
 
             <label for="referral">Comment tu m'as connu ? *</label>
-            <input id="referral" placeholder="Ami, réseau social, portfolio..." required />
+            <textarea id="referral" rows="2" placeholder="Ami, réseau social, portfolio..." required style="resize:vertical"></textarea>
 
             <button class="btn btn-primary" id="signup-btn">Envoyer ma demande</button>
             <div id="temp-password-box" class="result"></div>
@@ -88,8 +89,11 @@ pub async fn portal() -> Html<String> {
             if (data.ok) {
                 output.style.display = 'none';
                 output.textContent = '';
+                const pwd = data.temp_password || tempPassword;
                 tempPasswordBox.style.display = 'block';
-                tempPasswordBox.innerHTML = 'Mot de passe temporaire: <strong>' + (data.temp_password || tempPassword) + '</strong>';
+                tempPasswordBox.innerHTML = '✅ Demande envoyée ! Mot de passe temporaire :<br><code id="shown-pwd" style="font-size:1.1em;letter-spacing:0.05em;user-select:all">' + pwd + '</code>'
+                    + '<button type="button" id="copy-pwd-btn" style="margin-left:10px;padding:3px 10px;border-radius:6px;border:1px solid currentColor;background:transparent;cursor:pointer;font-size:0.8em" onclick="(function(){navigator.clipboard.writeText(document.getElementById(\'shown-pwd\').textContent).then(()=>{var b=document.getElementById(\'copy-pwd-btn\');b.textContent=\'✓ Copié\';setTimeout(()=>{b.textContent=\'Copier\'},1800)})})()">Copier</button>'
+                    + '<br><small style="opacity:0.7;margin-top:4px;display:block">Note-le bien — il ne sera plus affiché.</small>';
             } else {
                 setResult(output, false, data.message || 'Inscription refusee.');
                 tempPasswordBox.style.display = 'none';
