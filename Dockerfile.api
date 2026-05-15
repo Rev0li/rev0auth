@@ -1,0 +1,36 @@
+# ── Build ──────────────────────────────────────────────────────────────────────
+FROM rust:1.83-slim AS builder
+WORKDIR /build
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# Layer: resolve workspace (changes rarely)
+COPY Cargo.toml Cargo.lock ./
+COPY crates/api/Cargo.toml crates/api/Cargo.toml
+COPY crates/web/Cargo.toml crates/web/Cargo.toml
+
+# Stub sources so cargo can resolve the full workspace graph
+RUN mkdir -p crates/api/src crates/web/src \
+ && printf 'fn main(){}' > crates/api/src/main.rs \
+ && printf 'fn main(){}' > crates/web/src/main.rs
+
+# Layer: compile dependencies only (cached unless Cargo.toml/Cargo.lock change)
+RUN cargo build --release -p rev0auth-api \
+ && rm -f target/release/deps/rev0auth_api* target/release/rev0auth-api
+
+# Layer: real sources (migrations embedded via include_str! at compile time)
+COPY crates/api/src        crates/api/src
+COPY crates/api/migrations crates/api/migrations
+RUN touch crates/api/src/main.rs \
+ && cargo build --release -p rev0auth-api
+
+# ── Runtime ────────────────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /build/target/release/rev0auth-api /usr/local/bin/rev0auth-api
+EXPOSE 8080
+CMD ["/usr/local/bin/rev0auth-api"]

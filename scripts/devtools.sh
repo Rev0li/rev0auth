@@ -19,19 +19,26 @@ EOF
 }
 
 status() {
-  for service in api web; do
-    pid_file="$RUN_DIR/${service}.pid"
-    if [[ -f "$pid_file" ]]; then
-      pid="$(cat "$pid_file" 2>/dev/null || true)"
-      if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
-        echo "$service: running (pid=$pid)"
+  cd "$ROOT_DIR"
+  if docker compose ps --quiet 2>/dev/null | grep -q .; then
+    echo "=== Docker Compose ==="
+    docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+  else
+    echo "=== Dev (cargo run) ==="
+    for service in api web; do
+      pid_file="$RUN_DIR/${service}.pid"
+      if [[ -f "$pid_file" ]]; then
+        pid="$(cat "$pid_file" 2>/dev/null || true)"
+        if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+          echo "$service: running (pid=$pid)"
+        else
+          echo "$service: stopped (stale pid file)"
+        fi
       else
-        echo "$service: stopped (stale pid file)"
+        echo "$service: stopped"
       fi
-    else
-      echo "$service: stopped"
-    fi
-  done
+    done
+  fi
 }
 
 if [[ $# -lt 1 ]]; then

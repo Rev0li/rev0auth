@@ -14,6 +14,7 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
+# Stop a service launched with cargo run (dev mode)
 stop_one() {
   local service="$1"
   local pid_file="$RUN_DIR/${service}.pid"
@@ -47,8 +48,14 @@ case "$1" in
     stop_one "$1"
     ;;
   all)
-    stop_one api
-    stop_one web
+    cd "$ROOT_DIR"
+    if docker compose ps --quiet 2>/dev/null | grep -q .; then
+      echo "Stopping Docker Compose stack..."
+      docker compose down
+    else
+      stop_one api
+      stop_one web
+    fi
     ;;
   *)
     echo "Unknown service: $1" >&2

@@ -15,7 +15,9 @@ services:
       retries: 5
 
   api:
-    build: crates/api
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     restart: unless-stopped
     depends_on:
       postgres:
@@ -26,10 +28,32 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || wget -qO- http://localhost:8080/health >/dev/null"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      ADMIN_DASH_PASSWORD: ${ADMIN_DASH_PASSWORD}
+      ADMIN_DASH_PSEUDO: ${ADMIN_DASH_PSEUDO}
+      ADMIN_DASH_SEED: ${ADMIN_DASH_SEED}
+      ADMIN_DASH_TOTP_SECRET: ${ADMIN_DASH_TOTP_SECRET:-}
+      ADMIN_WEBAUTHN_CREDENTIAL: ${ADMIN_WEBAUTHN_CREDENTIAL:-}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_RP_ORIGIN: ${WEBAUTHN_RP_ORIGIN:-http://localhost:3000}
+      REV0AUTH_API_UPSTREAM: api:8080
+      WEB_BIND_ADDR: 0.0.0.0:3000
+      DONATION_CRYPTO_ADDRESSES: ${DONATION_CRYPTO_ADDRESSES:-}
+    ports:
+      - "127.0.0.1:3000:3000"
 
 volumes:
   pgdata:

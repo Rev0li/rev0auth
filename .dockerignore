@@ -1,0 +1,8 @@
+target/
+.run/
+.git/
+frontend/node_modules/
+frontend/.svelte-kit/
+*.log
+.env
+.env.local
