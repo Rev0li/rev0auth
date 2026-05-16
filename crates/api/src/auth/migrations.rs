@@ -24,6 +24,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "0003_indexes_optimization",
         sql: include_str!("../../migrations/0003_indexes_optimization.sql"),
     },
+    Migration {
+        version: 4,
+        name: "0004_web_state",
+        sql: include_str!("../../migrations/0004_web_state.sql"),
+    },
 ];
 
 // Dev note: runs all pending SQL migrations in deterministic version order.
