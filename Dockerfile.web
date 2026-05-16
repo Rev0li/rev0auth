@@ -28,7 +28,7 @@ RUN touch crates/web/src/main.rs \
 # ── Runtime ────────────────────────────────────────────────────────────────────
 FROM debian:trixie-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+ && apt-get install -y --no-install-recommends ca-certificates libssl3 wget \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/target/release/rev0auth-web /usr/local/bin/rev0auth-web
