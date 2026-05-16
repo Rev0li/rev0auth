@@ -47,7 +47,6 @@ struct AdminAuditEntry {
 struct WebState {
     signup_requests: Arc<RwLock<Vec<SignupRequestRecord>>>,
     next_request_id: Arc<AtomicU64>,
-    next_test_run_id: Arc<AtomicU64>,
     users: Arc<RwLock<Vec<User>>>,
     member_messages: Arc<RwLock<Vec<MemberMessage>>>,
     next_message_id: Arc<AtomicU64>,
@@ -57,7 +56,6 @@ struct WebState {
     next_wall_id: Arc<AtomicU64>,
     user_passwords: Arc<RwLock<std::collections::HashMap<String, String>>>,
     admin_sessions: Arc<RwLock<std::collections::HashMap<String, u64>>>,
-    dashboard_test_runs: Arc<RwLock<Vec<DashboardTestRun>>>,
     admin_audit_log: Arc<RwLock<Vec<AdminAuditEntry>>>,
     webauthn: Arc<Webauthn>,
     webauthn_credential: Arc<RwLock<Option<Passkey>>>,
@@ -431,21 +429,6 @@ struct StatusAllResponse {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct DashboardTestCase {
-    name: String,
-    ok: bool,
-    detail: String,
-}
-#[derive(Debug, Clone, Serialize)]
-struct DashboardTestRun {
-    run_id: u64,
-    executed_at_epoch: u64,
-    passed: usize,
-    total: usize,
-    cases: Vec<DashboardTestCase>,
-}
-
-#[derive(Debug, Clone, Serialize)]
 struct EndpointInfo {
     method: &'static str,
     path: &'static str,
@@ -476,9 +459,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/users", post(admin_create_user))
         .route("/japprends/users/:pseudo", put(admin_update_user))
         .route("/japprends/users/:pseudo", delete(admin_delete_user))
-        .route("/japprends/tests/history", get(admin_tests_history))
-        .route("/japprends/tests/launch", post(admin_launch_tests_now))
-        .route("/japprends/endpoints", get(admin_all_endpoints))
+.route("/japprends/endpoints", get(admin_all_endpoints))
         .route("/japprends/messages", get(admin_messages_all))
         .route("/japprends/messages/reply", post(admin_message_reply))
         .route("/japprends/donations", get(admin_donations_all))
@@ -580,7 +561,6 @@ async fn main() -> anyhow::Result<()> {
     let state = WebState {
         signup_requests: Arc::new(RwLock::new(Vec::new())),
         next_request_id: Arc::new(AtomicU64::new(1)),
-        next_test_run_id: Arc::new(AtomicU64::new(1)),
         users: Arc::new(RwLock::new(Vec::new())),
         member_messages: Arc::new(RwLock::new(Vec::new())),
         next_message_id: Arc::new(AtomicU64::new(1)),
@@ -590,7 +570,6 @@ async fn main() -> anyhow::Result<()> {
         next_wall_id: Arc::new(AtomicU64::new(1)),
         user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
-        dashboard_test_runs: Arc::new(RwLock::new(Vec::new())),
         admin_audit_log: Arc::new(RwLock::new(Vec::new())),
         webauthn: Arc::new(webauthn_instance),
         webauthn_credential: Arc::new(RwLock::new(initial_credential)),
@@ -1327,92 +1306,6 @@ async fn admin_reject_signup_request(
         ok: false,
         message: "Demande introuvable.",
     })
-}
-
-async fn admin_tests_history(State(state): State<WebState>) -> Json<Vec<DashboardTestRun>> {
-    let runs = state.dashboard_test_runs.read().await;
-    Json(runs.iter().cloned().rev().collect())
-}
-
-fn find_cargo_bin() -> String {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let local = format!("{home}/.cargo/bin/cargo");
-    if std::path::Path::new(&local).exists() {
-        local
-    } else {
-        "cargo".to_string()
-    }
-}
-
-fn parse_cargo_test_output(output: &str) -> Vec<DashboardTestCase> {
-    let mut cases: Vec<DashboardTestCase> = output
-        .lines()
-        .filter_map(|line| {
-            let line = line.trim();
-            let rest = line.strip_prefix("test ")?;
-            let (name, status) = rest.rsplit_once(" ... ")?;
-            let status = status.trim();
-            if status == "ok" || status.starts_with("FAILED") || status == "ignored" {
-                Some(DashboardTestCase {
-                    name: name.trim().to_string(),
-                    ok: status == "ok",
-                    detail: status.to_string(),
-                })
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    if cases.is_empty() {
-        cases.push(DashboardTestCase {
-            name: "cargo_test".to_string(),
-            ok: false,
-            detail: "aucun test trouve dans la sortie".to_string(),
-        });
-    }
-    cases
-}
-
-async fn admin_launch_tests_now(State(state): State<WebState>) -> Json<DashboardTestRun> {
-    let cargo = find_cargo_bin();
-
-    let cases = match tokio::process::Command::new(&cargo)
-        .args(["test", "-p", "rev0auth-api", "--color", "never"])
-        .output()
-        .await
-    {
-        Ok(out) => {
-            let combined = String::from_utf8_lossy(&out.stdout).to_string()
-                + &String::from_utf8_lossy(&out.stderr);
-            parse_cargo_test_output(&combined)
-        }
-        Err(e) => vec![DashboardTestCase {
-            name: "cargo_test_execution".to_string(),
-            ok: false,
-            detail: format!("impossible de lancer cargo: {e}"),
-        }],
-    };
-
-    let passed = cases.iter().filter(|c| c.ok).count();
-    let run = DashboardTestRun {
-        run_id: state.next_test_run_id.fetch_add(1, Ordering::Relaxed),
-        executed_at_epoch: now_epoch(),
-        passed,
-        total: cases.len(),
-        cases,
-    };
-
-    {
-        let mut runs = state.dashboard_test_runs.write().await;
-        runs.push(run.clone());
-        if runs.len() > 200 {
-            let keep_from = runs.len() - 200;
-            runs.drain(0..keep_from);
-        }
-    }
-
-    Json(run)
 }
 
 async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
@@ -2833,7 +2726,6 @@ mod tests {
         WebState {
             signup_requests: Arc::new(RwLock::new(Vec::new())),
             next_request_id: Arc::new(AtomicU64::new(1)),
-            next_test_run_id: Arc::new(AtomicU64::new(1)),
             users: Arc::new(RwLock::new(Vec::new())),
             member_messages: Arc::new(RwLock::new(Vec::new())),
             next_message_id: Arc::new(AtomicU64::new(1)),
@@ -2841,7 +2733,6 @@ mod tests {
             next_donation_id: Arc::new(AtomicU64::new(1)),
             user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
             admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
-            dashboard_test_runs: Arc::new(RwLock::new(Vec::new())),
             admin_audit_log: Arc::new(RwLock::new(Vec::new())),
             webauthn: Arc::new(webauthn),
             webauthn_credential: Arc::new(RwLock::new(None)),

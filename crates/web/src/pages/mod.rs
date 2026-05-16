@@ -27,7 +27,6 @@ pub mod profile_admin_navigator_module;
 pub mod profile_account_deletion_module;
 pub mod dashboard_users_module;
 pub mod dashboard_donations_module;
-pub mod dashboard_testing_module;
 pub mod dashboard_queue_module;
 pub mod dashboard_status_module;
 pub mod dashboard_theme_editor_module;

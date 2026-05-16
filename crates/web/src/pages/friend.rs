@@ -120,7 +120,7 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
             <p class="section-sub">Chaque service a ses conditions d'accès. Suis les étapes pour débloquer.</p>
             <div class="services-grid">
 
-                <div class="svc-card">
+                <div class="svc-card" id="songsurf-card">
                     <div class="svc-card-banner svc-banner-songsurf">
                         <span class="svc-icon">🎵</span>
                         <span>Songsurf</span>

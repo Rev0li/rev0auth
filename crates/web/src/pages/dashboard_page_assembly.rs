@@ -1,6 +1,6 @@
 use super::{
     dashboard_chat_module, dashboard_donations_module, dashboard_queue_module,
-    dashboard_status_module, dashboard_testing_module, dashboard_users_module, frontend_modules,
+    dashboard_status_module, dashboard_users_module, frontend_modules,
     dashboard_page_styles, frontend_theme, page_assembly,
 };
 
@@ -32,11 +32,7 @@ pub fn assemble_dashboard_page(template: &str) -> String {
                 placeholder: "%%DASHBOARD_DONATIONS_MODULE%%",
                 content: dashboard_donations_module::JS_DASHBOARD_DONATIONS_MODULE,
             },
-            page_assembly::PageModule {
-                placeholder: "%%DASHBOARD_TESTING_MODULE%%",
-                content: dashboard_testing_module::JS_DASHBOARD_TESTING_MODULE,
-            },
-            page_assembly::PageModule {
+page_assembly::PageModule {
                 placeholder: "%%DASHBOARD_QUEUE_MODULE%%",
                 content: dashboard_queue_module::JS_DASHBOARD_QUEUE_MODULE,
             },

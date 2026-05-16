@@ -61,19 +61,6 @@ pub async fn dashboard() -> Html<String> {
                 <div id="endpoints-system-list" class="endpoint-grid">—</div>
             </div>
 
-            <div class="row">
-                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-                    <strong>Tests</strong>
-                    <button class="btn-small grant" id="launch-tests-now">Lancer maintenant</button>
-                </div>
-                <div id="tests-progress-wrap" style="display:none;margin-top:10px">
-                    <div style="font-size:0.78rem;color:var(--muted-foreground);margin-bottom:4px" id="tests-progress-label">Execution en cours...</div>
-                    <div style="background:var(--card);border:1px solid var(--border);border-radius:4px;height:6px;overflow:hidden">
-                        <div id="tests-progress-bar" style="height:100%;width:0%;background:var(--accent);transition:width 0.4s linear"></div>
-                    </div>
-                </div>
-                <div id="tests-history" class="tests-history" style="margin-top:10px"></div>
-            </div>
         </section>
 
         <!-- ====== MEMBERS ====== -->
@@ -163,8 +150,7 @@ pub async fn dashboard() -> Html<String> {
         %%DASHBOARD_CHAT_MODULE%%
         %%DASHBOARD_USERS_MODULE%%
         %%DASHBOARD_DONATIONS_MODULE%%
-        %%DASHBOARD_TESTING_MODULE%%
-        %%DASHBOARD_QUEUE_MODULE%%
+%%DASHBOARD_QUEUE_MODULE%%
         %%DASHBOARD_STATUS_MODULE%%
         const adminChatModule = createDashboardChatModule({ adminPseudo, adminChatState });
         const { setAdminReplyMsg, sendAdminReply, loadAdminMessages } = adminChatModule;
@@ -334,145 +320,6 @@ pub async fn dashboard() -> Html<String> {
                     });
                 });
             } catch (_) { panel.textContent = 'Erreur chargement donations.'; }
-        }
-
-        // ---- tests ----
-        let testsRunning = false;
-        let progressTimer = null;
-        const openTestRuns = new Set();  // run IDs the user left open
-        const seenTestRuns = new Set();  // run IDs ever rendered (to detect new runs)
-        let initialRenderDone = false;   // suppress auto-open on fresh page load
-
-        function renderTestsHistory(runs) {
-            const panel = document.getElementById('tests-history');
-            if (!panel) return;
-            // if (!Array.isArray(runs) || runs.length === 0) {
-            //     panel.innerHTML = '<div class="mini">Aucun test lance.</div>'; return;
-            // }
-            dashboardStats.lastRun = runs[0];
-
-            // Capture user's open/closed state before wiping the DOM
-            panel.querySelectorAll('.test-run').forEach(el => {
-                const idStr = el.id.replace('run-', '');
-                if (el.classList.contains('open')) {
-                    openTestRuns.add(idStr);
-                } else {
-                    openTestRuns.delete(idStr);
-                }
-            });
-
-            // Build HTML — auto-open only brand-new runs at position 0
-            panel.innerHTML = runs.slice(0, 8).map((run, idx) => {
-                const dt = new Date(run.executed_at_epoch * 1000).toLocaleString();
-                const allOk = run.passed === run.total;
-                const idStr = String(run.run_id);
-                const isNew = !seenTestRuns.has(idStr);
-                seenTestRuns.add(idStr);
-                // auto-open only for runs that appear AFTER the initial page load
-                const shouldOpen = openTestRuns.has(idStr) || (isNew && idx === 0 && initialRenderDone);
-                if (shouldOpen) openTestRuns.add(idStr);
-                const openClass = shouldOpen ? ' open' : '';
-                return '<div class="test-run' + openClass + '" id="run-' + run.run_id + '">'
-                    + '<div class="test-head' + (allOk ? ' ok' : ' fail') + '" data-run="' + run.run_id + '">'
-                    + '<span>Run #' + run.run_id + ' &nbsp;' + run.passed + '/' + run.total + ' &nbsp; ' + dt + '</span>'
-                    + '<span class="test-head-chevron">▼</span>'
-                    + '</div>'
-                    + '<ul class="test-cases" id="cases-' + run.run_id + '"></ul>'
-                    + '</div>';
-            }).join('');
-
-            // Pre-fill all runs instantly (no animation on load)
-            runs.slice(0, 8).forEach((run) => {
-                const ul = document.getElementById('cases-' + run.run_id);
-                if (!ul || !Array.isArray(run.cases)) return;
-                ul.innerHTML = run.cases.map((c) =>
-                    '<li class="' + (c.ok ? 'case-ok' : 'case-fail') + '">'
-                    + (c.ok ? '✓ ' : '✗ ') + c.name + '</li>'
-                ).join('');
-            });
-
-            // Toggle accordion — cascade only on manual click-to-open
-            panel.querySelectorAll('.test-head').forEach((head) => {
-                head.addEventListener('click', () => {
-                    const runEl = head.closest('.test-run');
-                    const wasOpen = runEl.classList.contains('open');
-                    runEl.classList.toggle('open', !wasOpen);
-                    const idStr = String(head.getAttribute('data-run'));
-                    if (!wasOpen) { openTestRuns.add(idStr); } else { openTestRuns.delete(idStr); }
-                    if (!wasOpen) {
-                        // Re-animate cases on expand
-                        const ul = runEl.querySelector('.test-cases');
-                        const runId = parseInt(head.getAttribute('data-run'), 10);
-                        const found = runs.find((r) => r.run_id === runId);
-                        if (ul && found && Array.isArray(found.cases)) {
-                            ul.innerHTML = '';
-                            found.cases.forEach((c, i) => {
-                                setTimeout(() => {
-                                    const li = document.createElement('li');
-                                    li.className = c.ok ? 'case-ok' : 'case-fail';
-                                    li.textContent = (c.ok ? '✓ ' : '✗ ') + c.name;
-                                    ul.appendChild(li);
-                                }, i * 28);
-                            });
-                        }
-                    }
-                });
-            });
-            initialRenderDone = true;
-        }
-
-        function startProgressBar(estimatedMs) {
-            const wrap = document.getElementById('tests-progress-wrap');
-            const bar = document.getElementById('tests-progress-bar');
-            const label = document.getElementById('tests-progress-label');
-            if (!wrap || !bar) return;
-            wrap.style.display = 'block';
-            bar.style.transition = 'none';
-            bar.style.width = '0%';
-            label.textContent = 'Execution en cours...';
-            requestAnimationFrame(() => {
-                bar.style.transition = 'width ' + (estimatedMs / 1000).toFixed(1) + 's linear';
-                bar.style.width = '88%';
-            });
-            if (progressTimer) clearTimeout(progressTimer);
-        }
-
-        function completeProgressBar(passed, total) {
-            const bar = document.getElementById('tests-progress-bar');
-            const label = document.getElementById('tests-progress-label');
-            const wrap = document.getElementById('tests-progress-wrap');
-            if (!bar) return;
-            const allOk = passed === total;
-            bar.style.transition = 'width 0.25s ease';
-            bar.style.width = '100%';
-            bar.style.background = allOk ? 'var(--success)' : 'var(--color-error, #e55)';
-            label.textContent = passed + '/' + total + ' tests passes';
-            setTimeout(() => { if (wrap) wrap.style.display = 'none'; bar.style.background = ''; }, 2800);
-        }
-
-        async function loadTestsHistory() {
-            try {
-                const res = await fetch('/japprends/tests/history', { cache: 'no-store' });
-                renderTestsHistory(await res.json());
-            } catch (_) {}
-        }
-
-        async function launchTestsNow() {
-            if (testsRunning) return;
-            testsRunning = true;
-            document.getElementById('launch-tests-now').disabled = true;
-            startProgressBar(11000);
-            try {
-                const res = await fetch('/japprends/tests/launch', { method: 'POST' });
-                const run = await res.json();
-                completeProgressBar(run.passed, run.total);
-                loadTestsHistory();
-            } catch (_) {
-                completeProgressBar(0, 1);
-            } finally {
-                testsRunning = false;
-                document.getElementById('launch-tests-now').disabled = false;
-            }
         }
 
         // ---- endpoints + chain ----
@@ -663,8 +510,7 @@ pub async fn dashboard() -> Html<String> {
         document.getElementById('admin-reply-body').addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
         });
-        document.getElementById('launch-tests-now').addEventListener('click', launchTestsNow);
-        document.getElementById('run-sweep-btn').addEventListener('click', runSweep);
+document.getElementById('run-sweep-btn').addEventListener('click', runSweep);
         document.getElementById('clear-sweep-btn').addEventListener('click', () => {
             const log = document.getElementById('sweep-log');
             if (log) log.textContent = 'Pret. Clique sur "Lancer le sweep".';
@@ -685,14 +531,12 @@ pub async fn dashboard() -> Html<String> {
         }
 
         refreshStatus();
-        loadTestsHistory();
         loadEndpoints();
         loadUsers();
         loadAdminWall();
         loadAdminMessages();
         setInterval(refreshStatus, 5000);
-        setInterval(loadTestsHistory, 15000);
-        setInterval(loadUsers, 10000);
+setInterval(loadUsers, 10000);
         setInterval(loadAdminMessages, 12000);
     </script>
 </body>
