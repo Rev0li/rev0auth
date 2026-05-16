@@ -146,14 +146,17 @@ function createFriendServicesModule(ctx) {
     // ---- card renders ----
 
     function renderSongsurf() {
-        const body = document.getElementById('songsurf-body');
-        const card = document.getElementById('songsurf-card');
+        const body   = document.getElementById('songsurf-body');
+        const card   = document.getElementById('songsurf-card');
+        const status = document.getElementById('ss-svc-status');
         if (!body) return;
 
         if (state.songsurf) {
+            if (status) {
+                status.innerHTML = '<span class="ss-status-dot"></span><span class="ss-status-ring"></span>';
+            }
             body.innerHTML =
                 '<div class="ss-card-inner">'
-                + '<div class="ss-pulse-wrap"><span class="ss-pulse-dot"></span><span class="ss-pulse-ring"></span></div>'
                 + '<div class="ss-card-logo">♪</div>'
                 + '<p class="ss-card-label">Clique pour démarrer</p>'
                 + '<span class="ss-card-arrow">→</span>'
@@ -286,8 +289,8 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             cursor: pointer;
         }
         .svc-card-clickable:hover {
-            border-color: #a8e6a3;
-            box-shadow: 0 0 0 2px rgba(168,230,163,0.18), var(--shadow-soft);
+            border-color: rgba(232,183,196,0.6);
+            box-shadow: 0 0 0 2px rgba(232,183,196,0.18), var(--shadow-soft);
             transform: translateY(-2px);
         }
         .svc-card-banner {
@@ -309,6 +312,57 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             flex: 1;
         }
 
+        /* ---- SongSurf card — MyCss-aligned header ---- */
+        .ss-svc-card {
+            border-radius: 18px;
+        }
+        .ss-svc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .ss-svc-badge {
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: #E8B7C4;
+            background: rgba(232,183,196,0.12);
+            border: 1px solid rgba(232,183,196,0.3);
+            border-radius: 9999px;
+            padding: 2px 10px;
+            letter-spacing: 0.01em;
+        }
+        .ss-svc-status {
+            position: relative;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ss-status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #6EDAD3;
+            position: relative;
+            z-index: 1;
+        }
+        .ss-status-ring {
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            border: 2px solid #6EDAD3;
+            opacity: 0;
+            animation: ss-pulse 2s ease-out infinite;
+        }
+        @keyframes ss-pulse {
+            0%   { opacity: 0.7; transform: scale(0.8); }
+            100% { opacity: 0;   transform: scale(2.2); }
+        }
+
         /* ---- Card activated state ---- */
         .ss-card-inner {
             display: flex;
@@ -319,33 +373,9 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             padding: 18px 0 10px;
             position: relative;
         }
-        .ss-pulse-wrap {
-            position: relative;
-            width: 12px;
-            height: 12px;
-            margin-bottom: 4px;
-        }
-        .ss-pulse-dot {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            background: #4ade80;
-        }
-        .ss-pulse-ring {
-            position: absolute;
-            inset: -4px;
-            border-radius: 50%;
-            border: 2px solid #4ade80;
-            opacity: 0;
-            animation: ss-pulse 2s ease-out infinite;
-        }
-        @keyframes ss-pulse {
-            0%   { opacity: 0.7; transform: scale(0.8); }
-            100% { opacity: 0;   transform: scale(2.2); }
-        }
         .ss-card-logo {
             font-size: 2rem;
-            color: #fafafa;
+            color: var(--primary);
             line-height: 1;
         }
         .ss-card-label {
