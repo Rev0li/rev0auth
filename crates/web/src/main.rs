@@ -15,7 +15,8 @@ use rand::{distributions::Alphanumeric, Rng};
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use std::net::SocketAddr;
-use std::sync::{atomic::AtomicU64, atomic::Ordering, Arc};
+use sqlx::PgPool;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 use tokio::time::{timeout, Duration};
@@ -45,16 +46,7 @@ struct AdminAuditEntry {
 
 #[derive(Clone)]
 struct WebState {
-    signup_requests: Arc<RwLock<Vec<SignupRequestRecord>>>,
-    next_request_id: Arc<AtomicU64>,
-    users: Arc<RwLock<Vec<User>>>,
-    member_messages: Arc<RwLock<Vec<MemberMessage>>>,
-    next_message_id: Arc<AtomicU64>,
-    donation_proofs: Arc<RwLock<Vec<DonationProof>>>,
-    next_donation_id: Arc<AtomicU64>,
-    wall_posts: Arc<RwLock<Vec<WallPost>>>,
-    next_wall_id: Arc<AtomicU64>,
-    user_passwords: Arc<RwLock<std::collections::HashMap<String, String>>>,
+    db: PgPool,
     admin_sessions: Arc<RwLock<std::collections::HashMap<String, u64>>>,
     admin_audit_log: Arc<RwLock<Vec<AdminAuditEntry>>>,
     webauthn: Arc<Webauthn>,
@@ -66,6 +58,184 @@ struct WebState {
     songsurf_url: Arc<String>,
     secure_cookies: bool,
     cookie_domain: Option<String>,
+}
+
+// ============================================================================
+// DB ROW TYPES (sqlx FromRow)
+// ============================================================================
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct UserRow {
+    pseudo: String,
+    role: String,
+    active: bool,
+    status: String,
+    bio: String,
+    commentary: String,
+    access_github: bool,
+    access_jellyfin: bool,
+    access_songsurf: bool,
+    request_github: bool,
+    request_jellyfin: bool,
+    request_songsurf: bool,
+    github_star_claimed: bool,
+    github_username: Option<String>,
+    linkedin_name: Option<String>,
+    avatar_filename: Option<String>,
+    avatar_size_bytes: Option<i64>,
+    avatar_mime_type: Option<String>,
+    avatar_bytes: Option<Vec<u8>>,
+    must_change_password: bool,
+    password_hash: String,
+    created_at_epoch: i64,
+}
+
+impl From<UserRow> for User {
+    fn from(r: UserRow) -> Self {
+        User {
+            pseudo: r.pseudo,
+            role: role_str_to_static(&r.role),
+            active: r.active,
+            status: parse_status_str(&r.status),
+            bio: r.bio,
+            commentary: r.commentary,
+            access_github: r.access_github,
+            access_jellyfin: r.access_jellyfin,
+            access_songsurf: r.access_songsurf,
+            request_github: r.request_github,
+            request_jellyfin: r.request_jellyfin,
+            request_songsurf: r.request_songsurf,
+            github_star_claimed: r.github_star_claimed,
+            github_username: r.github_username,
+            linkedin_name: r.linkedin_name,
+            avatar_filename: r.avatar_filename,
+            avatar_size_bytes: r.avatar_size_bytes.map(|n| n as usize),
+            avatar_mime_type: r.avatar_mime_type,
+            avatar_bytes: r.avatar_bytes,
+            must_change_password: r.must_change_password,
+            created_at_epoch: r.created_at_epoch as u64,
+        }
+    }
+}
+
+fn role_str_to_static(s: &str) -> &'static str {
+    match s {
+        "admin" => "admin",
+        "mod" => "mod",
+        "guest" => "guest",
+        _ => "member",
+    }
+}
+
+fn parse_status_str(s: &str) -> UserStatus {
+    match s {
+        "occupe" => UserStatus::Occupe,
+        "inactif" => UserStatus::Inactif,
+        _ => UserStatus::Actif,
+    }
+}
+
+fn user_status_to_str(s: UserStatus) -> &'static str {
+    match s {
+        UserStatus::Actif => "actif",
+        UserStatus::Occupe => "occupe",
+        UserStatus::Inactif => "inactif",
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SignupRequestRow {
+    id: i64,
+    pseudo: String,
+    referral: String,
+    temp_password: String,
+    status: String,
+    created_at_epoch: i64,
+}
+
+impl From<SignupRequestRow> for SignupRequestRecord {
+    fn from(r: SignupRequestRow) -> Self {
+        let status = match r.status.as_str() {
+            "approved" => ManualStatus::Approved,
+            "rejected" => ManualStatus::Rejected,
+            _ => ManualStatus::Pending,
+        };
+        SignupRequestRecord {
+            id: r.id as u64,
+            pseudo: r.pseudo,
+            referral: r.referral,
+            temp_password: r.temp_password,
+            status,
+            created_at_epoch: r.created_at_epoch as u64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct MessageRow {
+    id: i64,
+    from_pseudo: String,
+    to_pseudo: String,
+    body: String,
+    is_read: bool,
+    created_at_epoch: i64,
+}
+
+impl From<MessageRow> for MemberMessageView {
+    fn from(r: MessageRow) -> Self {
+        MemberMessageView {
+            id: r.id as u64,
+            from_pseudo: r.from_pseudo,
+            to_pseudo: r.to_pseudo,
+            body: r.body,
+            is_read: r.is_read,
+            created_at_epoch: r.created_at_epoch as u64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct DonationRow {
+    id: i64,
+    pseudo: String,
+    method: String,
+    code: String,
+    reviewed: bool,
+    approved: bool,
+    created_at_epoch: i64,
+}
+
+impl From<DonationRow> for DonationProofView {
+    fn from(r: DonationRow) -> Self {
+        DonationProofView {
+            id: r.id as u64,
+            pseudo: r.pseudo,
+            method: r.method,
+            code: r.code,
+            reviewed: r.reviewed,
+            approved: r.approved,
+            created_at_epoch: r.created_at_epoch as u64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct WallPostRow {
+    id: i64,
+    pseudo: String,
+    body: String,
+    created_at_epoch: i64,
+}
+
+impl From<WallPostRow> for WallPost {
+    fn from(r: WallPostRow) -> Self {
+        WallPost {
+            id: r.id as u64,
+            pseudo: r.pseudo,
+            body: r.body,
+            created_at_epoch: r.created_at_epoch as u64,
+        }
+    }
 }
 
 const ADMIN_SESSION_COOKIE: &str = "rev0auth_admin_session";
@@ -122,26 +292,6 @@ struct User {
     created_at_epoch: u64,
 }
 
-#[derive(Debug, Clone)]
-struct MemberMessage {
-    id: u64,
-    from_pseudo: String,
-    to_pseudo: String,
-    body: String,
-    is_read: bool,
-    created_at_epoch: u64,
-}
-
-#[derive(Debug, Clone)]
-struct DonationProof {
-    id: u64,
-    pseudo: String,
-    method: String,
-    code: String,
-    reviewed: bool,
-    approved: bool,
-    created_at_epoch: u64,
-}
 
 #[derive(Debug, Clone, Serialize)]
 struct WallPost {
@@ -558,17 +708,14 @@ async fn main() -> anyhow::Result<()> {
         info!("COOKIE_DOMAIN={d} — SongSurf cookie will be shared across subdomains");
     }
 
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+    let db = PgPool::connect(&database_url).await
+        .expect("Failed to connect to PostgreSQL");
+    info!("Connected to PostgreSQL");
+
     let state = WebState {
-        signup_requests: Arc::new(RwLock::new(Vec::new())),
-        next_request_id: Arc::new(AtomicU64::new(1)),
-        users: Arc::new(RwLock::new(Vec::new())),
-        member_messages: Arc::new(RwLock::new(Vec::new())),
-        next_message_id: Arc::new(AtomicU64::new(1)),
-        donation_proofs: Arc::new(RwLock::new(Vec::new())),
-        next_donation_id: Arc::new(AtomicU64::new(1)),
-        wall_posts: Arc::new(RwLock::new(Vec::new())),
-        next_wall_id: Arc::new(AtomicU64::new(1)),
-        user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        db,
         admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
         admin_audit_log: Arc::new(RwLock::new(Vec::new())),
         webauthn: Arc::new(webauthn_instance),
@@ -703,11 +850,12 @@ async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
     .map(|r| r.is_ok())
     .unwrap_or(false);
 
-    let requests = state.signup_requests.read().await;
-    let signup_requests_pending = requests
-        .iter()
-        .filter(|r| r.status == ManualStatus::Pending)
-        .count();
+    let signup_requests_pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM web_signup_requests WHERE status = 'pending'"
+    )
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
 
     Json(StatusAllResponse {
         checked_at_epoch: now_epoch(),
@@ -717,7 +865,7 @@ async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
         web_ok: true,
         sprint: "AUTH-006",
         tests_api_total: 18,
-        signup_requests_pending,
+        signup_requests_pending: signup_requests_pending as usize,
     })
 }
 
@@ -740,15 +888,22 @@ async fn portal_signup_request(
     }
 
     let pseudo = payload.pseudo.trim().to_string();
-    let id = state.next_request_id.fetch_add(1, Ordering::Relaxed);
     let temp_password = payload
         .temp_password
         .map(|pwd| pwd.trim().to_string())
         .filter(|pwd| !pwd.is_empty())
         .unwrap_or_else(generate_temp_password);
 
-    let mut users = state.users.write().await;
-    if users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
+    // Check if pseudo already exists
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
+    )
+    .bind(&pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if exists {
         return Json(SignupResponse {
             ok: false,
             request_id: 0,
@@ -758,50 +913,44 @@ async fn portal_signup_request(
         });
     }
 
-    users.push(User {
-        pseudo: pseudo.clone(),
-        role: "member",
-        active: true,
-        status: UserStatus::Actif,
-        bio: String::new(),
-        commentary: String::new(),
-        access_github: false,
-        access_jellyfin: false,
-        access_songsurf: false,
-        request_github: false,
-        request_jellyfin: false,
-        request_songsurf: false,
-        github_star_claimed: false,
-        github_username: None,
-        linkedin_name: None,
-        avatar_filename: None,
-        avatar_size_bytes: None,
-        avatar_mime_type: None,
-        avatar_bytes: None,
-        must_change_password: true,
-        created_at_epoch: now_epoch(),
-    });
-    drop(users);
+    // Insert user
+    let insert_result = sqlx::query(
+        "INSERT INTO web_users (pseudo, role, active, status, must_change_password, password_hash, created_at_epoch)
+         VALUES ($1, 'member', true, 'actif', true, $2, $3)"
+    )
+    .bind(&pseudo)
+    .bind(&temp_password)
+    .bind(now_epoch() as i64)
+    .execute(&state.db)
+    .await;
 
-    let mut passwords = state.user_passwords.write().await;
-    passwords.insert(pseudo_key(&pseudo), temp_password.clone());
-    drop(passwords);
+    if let Err(e) = insert_result {
+        tracing::error!("Failed to insert user {pseudo}: {e}");
+        return Json(SignupResponse {
+            ok: false,
+            request_id: 0,
+            status: "error",
+            message: "Erreur lors de la creation du compte.",
+            temp_password: None,
+        });
+    }
 
-    let request = SignupRequestRecord {
-        id,
-        pseudo,
-        referral: payload.referral.trim().to_string(),
-        temp_password: temp_password.clone(),
-        status: ManualStatus::Approved,
-        created_at_epoch: now_epoch(),
-    };
-
-    let mut requests = state.signup_requests.write().await;
-    requests.push(request);
+    // Insert signup request
+    let request_id: i64 = sqlx::query_scalar(
+        "INSERT INTO web_signup_requests (pseudo, referral, temp_password, status, created_at_epoch)
+         VALUES ($1, $2, $3, 'approved', $4) RETURNING id"
+    )
+    .bind(&pseudo)
+    .bind(payload.referral.trim())
+    .bind(&temp_password)
+    .bind(now_epoch() as i64)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
 
     Json(SignupResponse {
         ok: true,
-        request_id: id,
+        request_id: request_id as u64,
         status: "approved",
         message: "Compte cree immediatement.",
         temp_password: Some(temp_password),
@@ -812,7 +961,7 @@ async fn portal_login(
     State(state): State<WebState>,
     Json(payload): Json<LoginInput>,
 ) -> Json<LoginResponse> {
-    let pseudo = payload.pseudo.trim();
+    let pseudo = payload.pseudo.trim().to_string();
     if pseudo.is_empty() {
         return Json(LoginResponse {
             ok: false,
@@ -821,8 +970,13 @@ async fn portal_login(
         });
     }
 
-    let users = state.users.read().await;
-    let exists = users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(pseudo));
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
+    )
+    .bind(&pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
 
     if exists {
         Json(LoginResponse {
@@ -1213,76 +1367,84 @@ async fn admin_webauthn_auth_finish(
 // ============================================================================
 
 async fn admin_signup_requests(State(state): State<WebState>) -> Json<Vec<SignupRequestRecord>> {
-    let requests = state.signup_requests.read().await;
-    Json(requests.clone())
+    let rows: Vec<SignupRequestRow> = sqlx::query_as(
+        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests ORDER BY created_at_epoch ASC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(SignupRequestRecord::from).collect())
 }
 
 async fn admin_approve_signup_request(
     Path(id): Path<u64>,
     State(state): State<WebState>,
 ) -> Json<AccountPasswordResponse> {
-    let mut requests = state.signup_requests.write().await;
-    let maybe = requests.iter_mut().find(|r| r.id == id);
+    // Fetch the signup request
+    let maybe_req: Option<SignupRequestRow> = sqlx::query_as(
+        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests WHERE id = $1"
+    )
+    .bind(id as i64)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-    if let Some(req) = maybe {
-        let mut users = state.users.write().await;
-        if users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&req.pseudo)) {
-            return Json(AccountPasswordResponse {
-                ok: false,
-                message: "Utilisateur existe deja.".to_string(),
-                temp_password: None,
-            });
-        }
-
-        req.status = ManualStatus::Approved;
-
-        info!(target: "rev0auth", "User approved: {}", req.pseudo);
-        write_admin_audit(&state, "approve_signup", req.pseudo.clone(), format!("request #{id}")).await;
-        let user = User {
-            pseudo: req.pseudo.clone(),
-            role: "member",
-            active: true,
-            status: UserStatus::Actif,
-            bio: String::new(),
-            commentary: String::new(),
-            access_github: false,
-            access_jellyfin: false,
-            access_songsurf: false,
-            request_github: false,
-            request_jellyfin: false,
-            request_songsurf: false,
-            github_star_claimed: false,
-            github_username: None,
-            linkedin_name: None,
-            avatar_filename: None,
-            avatar_size_bytes: None,
-            avatar_mime_type: None,
-            avatar_bytes: None,
-            must_change_password: true,
-            created_at_epoch: now_epoch(),
-        };
-        users.push(user);
-        drop(users);
-
-        let temp_password = if req.temp_password.trim().is_empty() {
-            generate_temp_password()
-        } else {
-            req.temp_password.clone()
-        };
-        let mut passwords = state.user_passwords.write().await;
-        passwords.insert(pseudo_key(&req.pseudo), temp_password.clone());
-
+    let Some(req) = maybe_req else {
         return Json(AccountPasswordResponse {
-            ok: true,
-            message: "Demande approuvee. Mot de passe temporaire genere.".to_string(),
-            temp_password: Some(temp_password),
+            ok: false,
+            message: "Demande introuvable.".to_string(),
+            temp_password: None,
+        });
+    };
+
+    // Check if user already exists
+    let user_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
+    )
+    .bind(&req.pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if user_exists {
+        return Json(AccountPasswordResponse {
+            ok: false,
+            message: "Utilisateur existe deja.".to_string(),
+            temp_password: None,
         });
     }
 
+    let temp_password = if req.temp_password.trim().is_empty() {
+        generate_temp_password()
+    } else {
+        req.temp_password.clone()
+    };
+
+    // Insert user
+    let _ = sqlx::query(
+        "INSERT INTO web_users (pseudo, role, active, status, must_change_password, password_hash, created_at_epoch)
+         VALUES ($1, 'member', true, 'actif', true, $2, $3)
+         ON CONFLICT (pseudo) DO NOTHING"
+    )
+    .bind(&req.pseudo)
+    .bind(&temp_password)
+    .bind(now_epoch() as i64)
+    .execute(&state.db)
+    .await;
+
+    // Update request status
+    let _ = sqlx::query("UPDATE web_signup_requests SET status = 'approved' WHERE id = $1")
+        .bind(id as i64)
+        .execute(&state.db)
+        .await;
+
+    info!(target: "rev0auth", "User approved: {}", req.pseudo);
+    write_admin_audit(&state, "approve_signup", req.pseudo.clone(), format!("request #{id}")).await;
+
     Json(AccountPasswordResponse {
-        ok: false,
-        message: "Demande introuvable.".to_string(),
-        temp_password: None,
+        ok: true,
+        message: "Demande approuvee. Mot de passe temporaire genere.".to_string(),
+        temp_password: Some(temp_password),
     })
 }
 
@@ -1290,21 +1452,30 @@ async fn admin_reject_signup_request(
     Path(id): Path<u64>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut requests = state.signup_requests.write().await;
-    let maybe = requests.iter_mut().find(|r| r.id == id);
+    let maybe_req: Option<SignupRequestRow> = sqlx::query_as(
+        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests WHERE id = $1"
+    )
+    .bind(id as i64)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-    if let Some(req) = maybe {
-        req.status = ManualStatus::Rejected;
-        write_admin_audit(&state, "reject_signup", req.pseudo.clone(), format!("request #{id}")).await;
+    let Some(req) = maybe_req else {
         return Json(ActionResponse {
-            ok: true,
-            message: "Demande rejetee.",
+            ok: false,
+            message: "Demande introuvable.",
         });
-    }
+    };
 
+    let _ = sqlx::query("UPDATE web_signup_requests SET status = 'rejected' WHERE id = $1")
+        .bind(id as i64)
+        .execute(&state.db)
+        .await;
+
+    write_admin_audit(&state, "reject_signup", req.pseudo.clone(), format!("request #{id}")).await;
     Json(ActionResponse {
-        ok: false,
-        message: "Demande introuvable.",
+        ok: true,
+        message: "Demande rejetee.",
     })
 }
 
@@ -1364,8 +1535,17 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
 // ============================================================================
 
 async fn list_users(State(state): State<WebState>) -> Json<Vec<User>> {
-    let users = state.users.read().await;
-    Json(users.clone())
+    let rows: Vec<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users ORDER BY created_at_epoch ASC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(User::from).collect())
 }
 
 async fn password_check(
@@ -1383,21 +1563,29 @@ async fn password_check(
         return fail("Pseudo et mot de passe requis.");
     }
 
-    let passwords = state.user_passwords.read().await;
-    let stored = passwords.get(&pseudo_key(pseudo)).cloned();
-    drop(passwords);
+    let maybe_row: Option<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-    if stored.as_deref() != Some(password) {
+    let Some(row) = maybe_row else {
+        return fail("Mot de passe incorrect.");
+    };
+
+    if row.password_hash != password {
         return fail("Mot de passe incorrect.");
     }
 
-    let users = state.users.read().await;
-    let user_snap = users.iter().find(|u| u.pseudo.eq_ignore_ascii_case(pseudo)).cloned();
-    drop(users);
-
-    let requires_change = user_snap.as_ref().map(|u| u.must_change_password).unwrap_or(false);
-    let access_songsurf = user_snap.as_ref().map(|u| u.access_songsurf).unwrap_or(false);
-    let role = user_snap.as_ref().map(|u| u.role).unwrap_or("member");
+    let requires_change = row.must_change_password;
+    let access_songsurf = row.access_songsurf;
+    let role = role_str_to_static(&row.role);
 
     let jwt_secret = state.songsurf_jwt_secret.as_str();
     let songsurf_url = if access_songsurf && !jwt_secret.is_empty() && !state.songsurf_url.is_empty() {
@@ -1445,63 +1633,51 @@ async fn set_user_busy(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo == pseudo) {
-        user.status = UserStatus::Occupe;
-        info!(target: "rev0auth", "User {} set to busy", pseudo);
-        return Json(ActionResponse {
-            ok: true,
-            message: "Statut change en occupe.",
-        });
+    let result = sqlx::query("UPDATE web_users SET status = 'occupe' WHERE pseudo = $1")
+        .bind(&pseudo)
+        .execute(&state.db)
+        .await;
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            info!(target: "rev0auth", "User {} set to busy", pseudo);
+            Json(ActionResponse { ok: true, message: "Statut change en occupe." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
 }
 
 async fn set_user_active(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo == pseudo) {
-        user.status = UserStatus::Actif;
-        info!(target: "rev0auth", "User {} set to active", pseudo);
-        return Json(ActionResponse {
-            ok: true,
-            message: "Statut change en actif.",
-        });
+    let result = sqlx::query("UPDATE web_users SET status = 'actif' WHERE pseudo = $1")
+        .bind(&pseudo)
+        .execute(&state.db)
+        .await;
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            info!(target: "rev0auth", "User {} set to active", pseudo);
+            Json(ActionResponse { ok: true, message: "Statut change en actif." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
 }
 
 async fn set_user_inactive(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo == pseudo) {
-        user.status = UserStatus::Inactif;
-        info!(target: "rev0auth", "User {} logged out", pseudo);
-        return Json(ActionResponse {
-            ok: true,
-            message: "Statut change en inactif.",
-        });
+    let result = sqlx::query("UPDATE web_users SET status = 'inactif' WHERE pseudo = $1")
+        .bind(&pseudo)
+        .execute(&state.db)
+        .await;
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            info!(target: "rev0auth", "User {} logged out", pseudo);
+            Json(ActionResponse { ok: true, message: "Statut change en inactif." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
 }
 
 async fn admin_set_password(
@@ -1509,66 +1685,73 @@ async fn admin_set_password(
     State(state): State<WebState>,
     Json(payload): Json<AdminSetPasswordInput>,
 ) -> Json<ActionResponse> {
-    let users = state.users.read().await;
-    
-    // Verify user exists
-    if !users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Utilisateur introuvable.",
-        });
+    let result = sqlx::query(
+        "UPDATE web_users SET password_hash = $1, must_change_password = true WHERE LOWER(pseudo) = LOWER($2)"
+    )
+    .bind(&payload.password)
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
+
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            info!(target: "rev0auth", "Admin set password for user {}", pseudo);
+            write_admin_audit(&state, "set_password", pseudo.clone(), "password replaced".to_string()).await;
+            Json(ActionResponse { ok: true, message: "Mot de passe defini." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    // Set password
-    let mut passwords = state.user_passwords.write().await;
-    passwords.insert(pseudo_key(&pseudo), payload.password);
-
-    drop(passwords);
-
-    let mut users = state.users.write().await;
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
-        user.must_change_password = true;
-    }
-    
-    info!(target: "rev0auth", "Admin set password for user {}", pseudo);
-    write_admin_audit(&state, "set_password", pseudo.clone(), "password replaced".to_string()).await;
-    Json(ActionResponse {
-        ok: true,
-        message: "Mot de passe defini.",
-    })
 }
 
 async fn admin_remove_password(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let users = state.users.read().await;
-    
-    // Verify user exists
-    if !users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
+    // Check user exists first
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
+    )
+    .bind(&pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if !exists {
         return Json(ActionResponse {
             ok: false,
             message: "Utilisateur introuvable.",
         });
     }
 
-    drop(users);
-    
-    // Remove password
-    let mut passwords = state.user_passwords.write().await;
-    if passwords.remove(&pseudo_key(&pseudo)).is_some() {
-        info!(target: "rev0auth", "Admin removed password for user {}", pseudo);
-        write_admin_audit(&state, "remove_password", pseudo.clone(), "password cleared".to_string()).await;
-        Json(ActionResponse {
-            ok: true,
-            message: "Mot de passe supprime.",
-        })
-    } else {
-        Json(ActionResponse {
+    // Check if they have a password (non-empty password_hash)
+    let has_password: bool = sqlx::query_scalar(
+        "SELECT password_hash != '' FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if !has_password {
+        return Json(ActionResponse {
             ok: false,
             message: "Pas de mot de passe pour cet utilisateur.",
-        })
+        });
     }
+
+    let _ = sqlx::query(
+        "UPDATE web_users SET password_hash = '' WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
+
+    info!(target: "rev0auth", "Admin removed password for user {}", pseudo);
+    write_admin_audit(&state, "remove_password", pseudo.clone(), "password cleared".to_string()).await;
+    Json(ActionResponse {
+        ok: true,
+        message: "Mot de passe supprime.",
+    })
 }
 
 async fn admin_create_user(
@@ -1587,98 +1770,110 @@ async fn admin_update_user(
     State(state): State<WebState>,
     Json(payload): Json<UpdateUserInput>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo == pseudo) {
-        if let Some(status_str) = payload.status {
-            let new_status = match status_str.to_lowercase().as_str() {
-                "actif" => UserStatus::Actif,
-                "occupe" => UserStatus::Occupe,
-                "inactif" => UserStatus::Inactif,
-                _ => return Json(ActionResponse {
-                    ok: false,
-                    message: "Statut invalide.",
-                }),
-            };
-            user.status = new_status;
-        }
+    // Fetch current user
+    let maybe_row: Option<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users WHERE pseudo = $1"
+    )
+    .bind(&pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-        if let Some(access) = payload.access_jellyfin {
-            user.access_jellyfin = access;
-            if access {
-                user.request_jellyfin = false;
-            }
-        }
+    let Some(row) = maybe_row else {
+        return Json(ActionResponse { ok: false, message: "Utilisateur introuvable." });
+    };
 
-        if let Some(access) = payload.access_songsurf {
-            user.access_songsurf = access;
-            if access {
-                user.request_songsurf = false;
-            }
-        }
+    let mut new_status = row.status.clone();
+    let mut new_access_github = row.access_github;
+    let mut new_access_jellyfin = row.access_jellyfin;
+    let mut new_access_songsurf = row.access_songsurf;
+    let mut new_request_github = row.request_github;
+    let mut new_request_jellyfin = row.request_jellyfin;
+    let mut new_request_songsurf = row.request_songsurf;
 
-        if let Some(access) = payload.access_github {
-            if access && !user.github_star_claimed {
-                return Json(ActionResponse {
-                    ok: false,
-                    message: "User doit confirmer sa star GitHub avant activation.",
-                });
-            }
-            user.access_github = access;
-            if access {
-                user.request_github = false;
-            }
+    if let Some(status_str) = payload.status {
+        match status_str.to_lowercase().as_str() {
+            "actif" => new_status = "actif".to_string(),
+            "occupe" => new_status = "occupe".to_string(),
+            "inactif" => new_status = "inactif".to_string(),
+            _ => return Json(ActionResponse { ok: false, message: "Statut invalide." }),
         }
-        
-        info!(target: "rev0auth", "Admin updated user {}", pseudo);
-        write_admin_audit(&state, "update_user", pseudo.clone(), "access/status updated".to_string()).await;
-        return Json(ActionResponse {
-            ok: true,
-            message: "Utilisateur modifie.",
-        });
     }
 
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
+    if let Some(access) = payload.access_jellyfin {
+        new_access_jellyfin = access;
+        if access { new_request_jellyfin = false; }
+    }
+
+    if let Some(access) = payload.access_songsurf {
+        new_access_songsurf = access;
+        if access { new_request_songsurf = false; }
+    }
+
+    if let Some(access) = payload.access_github {
+        if access && !row.github_star_claimed {
+            return Json(ActionResponse {
+                ok: false,
+                message: "User doit confirmer sa star GitHub avant activation.",
+            });
+        }
+        new_access_github = access;
+        if access { new_request_github = false; }
+    }
+
+    let _ = sqlx::query(
+        "UPDATE web_users SET status=$1, access_github=$2, access_jellyfin=$3, access_songsurf=$4,
+         request_github=$5, request_jellyfin=$6, request_songsurf=$7 WHERE pseudo=$8"
+    )
+    .bind(&new_status)
+    .bind(new_access_github)
+    .bind(new_access_jellyfin)
+    .bind(new_access_songsurf)
+    .bind(new_request_github)
+    .bind(new_request_jellyfin)
+    .bind(new_request_songsurf)
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
+
+    info!(target: "rev0auth", "Admin updated user {}", pseudo);
+    write_admin_audit(&state, "update_user", pseudo.clone(), "access/status updated".to_string()).await;
+    Json(ActionResponse { ok: true, message: "Utilisateur modifie." })
 }
 
 async fn admin_delete_user(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    let initial_len = users.len();
-    users.retain(|u| u.pseudo != pseudo);
-    
-    if users.len() < initial_len {
-        // Also remove password if exists
-        let mut passwords = state.user_passwords.write().await;
-        passwords.remove(&pseudo_key(&pseudo));
-        drop(passwords);
+    let result = sqlx::query("DELETE FROM web_users WHERE pseudo = $1")
+        .bind(&pseudo)
+        .execute(&state.db)
+        .await;
 
-        let mut messages = state.member_messages.write().await;
-        messages.retain(|m| {
-            !m.from_pseudo.eq_ignore_ascii_case(&pseudo)
-                && !m.to_pseudo.eq_ignore_ascii_case(&pseudo)
-        });
-        drop(messages);
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            // Cascade: delete messages and donations for this user
+            let _ = sqlx::query(
+                "DELETE FROM web_messages WHERE LOWER(from_pseudo) = LOWER($1) OR LOWER(to_pseudo) = LOWER($1)"
+            )
+            .bind(&pseudo)
+            .execute(&state.db)
+            .await;
 
-        let mut donations = state.donation_proofs.write().await;
-        donations.retain(|d| !d.pseudo.eq_ignore_ascii_case(&pseudo));
-        
-        info!(target: "rev0auth", "Admin deleted user {}", pseudo);
-        write_admin_audit(&state, "delete_user", pseudo.clone(), "user and all data deleted".to_string()).await;
-        Json(ActionResponse {
-            ok: true,
-            message: "Utilisateur supprime.",
-        })
-    } else {
-        Json(ActionResponse {
-            ok: false,
-            message: "Utilisateur introuvable.",
-        })
+            let _ = sqlx::query("DELETE FROM web_donations WHERE LOWER(pseudo) = LOWER($1)")
+                .bind(&pseudo)
+                .execute(&state.db)
+                .await;
+
+            info!(target: "rev0auth", "Admin deleted user {}", pseudo);
+            write_admin_audit(&state, "delete_user", pseudo.clone(), "user and all data deleted".to_string()).await;
+            Json(ActionResponse { ok: true, message: "Utilisateur supprime." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
 }
 
@@ -1686,28 +1881,39 @@ async fn member_profile_data(
     Query(query): Query<ProfileQuery>,
     State(state): State<WebState>,
 ) -> Json<MemberProfileResponse> {
-    let users = state.users.read().await;
-    if let Some(user) = users.iter().find(|u| u.pseudo.eq_ignore_ascii_case(&query.pseudo)) {
+    let maybe_row: Option<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&query.pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
+
+    if let Some(row) = maybe_row {
         return Json(MemberProfileResponse {
             ok: true,
-            pseudo: user.pseudo.clone(),
-            role: user.role,
-            status: user.status,
-            bio: user.bio.clone(),
-            commentary: user.commentary.clone(),
-            access_github: user.access_github,
-            access_jellyfin: user.access_jellyfin,
-            access_songsurf: user.access_songsurf,
-            request_github: user.request_github,
-            request_jellyfin: user.request_jellyfin,
-            request_songsurf: user.request_songsurf,
-            github_star_claimed: user.github_star_claimed,
-            github_username: user.github_username.clone(),
-            linkedin_name: user.linkedin_name.clone(),
-            avatar_present: user.avatar_bytes.is_some(),
-            avatar_filename: user.avatar_filename.clone(),
-            avatar_size_bytes: user.avatar_size_bytes,
-            created_at_epoch: user.created_at_epoch,
+            pseudo: row.pseudo.clone(),
+            role: role_str_to_static(&row.role),
+            status: parse_status_str(&row.status),
+            bio: row.bio.clone(),
+            commentary: row.commentary.clone(),
+            access_github: row.access_github,
+            access_jellyfin: row.access_jellyfin,
+            access_songsurf: row.access_songsurf,
+            request_github: row.request_github,
+            request_jellyfin: row.request_jellyfin,
+            request_songsurf: row.request_songsurf,
+            github_star_claimed: row.github_star_claimed,
+            github_username: row.github_username.clone(),
+            linkedin_name: row.linkedin_name.clone(),
+            avatar_present: row.avatar_bytes.is_some(),
+            avatar_filename: row.avatar_filename.clone(),
+            avatar_size_bytes: row.avatar_size_bytes.map(|n| n as usize),
+            created_at_epoch: row.created_at_epoch as u64,
         });
     }
 
@@ -1738,28 +1944,44 @@ async fn member_update_profile(
     State(state): State<WebState>,
     Json(payload): Json<UpdateProfileInput>,
 ) -> Json<MessageResponse> {
-    let mut users = state.users.write().await;
-    if let Some(user) = users
-        .iter_mut()
-        .find(|u| u.pseudo.eq_ignore_ascii_case(&payload.pseudo))
-    {
-        user.bio = payload.bio.trim().to_string();
-        if let Some(commentary) = payload.commentary {
-            user.commentary = commentary.trim().to_string();
-        }
-        if let Some(status) = payload.status {
-            user.status = parse_member_status(&status).unwrap_or(user.status);
-        }
-        return Json(MessageResponse {
-            ok: true,
-            message: "Profil mis a jour.".to_string(),
-        });
-    }
+    // Fetch current row to preserve status if not changing it
+    let maybe_row: Option<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&payload.pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-    Json(MessageResponse {
-        ok: false,
-        message: "Utilisateur introuvable.".to_string(),
-    })
+    let Some(row) = maybe_row else {
+        return Json(MessageResponse { ok: false, message: "Utilisateur introuvable.".to_string() });
+    };
+
+    let new_bio = payload.bio.trim().to_string();
+    let new_commentary = payload.commentary.map(|c| c.trim().to_string()).unwrap_or(row.commentary.clone());
+    let new_status: String = payload.status
+        .and_then(|s| parse_member_status(&s))
+        .map(|s| user_status_to_str(s).to_string())
+        .unwrap_or_else(|| row.status.clone());
+
+    let result = sqlx::query(
+        "UPDATE web_users SET bio=$1, commentary=$2, status=$3 WHERE LOWER(pseudo) = LOWER($4)"
+    )
+    .bind(&new_bio)
+    .bind(&new_commentary)
+    .bind(&new_status)
+    .bind(&payload.pseudo)
+    .execute(&state.db)
+    .await;
+
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(MessageResponse { ok: true, message: "Profil mis a jour.".to_string() }),
+        _ => Json(MessageResponse { ok: false, message: "Utilisateur introuvable.".to_string() }),
+    }
 }
 
 async fn member_set_status(
@@ -1773,33 +1995,29 @@ async fn member_set_status(
         });
     };
 
-    let mut users = state.users.write().await;
-    if let Some(user) = users
-        .iter_mut()
-        .find(|u| u.pseudo.eq_ignore_ascii_case(payload.pseudo.trim()))
-    {
-        user.status = next_status;
-        if let Some(commentary) = payload.commentary {
-            user.commentary = commentary.trim().to_string();
-        }
+    let status_str = user_status_to_str(next_status);
+    let commentary = payload.commentary.map(|c| c.trim().to_string()).unwrap_or_default();
 
-        return Json(ActionResponse {
-            ok: true,
-            message: "Statut mis a jour.",
-        });
+    let result = sqlx::query(
+        "UPDATE web_users SET status=$1, commentary=$2 WHERE LOWER(pseudo) = LOWER($3)"
+    )
+    .bind(status_str)
+    .bind(&commentary)
+    .bind(payload.pseudo.trim())
+    .execute(&state.db)
+    .await;
+
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Statut mis a jour." }),
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
 }
 
 async fn member_request_access(
     State(state): State<WebState>,
     Json(payload): Json<AccessRequestInput>,
 ) -> Json<ActionResponse> {
-    let pseudo = payload.pseudo.trim();
+    let pseudo = payload.pseudo.trim().to_string();
     if pseudo.is_empty() {
         return Json(ActionResponse {
             ok: false,
@@ -1808,52 +2026,43 @@ async fn member_request_access(
     }
 
     let service = payload.service.trim().to_ascii_lowercase();
-    let mut users = state.users.write().await;
-    let Some(user) = users
-        .iter_mut()
-        .find(|u| u.pseudo.eq_ignore_ascii_case(pseudo))
-    else {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Utilisateur introuvable.",
-        });
-    };
 
     match service.as_str() {
         "jellyfin" => {
             let name = payload.linkedin_name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
             if name.is_none() {
-                return Json(ActionResponse {
-                    ok: false,
-                    message: "Nom LinkedIn requis.",
-                });
+                return Json(ActionResponse { ok: false, message: "Nom LinkedIn requis." });
             }
-            user.request_jellyfin = true;
-            user.linkedin_name = name;
-            Json(ActionResponse {
-                ok: true,
-                message: "Demande Jellyfin envoyee a l'admin.",
-            })
+            let result = sqlx::query(
+                "UPDATE web_users SET request_jellyfin=true, linkedin_name=$1 WHERE LOWER(pseudo) = LOWER($2)"
+            )
+            .bind(name)
+            .bind(&pseudo)
+            .execute(&state.db)
+            .await;
+            match result {
+                Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Demande Jellyfin envoyee a l'admin." }),
+                _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
+            }
         }
         "songsurf" => {
             let username = payload.github_username.map(|u| u.trim().to_string()).filter(|u| !u.is_empty());
             if username.is_none() {
-                return Json(ActionResponse {
-                    ok: false,
-                    message: "Pseudo GitHub requis.",
-                });
+                return Json(ActionResponse { ok: false, message: "Pseudo GitHub requis." });
             }
-            user.request_songsurf = true;
-            user.github_username = username;
-            Json(ActionResponse {
-                ok: true,
-                message: "Demande Songsurf envoyee a l'admin.",
-            })
+            let result = sqlx::query(
+                "UPDATE web_users SET request_songsurf=true, github_username=$1 WHERE LOWER(pseudo) = LOWER($2)"
+            )
+            .bind(username)
+            .bind(&pseudo)
+            .execute(&state.db)
+            .await;
+            match result {
+                Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Demande Songsurf envoyee a l'admin." }),
+                _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
+            }
         }
-        _ => Json(ActionResponse {
-            ok: false,
-            message: "Service invalide.",
-        }),
+        _ => Json(ActionResponse { ok: false, message: "Service invalide." }),
     }
 }
 
@@ -1879,63 +2088,55 @@ async fn member_message_send(
         });
     }
 
-    let mut messages = state.member_messages.write().await;
-    let id = state.next_message_id.fetch_add(1, Ordering::Relaxed);
-    messages.push(MemberMessage {
-        id,
-        from_pseudo,
-        to_pseudo,
-        body,
-        is_read: false,
-        created_at_epoch: now_epoch(),
-    });
+    let result = sqlx::query(
+        "INSERT INTO web_messages (from_pseudo, to_pseudo, body, created_at_epoch) VALUES ($1, $2, $3, $4)"
+    )
+    .bind(&from_pseudo)
+    .bind(&to_pseudo)
+    .bind(&body)
+    .bind(now_epoch() as i64)
+    .execute(&state.db)
+    .await;
 
-    Json(MessageResponse {
-        ok: true,
-        message: "Message envoye.".to_string(),
-    })
+    match result {
+        Ok(_) => Json(MessageResponse { ok: true, message: "Message envoye.".to_string() }),
+        Err(e) => {
+            tracing::error!("Failed to insert message: {e}");
+            Json(MessageResponse { ok: false, message: "Erreur lors de l'envoi du message.".to_string() })
+        }
+    }
 }
 
 async fn member_messages_inbox(
     Query(query): Query<MessageListQuery>,
     State(state): State<WebState>,
 ) -> Json<Vec<MemberMessageView>> {
-    let pseudo = query.pseudo.trim();
-    let messages = state.member_messages.read().await;
-    let list = messages
-        .iter()
-        .filter(|m| m.to_pseudo.eq_ignore_ascii_case(pseudo))
-        .map(|m| MemberMessageView {
-            id: m.id,
-            from_pseudo: m.from_pseudo.clone(),
-            to_pseudo: m.to_pseudo.clone(),
-            body: m.body.clone(),
-            is_read: m.is_read,
-            created_at_epoch: m.created_at_epoch,
-        })
-        .collect();
-    Json(list)
+    let pseudo = query.pseudo.trim().to_string();
+    let rows: Vec<MessageRow> = sqlx::query_as(
+        "SELECT id, from_pseudo, to_pseudo, body, is_read, created_at_epoch
+         FROM web_messages WHERE LOWER(to_pseudo) = LOWER($1) ORDER BY created_at_epoch DESC"
+    )
+    .bind(&pseudo)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(MemberMessageView::from).collect())
 }
 
 async fn member_messages_sent(
     Query(query): Query<MessageListQuery>,
     State(state): State<WebState>,
 ) -> Json<Vec<MemberMessageView>> {
-    let pseudo = query.pseudo.trim();
-    let messages = state.member_messages.read().await;
-    let list = messages
-        .iter()
-        .filter(|m| m.from_pseudo.eq_ignore_ascii_case(pseudo))
-        .map(|m| MemberMessageView {
-            id: m.id,
-            from_pseudo: m.from_pseudo.clone(),
-            to_pseudo: m.to_pseudo.clone(),
-            body: m.body.clone(),
-            is_read: m.is_read,
-            created_at_epoch: m.created_at_epoch,
-        })
-        .collect();
-    Json(list)
+    let pseudo = query.pseudo.trim().to_string();
+    let rows: Vec<MessageRow> = sqlx::query_as(
+        "SELECT id, from_pseudo, to_pseudo, body, is_read, created_at_epoch
+         FROM web_messages WHERE LOWER(from_pseudo) = LOWER($1) ORDER BY created_at_epoch DESC"
+    )
+    .bind(&pseudo)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(MemberMessageView::from).collect())
 }
 
 async fn member_mark_message_read(
@@ -1943,23 +2144,19 @@ async fn member_mark_message_read(
     State(state): State<WebState>,
     Json(query): Json<MessageListQuery>,
 ) -> Json<ActionResponse> {
-    let pseudo = query.pseudo.trim();
-    let mut messages = state.member_messages.write().await;
-    if let Some(msg) = messages
-        .iter_mut()
-        .find(|m| m.id == id && m.to_pseudo.eq_ignore_ascii_case(pseudo))
-    {
-        msg.is_read = true;
-        return Json(ActionResponse {
-            ok: true,
-            message: "Message marque comme lu.",
-        });
-    }
+    let pseudo = query.pseudo.trim().to_string();
+    let result = sqlx::query(
+        "UPDATE web_messages SET is_read=true WHERE id=$1 AND LOWER(to_pseudo)=LOWER($2)"
+    )
+    .bind(id as i64)
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
 
-    Json(ActionResponse {
-        ok: false,
-        message: "Message introuvable.",
-    })
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Message marque comme lu." }),
+        _ => Json(ActionResponse { ok: false, message: "Message introuvable." }),
+    }
 }
 
 async fn member_upload_donation_proof(
@@ -1980,21 +2177,20 @@ async fn member_upload_donation_proof(
         return Json(MessageResponse { ok: false, message: "Code/reference donation manquant.".to_string() });
     }
 
-    let id = state.next_donation_id.fetch_add(1, Ordering::Relaxed);
-    let mut donations = state.donation_proofs.write().await;
-    donations.push(DonationProof {
-        id,
-        pseudo,
-        method,
-        code,
-        reviewed: false,
-        approved: false,
-        created_at_epoch: now_epoch(),
-    });
+    let insert_id: i64 = sqlx::query_scalar(
+        "INSERT INTO web_donations (pseudo, method, code, created_at_epoch) VALUES ($1, $2, $3, $4) RETURNING id"
+    )
+    .bind(&pseudo)
+    .bind(&method)
+    .bind(&code)
+    .bind(now_epoch() as i64)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
 
     Json(MessageResponse {
         ok: true,
-        message: format!("Preuve donation envoyee (ID #{id})."),
+        message: format!("Preuve donation envoyee (ID #{insert_id})."),
     })
 }
 
@@ -2025,39 +2221,26 @@ async fn member_donations(
     Query(query): Query<DonationListQuery>,
     State(state): State<WebState>,
 ) -> Json<Vec<DonationProofView>> {
-    let pseudo = query.pseudo.trim();
-    let donations = state.donation_proofs.read().await;
-    let list = donations
-        .iter()
-        .filter(|d| d.pseudo.eq_ignore_ascii_case(pseudo))
-        .map(|d| DonationProofView {
-            id: d.id,
-            pseudo: d.pseudo.clone(),
-            method: d.method.clone(),
-            code: d.code.clone(),
-            reviewed: d.reviewed,
-            approved: d.approved,
-            created_at_epoch: d.created_at_epoch,
-        })
-        .collect();
-    Json(list)
+    let pseudo = query.pseudo.trim().to_string();
+    let rows: Vec<DonationRow> = sqlx::query_as(
+        "SELECT id, pseudo, method, code, reviewed, approved, created_at_epoch
+         FROM web_donations WHERE LOWER(pseudo) = LOWER($1) ORDER BY created_at_epoch DESC"
+    )
+    .bind(&pseudo)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(DonationProofView::from).collect())
 }
 
 async fn admin_messages_all(State(state): State<WebState>) -> Json<Vec<MemberMessageView>> {
-    let messages = state.member_messages.read().await;
-    Json(
-        messages
-            .iter()
-            .map(|m| MemberMessageView {
-                id: m.id,
-                from_pseudo: m.from_pseudo.clone(),
-                to_pseudo: m.to_pseudo.clone(),
-                body: m.body.clone(),
-                is_read: m.is_read,
-                created_at_epoch: m.created_at_epoch,
-            })
-            .collect(),
+    let rows: Vec<MessageRow> = sqlx::query_as(
+        "SELECT id, from_pseudo, to_pseudo, body, is_read, created_at_epoch FROM web_messages ORDER BY created_at_epoch DESC"
     )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(MemberMessageView::from).collect())
 }
 
 async fn admin_message_reply(
@@ -2082,26 +2265,30 @@ async fn admin_message_reply(
         });
     }
 
-    let users = state.users.read().await;
-    let recipient_exists = users.iter().any(|u| u.pseudo.eq_ignore_ascii_case(&to_pseudo));
+    let recipient_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
+    )
+    .bind(&to_pseudo)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
     if !recipient_exists {
         return Json(ActionResponse {
             ok: false,
             message: "Destinataire introuvable.",
         });
     }
-    drop(users);
 
-    let mut messages = state.member_messages.write().await;
-    let id = state.next_message_id.fetch_add(1, Ordering::Relaxed);
-    messages.push(MemberMessage {
-        id,
-        from_pseudo,
-        to_pseudo,
-        body,
-        is_read: false,
-        created_at_epoch: now_epoch(),
-    });
+    let _ = sqlx::query(
+        "INSERT INTO web_messages (from_pseudo, to_pseudo, body, created_at_epoch) VALUES ($1, $2, $3, $4)"
+    )
+    .bind(&from_pseudo)
+    .bind(&to_pseudo)
+    .bind(&body)
+    .bind(now_epoch() as i64)
+    .execute(&state.db)
+    .await;
 
     Json(ActionResponse {
         ok: true,
@@ -2110,21 +2297,13 @@ async fn admin_message_reply(
 }
 
 async fn admin_donations_all(State(state): State<WebState>) -> Json<Vec<DonationProofView>> {
-    let donations = state.donation_proofs.read().await;
-    Json(
-        donations
-            .iter()
-            .map(|d| DonationProofView {
-                id: d.id,
-                pseudo: d.pseudo.clone(),
-                method: d.method.clone(),
-                code: d.code.clone(),
-                reviewed: d.reviewed,
-                approved: d.approved,
-                created_at_epoch: d.created_at_epoch,
-            })
-            .collect(),
+    let rows: Vec<DonationRow> = sqlx::query_as(
+        "SELECT id, pseudo, method, code, reviewed, approved, created_at_epoch FROM web_donations ORDER BY created_at_epoch DESC"
     )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(DonationProofView::from).collect())
 }
 
 async fn admin_donation_review(
@@ -2132,23 +2311,28 @@ async fn admin_donation_review(
     State(state): State<WebState>,
     Json(payload): Json<DonationReviewInput>,
 ) -> Json<ActionResponse> {
-    let mut donations = state.donation_proofs.write().await;
-    if let Some(item) = donations.iter_mut().find(|d| d.id == id) {
-        item.reviewed = true;
-        item.approved = payload.approved;
-        let verdict = if payload.approved { "approved" } else { "rejected" };
-        let pseudo = item.pseudo.clone();
-        drop(donations);
-        write_admin_audit(&state, "review_donation", format!("#{id}"), format!("{verdict} for {pseudo}")).await;
-        return Json(ActionResponse {
-            ok: true,
-            message: "Preuve donation moderee.",
-        });
-    }
-    Json(ActionResponse {
-        ok: false,
-        message: "Preuve donation introuvable.",
-    })
+    // Fetch to get pseudo for audit log
+    let maybe_row: Option<DonationRow> = sqlx::query_as(
+        "SELECT id, pseudo, method, code, reviewed, approved, created_at_epoch FROM web_donations WHERE id=$1"
+    )
+    .bind(id as i64)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
+
+    let Some(row) = maybe_row else {
+        return Json(ActionResponse { ok: false, message: "Preuve donation introuvable." });
+    };
+
+    let _ = sqlx::query("UPDATE web_donations SET reviewed=true, approved=$1 WHERE id=$2")
+        .bind(payload.approved)
+        .bind(id as i64)
+        .execute(&state.db)
+        .await;
+
+    let verdict = if payload.approved { "approved" } else { "rejected" };
+    write_admin_audit(&state, "review_donation", format!("#{id}"), format!("{verdict} for {}", row.pseudo)).await;
+    Json(ActionResponse { ok: true, message: "Preuve donation moderee." })
 }
 
 async fn member_update_password(
@@ -2157,64 +2341,51 @@ async fn member_update_password(
 ) -> Json<ActionResponse> {
     let pseudo = payload.pseudo.trim().to_string();
     if pseudo.is_empty() {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Pseudo manquant.",
-        });
+        return Json(ActionResponse { ok: false, message: "Pseudo manquant." });
     }
 
-    let new_password = payload.new_password.trim();
+    let new_password = payload.new_password.trim().to_string();
     if new_password.len() < 4 {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Nouveau mot de passe trop court.",
-        });
+        return Json(ActionResponse { ok: false, message: "Nouveau mot de passe trop court." });
     }
 
-    let users = state.users.read().await;
-    let Some(user_ref) = users.iter().find(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) else {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Utilisateur introuvable.",
-        });
-    };
-    let must_change_password = user_ref.must_change_password;
-    drop(users);
+    // Fetch current user
+    let maybe_row: Option<UserRow> = sqlx::query_as(
+        "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
+                request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
+                linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
+                must_change_password, password_hash, created_at_epoch
+         FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
 
-    let mut passwords = state.user_passwords.write().await;
-    let pseudo_key = pseudo_key(&pseudo);
-    if let Some(existing) = passwords.get(&pseudo_key) {
-        if must_change_password {
-            // First-login path: allow setting a fresh password without asking current one again.
-        } else {
-            if let Some(current_password) = payload.current_password.as_ref() {
-                if existing != current_password {
-                    return Json(ActionResponse {
-                        ok: false,
-                        message: "Mot de passe actuel invalide.",
-                    });
-                }
-            } else {
-                return Json(ActionResponse {
-                    ok: false,
-                    message: "Mot de passe actuel requis.",
-                });
+    let Some(row) = maybe_row else {
+        return Json(ActionResponse { ok: false, message: "Utilisateur introuvable." });
+    };
+
+    if !row.must_change_password {
+        // Not first-login: must provide current password
+        if let Some(current_password) = payload.current_password.as_ref() {
+            if &row.password_hash != current_password {
+                return Json(ActionResponse { ok: false, message: "Mot de passe actuel invalide." });
             }
+        } else {
+            return Json(ActionResponse { ok: false, message: "Mot de passe actuel requis." });
         }
     }
 
-    passwords.insert(pseudo_key, new_password.to_string());
+    let _ = sqlx::query(
+        "UPDATE web_users SET password_hash=$1, must_change_password=false WHERE LOWER(pseudo) = LOWER($2)"
+    )
+    .bind(&new_password)
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
 
-    drop(passwords);
-
-    let mut users = state.users.write().await;
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) {
-        user.must_change_password = false;
-    }
-    Json(ActionResponse {
-        ok: true,
-        message: "Mot de passe mis a jour.",
-    })
+    Json(ActionResponse { ok: true, message: "Mot de passe mis a jour." })
 }
 
 async fn member_delete_account(
@@ -2223,43 +2394,32 @@ async fn member_delete_account(
 ) -> Json<ActionResponse> {
     let pseudo = payload.pseudo.trim().to_string();
     if pseudo.is_empty() {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Pseudo manquant.",
-        });
+        return Json(ActionResponse { ok: false, message: "Pseudo manquant." });
     }
 
-    let mut users = state.users.write().await;
-    let initial_len = users.len();
-    users.retain(|u| !u.pseudo.eq_ignore_ascii_case(&pseudo));
-    let deleted = users.len() < initial_len;
-    drop(users);
+    let result = sqlx::query("DELETE FROM web_users WHERE LOWER(pseudo) = LOWER($1)")
+        .bind(&pseudo)
+        .execute(&state.db)
+        .await;
 
-    if !deleted {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Utilisateur introuvable.",
-        });
+    match result {
+        Ok(r) if r.rows_affected() > 0 => {
+            let _ = sqlx::query(
+                "DELETE FROM web_messages WHERE LOWER(from_pseudo) = LOWER($1) OR LOWER(to_pseudo) = LOWER($1)"
+            )
+            .bind(&pseudo)
+            .execute(&state.db)
+            .await;
+
+            let _ = sqlx::query("DELETE FROM web_donations WHERE LOWER(pseudo) = LOWER($1)")
+                .bind(&pseudo)
+                .execute(&state.db)
+                .await;
+
+            Json(ActionResponse { ok: true, message: "Compte supprime." })
+        }
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
     }
-
-    let mut passwords = state.user_passwords.write().await;
-    passwords.remove(&pseudo_key(&pseudo));
-    drop(passwords);
-
-    let mut messages = state.member_messages.write().await;
-    messages.retain(|m| {
-        !m.from_pseudo.eq_ignore_ascii_case(&pseudo)
-            && !m.to_pseudo.eq_ignore_ascii_case(&pseudo)
-    });
-    drop(messages);
-
-    let mut donations = state.donation_proofs.write().await;
-    donations.retain(|d| !d.pseudo.eq_ignore_ascii_case(&pseudo));
-
-    Json(ActionResponse {
-        ok: true,
-        message: "Compte supprime.",
-    })
 }
 
 async fn member_upload_avatar(
@@ -2337,48 +2497,50 @@ async fn member_upload_avatar(
 
     let size = bytes.len();
 
-    let mut users = state.users.write().await;
-    if let Some(user) = users.iter_mut().find(|u| u.pseudo.eq_ignore_ascii_case(&member_pseudo)) {
-        user.avatar_filename = avatar_filename;
-        user.avatar_size_bytes = Some(size);
-        user.avatar_mime_type = Some(resolved_mime);
-        user.avatar_bytes = Some(bytes);
-        return Json(MessageResponse { ok: true, message: "Avatar mis a jour.".to_string() });
-    }
+    let result = sqlx::query(
+        "UPDATE web_users SET avatar_filename=$1, avatar_size_bytes=$2, avatar_mime_type=$3, avatar_bytes=$4
+         WHERE LOWER(pseudo) = LOWER($5)"
+    )
+    .bind(avatar_filename)
+    .bind(size as i64)
+    .bind(&resolved_mime)
+    .bind(&bytes)
+    .bind(&member_pseudo)
+    .execute(&state.db)
+    .await;
 
-    Json(MessageResponse { ok: false, message: "Utilisateur introuvable.".to_string() })
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(MessageResponse { ok: true, message: "Avatar mis a jour.".to_string() }),
+        _ => Json(MessageResponse { ok: false, message: "Utilisateur introuvable.".to_string() }),
+    }
 }
 
 async fn member_avatar(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Response {
-    let users = state.users.read().await;
-    let Some(user) = users.iter().find(|u| u.pseudo.eq_ignore_ascii_case(&pseudo)) else {
-        return (
-            StatusCode::NOT_FOUND,
-            [
-                (header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=utf-8")),
-                (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-            ],
-            "avatar introuvable",
-        )
-            .into_response();
+    let not_found = || (
+        StatusCode::NOT_FOUND,
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=utf-8")),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+        "avatar introuvable",
+    ).into_response();
+
+    let row: Option<(Option<Vec<u8>>, Option<String>)> = sqlx::query_as(
+        "SELECT avatar_bytes, avatar_mime_type FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
+
+    let Some((Some(bytes), mime_type)) = row else {
+        return not_found();
     };
 
-    let Some(bytes) = user.avatar_bytes.as_ref() else {
-        return (
-            StatusCode::NOT_FOUND,
-            [
-                (header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=utf-8")),
-                (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-            ],
-            "avatar introuvable",
-        )
-            .into_response();
-    };
-
-    let mime = user.avatar_mime_type.as_deref().unwrap_or("image/png");
+    let mime = mime_type.as_deref().unwrap_or("image/png");
     let content_type = HeaderValue::from_str(mime).unwrap_or_else(|_| HeaderValue::from_static("image/png"));
 
     (
@@ -2387,7 +2549,7 @@ async fn member_avatar(
             (header::CONTENT_TYPE, content_type),
             (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
         ],
-        bytes.clone(),
+        bytes,
     )
         .into_response()
 }
@@ -2396,25 +2558,18 @@ async fn member_delete_avatar(
     Path(pseudo): Path<String>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut users = state.users.write().await;
-    if let Some(user) = users
-        .iter_mut()
-        .find(|u| u.pseudo.eq_ignore_ascii_case(&pseudo))
-    {
-        user.avatar_filename = None;
-        user.avatar_size_bytes = None;
-        user.avatar_mime_type = None;
-        user.avatar_bytes = None;
-        return Json(ActionResponse {
-            ok: true,
-            message: "Avatar supprime.",
-        });
-    }
+    let result = sqlx::query(
+        "UPDATE web_users SET avatar_filename=NULL, avatar_size_bytes=NULL, avatar_mime_type=NULL, avatar_bytes=NULL
+         WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
 
-    Json(ActionResponse {
-        ok: false,
-        message: "Utilisateur introuvable.",
-    })
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Avatar supprime." }),
+        _ => Json(ActionResponse { ok: false, message: "Utilisateur introuvable." }),
+    }
 }
 
 async fn admin_audit_log_view(State(state): State<WebState>) -> Json<Vec<AdminAuditEntry>> {
@@ -2427,8 +2582,13 @@ async fn admin_audit_log_view(State(state): State<WebState>) -> Json<Vec<AdminAu
 // ============================================================================
 
 async fn member_wall_list(State(state): State<WebState>) -> Json<Vec<WallPost>> {
-    let posts = state.wall_posts.read().await;
-    Json(posts.iter().rev().take(10).cloned().collect())
+    let rows: Vec<WallPostRow> = sqlx::query_as(
+        "SELECT id, pseudo, body, created_at_epoch FROM web_wall_posts ORDER BY created_at_epoch DESC LIMIT 10"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    Json(rows.into_iter().map(WallPost::from).collect())
 }
 
 #[derive(Deserialize)]
@@ -2450,10 +2610,22 @@ async fn member_wall_post(
     if pseudo.is_empty() {
         return Json(ActionResponse { ok: false, message: "Pseudo manquant." });
     }
-    let id = state.next_wall_id.fetch_add(1, Ordering::Relaxed);
-    let mut posts = state.wall_posts.write().await;
-    posts.push(WallPost { id, pseudo, body, created_at_epoch: now_epoch() });
-    Json(ActionResponse { ok: true, message: "Message posté." })
+    let result = sqlx::query(
+        "INSERT INTO web_wall_posts (pseudo, body, created_at_epoch) VALUES ($1, $2, $3)"
+    )
+    .bind(&pseudo)
+    .bind(&body)
+    .bind(now_epoch() as i64)
+    .execute(&state.db)
+    .await;
+
+    match result {
+        Ok(_) => Json(ActionResponse { ok: true, message: "Message posté." }),
+        Err(e) => {
+            tracing::error!("Failed to insert wall post: {e}");
+            Json(ActionResponse { ok: false, message: "Erreur lors de la publication." })
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -2467,10 +2639,15 @@ async fn member_wall_delete(
     Json(payload): Json<WallDeleteInput>,
 ) -> Json<ActionResponse> {
     let pseudo = payload.pseudo.trim().to_string();
-    let mut posts = state.wall_posts.write().await;
-    let before = posts.len();
-    posts.retain(|p| !(p.id == id && p.pseudo.eq_ignore_ascii_case(&pseudo)));
-    let deleted = posts.len() < before;
+    let result = sqlx::query(
+        "DELETE FROM web_wall_posts WHERE id=$1 AND LOWER(pseudo) = LOWER($2)"
+    )
+    .bind(id as i64)
+    .bind(&pseudo)
+    .execute(&state.db)
+    .await;
+
+    let deleted = result.map(|r| r.rows_affected() > 0).unwrap_or(false);
     Json(ActionResponse {
         ok: deleted,
         message: if deleted { "Message supprimé." } else { "Introuvable ou non autorisé." },
@@ -2481,10 +2658,12 @@ async fn admin_wall_delete(
     Path(id): Path<u64>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let mut posts = state.wall_posts.write().await;
-    let before = posts.len();
-    posts.retain(|p| p.id != id);
-    let deleted = posts.len() < before;
+    let result = sqlx::query("DELETE FROM web_wall_posts WHERE id=$1")
+        .bind(id as i64)
+        .execute(&state.db)
+        .await;
+
+    let deleted = result.map(|r| r.rows_affected() > 0).unwrap_or(false);
     Json(ActionResponse {
         ok: deleted,
         message: if deleted { "Message supprimé." } else { "Introuvable." },
@@ -2510,9 +2689,6 @@ async fn write_admin_audit(state: &WebState, action: &'static str, target: Strin
     }
 }
 
-fn pseudo_key(pseudo: &str) -> String {
-    pseudo.trim().to_ascii_lowercase()
-}
 
 fn generate_temp_password() -> String {
     rand::thread_rng()
@@ -2723,15 +2899,12 @@ mod tests {
             .build()
             .unwrap();
 
+        // Use a lazy pool — tests that don't touch the DB won't actually connect.
+        let db = PgPool::connect_lazy("postgres://localhost/test_noop")
+            .expect("lazy pool creation failed");
+
         WebState {
-            signup_requests: Arc::new(RwLock::new(Vec::new())),
-            next_request_id: Arc::new(AtomicU64::new(1)),
-            users: Arc::new(RwLock::new(Vec::new())),
-            member_messages: Arc::new(RwLock::new(Vec::new())),
-            next_message_id: Arc::new(AtomicU64::new(1)),
-            donation_proofs: Arc::new(RwLock::new(Vec::new())),
-            next_donation_id: Arc::new(AtomicU64::new(1)),
-            user_passwords: Arc::new(RwLock::new(std::collections::HashMap::new())),
+            db,
             admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
             admin_audit_log: Arc::new(RwLock::new(Vec::new())),
             webauthn: Arc::new(webauthn),
