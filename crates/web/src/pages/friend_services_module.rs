@@ -77,7 +77,7 @@ function createFriendServicesModule(ctx) {
             +     '<button class="ss-arrow" id="ss-next" aria-label="Suivant">→</button>'
             +   '</div>'
             + '</div>'
-            + '<a class="ss-access-link" id="ss-access-link" href="#" target="_blank" rel="noopener noreferrer">'
+            + '<a class="ss-access-link" id="ss-access-link" href="#">'
             +   'Accéder à SongSurf →'
             + '</a>'
             + '</div>';
