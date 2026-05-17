@@ -344,22 +344,42 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             max-height: 380px;
             background: var(--muted);
         }
+        .msg-thread-wrap {
+            display: flex;
+            align-items: stretch;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .msg-thread-wrap:last-child { border-bottom: 0; }
+        .msg-thread-wrap:hover .msg-thread-delete { opacity: 1; }
         .msg-thread-row {
             display: flex;
             align-items: center;
             gap: 10px;
             padding: 10px 12px;
             border: none;
-            border-bottom: 1px solid var(--border);
             background: none;
             cursor: pointer;
-            width: 100%;
+            flex: 1;
+            min-width: 0;
             text-align: left;
             transition: background 0.1s;
         }
-        .msg-thread-row:last-child { border-bottom: 0; }
         .msg-thread-row:hover { background: var(--card); }
         .msg-thread-row.active { background: var(--card); }
+        .msg-thread-delete {
+            opacity: 0;
+            flex-shrink: 0;
+            border: none;
+            background: none;
+            color: var(--muted-foreground);
+            cursor: pointer;
+            font-size: 0.7rem;
+            padding: 0 10px;
+            transition: opacity 0.15s, color 0.15s, background 0.15s;
+            border-left: 1px solid var(--border);
+        }
+        .msg-thread-delete:hover { color: var(--destructive); background: var(--destructive-bg); opacity: 1; }
         .msg-thread-avatar {
             width: 34px;
             height: 34px;

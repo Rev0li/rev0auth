@@ -52,7 +52,8 @@ function createDashboardChatModule(ctx) {
             const preview = last ? (last.body || '').slice(0, 55) + (last.body && last.body.length > 55 ? '…' : '') : '';
             const time = last ? new Date(last.created_at_epoch * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
             const initials = getInitials(thread.pseudo);
-            return '<button class="msg-thread-row' + (active ? ' active' : '') + '" data-thread="' + escapeHtml(thread.pseudo) + '">'
+            return '<div class="msg-thread-wrap">'
+                + '<button class="msg-thread-row' + (active ? ' active' : '') + '" data-thread="' + escapeHtml(thread.pseudo) + '">'
                 + '<div class="msg-thread-avatar">' + escapeHtml(initials) + '</div>'
                 + '<div class="msg-thread-info">'
                 + '<div class="msg-thread-name">' + escapeHtml(thread.pseudo)
@@ -61,7 +62,9 @@ function createDashboardChatModule(ctx) {
                 + '<div class="msg-thread-preview">' + escapeHtml(preview) + '</div>'
                 + '</div>'
                 + '<div class="msg-thread-time">' + time + '</div>'
-                + '</button>';
+                + '</button>'
+                + '<button class="msg-thread-delete" data-delete="' + escapeHtml(thread.pseudo) + '" title="Supprimer la conversation">✕</button>'
+                + '</div>';
         }).join('');
 
         list.querySelectorAll('button[data-thread]').forEach((btn) => {
@@ -78,6 +81,23 @@ function createDashboardChatModule(ctx) {
                     }).catch(() => {});
                     await loadAdminMessages();
                 }
+            });
+        });
+
+        list.querySelectorAll('button[data-delete]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const pseudo = btn.getAttribute('data-delete') || '';
+                if (!pseudo) return;
+                if (!confirm('Supprimer toute la conversation avec ' + pseudo + ' ?')) return;
+                await fetch('/japprends/messages/thread/' + encodeURIComponent(pseudo), {
+                    method: 'DELETE'
+                }).catch(() => {});
+                if (adminChatState.selectedThread && adminChatState.selectedThread.toLowerCase() === pseudo.toLowerCase()) {
+                    adminChatState.selectedThread = '';
+                    localStorage.removeItem('dashboard_chat_thread');
+                }
+                await loadAdminMessages();
             });
         });
     }

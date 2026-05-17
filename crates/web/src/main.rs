@@ -619,6 +619,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/messages", get(admin_messages_all))
         .route("/japprends/messages/reply", post(admin_message_reply))
         .route("/japprends/messages/mark-read", post(admin_mark_thread_read))
+        .route("/japprends/messages/thread/:pseudo", delete(admin_delete_thread))
         .route("/japprends/donations", get(admin_donations_all))
         .route("/japprends/donations/:id/review", post(admin_donation_review))
         .route("/japprends/audit", get(admin_audit_log_view))
@@ -2379,6 +2380,24 @@ async fn admin_mark_thread_read(
     .execute(&state.db)
     .await;
     Json(ActionResponse { ok: true, message: "Lu." })
+}
+
+async fn admin_delete_thread(
+    State(state): State<WebState>,
+    Path(pseudo): Path<String>,
+) -> Json<ActionResponse> {
+    let pseudo = pseudo.trim().to_string();
+    let admin = admin_pseudo_from_env();
+    let _ = sqlx::query(
+        "DELETE FROM web_messages \
+         WHERE (LOWER(from_pseudo)=LOWER($1) AND LOWER(to_pseudo)=LOWER($2)) \
+            OR (LOWER(from_pseudo)=LOWER($2) AND LOWER(to_pseudo)=LOWER($1))"
+    )
+    .bind(&pseudo)
+    .bind(&admin)
+    .execute(&state.db)
+    .await;
+    Json(ActionResponse { ok: true, message: "Conversation supprimee." })
 }
 
 async fn admin_donations_all(State(state): State<WebState>) -> Json<Vec<DonationProofView>> {
