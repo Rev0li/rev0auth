@@ -23,7 +23,7 @@ pub async fn portal() -> Html<String> {
         </div>
 
         <article class="card">
-            <p class="hint">Inscription avec validation manuelle. Tu recevras un mot de passe temporaire a copier apres envoi.</p>
+            <p class="hint">Tu recevras un mot de passe temporaire a copier apres envoi.</p>
 
             <label for="pseudo">Pseudo *</label>
             <input id="pseudo" placeholder="ton_pseudo" required />
@@ -66,6 +66,8 @@ pub async fn portal() -> Html<String> {
         bindEnterToClick('pseudo', 'signup-btn');
         bindEnterToClick('referral', 'signup-btn');
 
+        const PSEUDO_RE = /^[a-zA-Z0-9_-]{3,20}$/;
+
         document.getElementById('signup-btn').addEventListener('click', async () => {
             const pseudo = document.getElementById('pseudo').value.trim();
             const referral = document.getElementById('referral').value.trim();
@@ -76,28 +78,38 @@ pub async fn portal() -> Html<String> {
                 setResult(output, false, 'Remplis les champs obligatoires (pseudo, comment tu m\'as connu).');
                 return;
             }
+            if (!PSEUDO_RE.test(pseudo)) {
+                setResult(output, false, 'Pseudo invalide : 3-20 caractères, lettres/chiffres/tiret/underscore uniquement, pas d\'espaces.');
+                return;
+            }
 
             const tempPassword = generateTempPassword();
 
-            const res = await fetch('/portal/signup-request', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ pseudo, referral, temp_password: tempPassword })
-            });
-            const data = await res.json();
+            try {
+                const res = await fetch('/portal/signup-request', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ pseudo, referral, temp_password: tempPassword })
+                });
+                const data = await res.json();
 
-            if (data.ok) {
-                output.style.display = 'none';
-                output.textContent = '';
-                const pwd = data.temp_password || tempPassword;
-                tempPasswordBox.style.display = 'block';
-                tempPasswordBox.innerHTML = 'Mot de passe temporaire :<br><code id="shown-pwd" style="font-size:1.1em;letter-spacing:0.05em;user-select:all">' + pwd + '</code>'
-                    + '<button type="button" id="copy-pwd-btn" class="copy-btn" onclick="(function(){navigator.clipboard.writeText(document.getElementById(\'shown-pwd\').textContent).then(()=>{var b=document.getElementById(\'copy-pwd-btn\');b.textContent=\'✓ Copié\';setTimeout(()=>{b.textContent=\'Copier\'},1800)})})()">Copier</button>'
-                    + '<br><small style="opacity:0.7;margin-top:4px;display:block">Utile pour la 1er connexion seulement.</small>';
-            } else {
-                setResult(output, false, data.message || 'Inscription refusee.');
+                if (data.ok) {
+                    output.style.display = 'none';
+                    output.textContent = '';
+                    const pwd = data.temp_password || tempPassword;
+                    tempPasswordBox.style.display = 'block';
+                    setTimeout(() => tempPasswordBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+                    tempPasswordBox.innerHTML = 'Mot de passe temporaire :<br><code id="shown-pwd" style="font-size:1.1em;letter-spacing:0.05em;user-select:all">' + pwd + '</code>'
+                        + '<button type="button" id="copy-pwd-btn" class="copy-btn" onclick="(function(){navigator.clipboard.writeText(document.getElementById(\'shown-pwd\').textContent).then(()=>{var b=document.getElementById(\'copy-pwd-btn\');b.textContent=\'✓ Copié\';setTimeout(()=>{b.textContent=\'Copier\'},1800)})})()">Copier</button>'
+                        + '<br><small style="opacity:0.7;margin-top:4px;display:block">Utile pour la 1er connexion seulement.</small>';
+                } else {
+                    setResult(output, false, data.message || 'Inscription refusee.');
+                    tempPasswordBox.style.display = 'none';
+                    tempPasswordBox.textContent = '';
+                }
+            } catch (err) {
+                setResult(output, false, 'Erreur réseau. Vérifie ta connexion et réessaie.');
                 tempPasswordBox.style.display = 'none';
-                tempPasswordBox.textContent = '';
             }
         });
     </script>

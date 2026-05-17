@@ -112,12 +112,11 @@ pub const CSS_FRIEND_WALL_STYLES: &str = r#"
             display: flex;
             gap: 10px;
             align-items: flex-start;
-            padding: 8px 10px;
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            background: var(--muted);
+            padding: 7px 2px;
+            border-bottom: 1px solid var(--border);
             font-size: 0.875rem;
         }
+        .wall-post:last-child { border-bottom: none; }
         .wall-post-header {
             display: flex;
             align-items: center;
@@ -173,7 +172,7 @@ pub const CSS_FRIEND_WALL_STYLES: &str = r#"
             border: none;
             background: none;
             font: inherit;
-            font-size: 0.9rem;
+            font-size: 1rem;
             color: var(--foreground);
             resize: none;
             outline: none;

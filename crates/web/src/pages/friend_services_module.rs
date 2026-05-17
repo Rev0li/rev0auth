@@ -6,7 +6,7 @@ function createFriendServicesModule(ctx) {
         songsurf: false, jellyfin: false,
         reqSongsurf: false, reqJellyfin: false,
         githubUsername: null, linkedinName: null,
-        songsurfUrl: null
+        songsurfUrl: null, approved: false
     };
 
     const msgEl = document.getElementById('service-msg');
@@ -24,25 +24,29 @@ function createFriendServicesModule(ctx) {
     const SS_SLIDES = [
         {
             title: 'Ouvre ta musique',
-            desc: 'Va sur ton site de streaming préféré. Navigue vers un album, une playlist ou un artiste que tu veux récupérer.',
+            desc: 'Va sur ton site de streaming préféré. Navigue vers un album.',
+            image: '/static/tuto/step1.webp',
             placeholder: 'Capture d\'écran — page album avec URL visible dans la barre d\'adresse',
-            instruction: '📂 Ouvre une page album ou playlist'
+            instruction: '📂 Ouvre une page album'
         },
         {
             title: 'Copie le lien',
             desc: 'Dans la barre d\'adresse de ton navigateur, sélectionne et copie l\'URL complète de la page.',
+            image: '/static/tuto/step2.webp',
             placeholder: 'Capture d\'écran — barre d\'adresse encadrée en rouge, URL sélectionnée',
             instruction: '📋 Ctrl+C — ou clic droit → Copier l\'adresse'
         },
         {
             title: 'Colle dans SongSurf',
             desc: 'Colle l\'URL dans le champ de SongSurf. Le téléchargement démarre automatiquement.',
+            image: '/static/tuto/step3.webp',
             placeholder: 'Capture d\'écran — champ SongSurf avec URL collée, bouton valider',
             instruction: '▶ Ctrl+V puis Entrée'
         },
         {
             title: 'Récupère ta musique',
             desc: 'Une fois terminé, le zip contient tes fichiers audio. Tes bibliothèques en ligne peuvent disparaître ;)',
+            image: '/static/tuto/step4.webp',
             placeholder: 'Capture d\'écran — dossier avec les fichiers téléchargés',
             instruction: '🎼 N\'oublie pas de passer par un éditeur de métadonnées pour tout remettre en ordre'
         }
@@ -85,10 +89,13 @@ function createFriendServicesModule(ctx) {
         SS_SLIDES.forEach(function(s, i) {
             const slide = document.createElement('div');
             slide.className = 'ss-slide' + (i === 0 ? ' active' : '');
+            const mediaHtml = s.image
+                ? '<div class="ss-img-wrap"><img class="ss-img" src="' + s.image + '" alt="' + s.placeholder + '" loading="lazy" /></div>'
+                : '<div class="ss-placeholder"><span class="ss-placeholder-label">' + s.placeholder + '</span></div>';
             slide.innerHTML =
                 '<h3 class="ss-slide-title">' + s.title + '</h3>'
                 + '<p class="ss-slide-desc">' + s.desc + '</p>'
-                + '<div class="ss-placeholder"><span class="ss-placeholder-label">' + s.placeholder + '</span></div>'
+                + mediaHtml
                 + '<div class="ss-instruction">' + s.instruction + '</div>';
             wrap.appendChild(slide);
 
@@ -129,7 +136,6 @@ function createFriendServicesModule(ctx) {
 
     function openModal() {
         injectModal();
-        ssCurrentSlide = 0;
         goSlide(0);
         const link = document.getElementById('ss-access-link');
         if (link) link.href = state.songsurfUrl || '%%SONGSURF_URL%%';
@@ -145,11 +151,16 @@ function createFriendServicesModule(ctx) {
 
     // ---- card renders ----
 
+    function pendingHtml() {
+        return '<p class="svc-state svc-pending">⏳ Compte en attente de validation par l\'admin.</p>';
+    }
+
     function renderSongsurf() {
         const body   = document.getElementById('songsurf-body');
         const card   = document.getElementById('songsurf-card');
         const status = document.getElementById('ss-svc-status');
         if (!body) return;
+        if (!state.approved) { body.innerHTML = pendingHtml(); return; }
 
         if (state.songsurf) {
             if (status) {
@@ -188,6 +199,7 @@ function createFriendServicesModule(ctx) {
     function renderJellyfin() {
         const body = document.getElementById('jellyfin-body');
         if (!body) return;
+        if (!state.approved) { body.innerHTML = pendingHtml(); return; }
         if (state.jellyfin) {
             body.innerHTML =
                 '<p class="svc-state svc-open">✓ Accès ouvert</p>'
@@ -256,7 +268,8 @@ function createFriendServicesModule(ctx) {
             state.reqJellyfin    = !!data.request_jellyfin;
             state.githubUsername = data.github_username || null;
             state.linkedinName   = data.linkedin_name   || null;
-            state.songsurfUrl    = sessionStorage.getItem('songsurf_launch_url') || null;
+            state.songsurfUrl    = data.songsurf_url || null;
+            state.approved       = !!data.approved;
             renderSongsurf();
             renderJellyfin();
         } catch (err) {
@@ -302,7 +315,6 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             font-size: 0.875rem;
         }
         .svc-banner-songsurf { background: #0f0f0f; color: #fafafa; }
-        .svc-banner-jellyfin { background: #00a4dc; color: #fff; }
         .svc-icon { font-size: 1rem; }
         .svc-card-body {
             padding: 12px 14px 14px;
@@ -330,6 +342,29 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             color: #E8B7C4;
             background: rgba(232,183,196,0.12);
             border: 1px solid rgba(232,183,196,0.3);
+            border-radius: 9999px;
+            padding: 2px 10px;
+            letter-spacing: 0.01em;
+        }
+
+        /* ---- Jellyfin card — same structure as SongSurf ---- */
+        .jf-svc-card {
+            border-radius: 18px;
+        }
+        .jf-svc-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .jf-svc-badge {
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: #00a4dc;
+            background: rgba(0,164,220,0.10);
+            border: 1px solid rgba(0,164,220,0.28);
             border-radius: 9999px;
             padding: 2px 10px;
             letter-spacing: 0.01em;
@@ -481,6 +516,21 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             margin: 0;
             line-height: 1.6;
         }
+        .ss-img-wrap {
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--muted);
+            max-height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ss-img {
+            width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            display: block;
+        }
         .ss-placeholder {
             border: 2px dashed var(--border);
             border-radius: 10px;
@@ -618,8 +668,9 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
             border: 1px solid var(--border);
         }
         .svc-btn-request:hover { background: var(--muted); }
-        .svc-state          { font-size: 0.8125rem; color: var(--muted-foreground); margin: 0; }
-        .svc-state.svc-open { color: var(--success); font-weight: 600; }
+        .svc-state            { font-size: 0.8125rem; color: var(--muted-foreground); margin: 0; }
+        .svc-state.svc-open   { color: var(--success); font-weight: 600; }
+        .svc-state.svc-pending { color: #ca8a04; }
         .svc-submitted      { font-size: 0.8125rem; color: var(--muted-foreground); margin: 0; }
         .service-msg {
             margin-top: 8px;

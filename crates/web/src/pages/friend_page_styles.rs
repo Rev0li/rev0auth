@@ -333,4 +333,13 @@ pub const FRIEND_PAGE_STYLES: &str = r#"
             .hero-title { font-size: 1.5rem; }
             .member-gallery { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
         }
+        @media (max-width: 480px) {
+            .navbar { padding: 8px 12px; }
+            .navbar-pseudo { display: none; }
+            .nav-btn { padding: 8px 10px; font-size: 0.75rem; min-height: 44px; }
+            .hero { padding: 24px 12px 16px; }
+            .hero-title { font-size: 1.25rem; }
+            .page-content { padding: 0 12px 60px; }
+            .hero-step { min-width: auto; }
+        }
 "#;

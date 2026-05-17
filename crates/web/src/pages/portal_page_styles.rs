@@ -60,4 +60,8 @@ pub const PORTAL_PAGE_STYLES: &str = r#"
             transition: background 0.1s;
         }
         .copy-btn:hover { background: var(--border); }
+        @media (max-width: 480px) {
+            .page { padding: 24px 16px 40px; }
+            .copy-btn { padding: 8px 14px; font-size: 0.875rem; min-height: 44px; }
+        }
 "#;

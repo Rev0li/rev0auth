@@ -94,10 +94,6 @@ pub async fn dashboard() -> Html<String> {
                         <div class="msg-compose">
                             <input id="admin-reply-to" placeholder="Destinataire" style="display:none" />
                             <div class="msg-compose-row">
-                                <div class="msg-emoji-wrap">
-                                    <button id="admin-emoji-btn" class="msg-emoji-btn" type="button" title="Emojis">😊</button>
-                                    <div id="admin-emoji-panel" class="msg-emoji-panel"></div>
-                                </div>
                                 <textarea id="admin-reply-body" class="msg-compose-input" rows="1" placeholder="Répondre..."></textarea>
                                 <button class="msg-compose-send" id="admin-reply-send">➤</button>
                             </div>

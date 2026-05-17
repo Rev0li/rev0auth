@@ -88,6 +88,7 @@ struct UserRow {
     must_change_password: bool,
     password_hash: String,
     created_at_epoch: i64,
+    approved: bool,
 }
 
 impl From<UserRow> for User {
@@ -114,6 +115,7 @@ impl From<UserRow> for User {
             avatar_bytes: r.avatar_bytes,
             must_change_password: r.must_change_password,
             created_at_epoch: r.created_at_epoch as u64,
+            approved: r.approved,
         }
     }
 }
@@ -290,6 +292,7 @@ struct User {
     avatar_bytes: Option<Vec<u8>>,
     must_change_password: bool,
     created_at_epoch: u64,
+    approved: bool,
 }
 
 
@@ -358,6 +361,7 @@ struct UpdateUserInput {
     access_github: Option<bool>,
     access_jellyfin: Option<bool>,
     access_songsurf: Option<bool>,
+    approved: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -500,6 +504,8 @@ struct MemberProfileResponse {
     avatar_filename: Option<String>,
     avatar_size_bytes: Option<usize>,
     created_at_epoch: u64,
+    approved: bool,
+    songsurf_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -612,6 +618,7 @@ fn build_router(state: WebState) -> Router {
 .route("/japprends/endpoints", get(admin_all_endpoints))
         .route("/japprends/messages", get(admin_messages_all))
         .route("/japprends/messages/reply", post(admin_message_reply))
+        .route("/japprends/messages/mark-read", post(admin_mark_thread_read))
         .route("/japprends/donations", get(admin_donations_all))
         .route("/japprends/donations/:id/review", post(admin_donation_review))
         .route("/japprends/audit", get(admin_audit_log_view))
@@ -662,6 +669,7 @@ fn build_router(state: WebState) -> Router {
         .route("/auth/password-check", post(password_check))
         .route("/auth/logout", post(auth_logout))
         .route("/static/hero/:filename", get(serve_hero_preview))
+        .route("/static/tuto/:filename", get(serve_tuto_preview))
         .merge(protected_routes)
         .layer(DefaultBodyLimit::max(UPLOAD_GLOBAL_LIMIT_BYTES))
         .with_state(state)
@@ -743,10 +751,18 @@ async fn main() -> anyhow::Result<()> {
 // ============================================================================
 
 async fn serve_hero_preview(Path(filename): Path<String>) -> impl IntoResponse {
+    serve_static_image("static/hero", &filename).await
+}
+
+async fn serve_tuto_preview(Path(filename): Path<String>) -> impl IntoResponse {
+    serve_static_image("static/tuto", &filename).await
+}
+
+async fn serve_static_image(dir: &str, filename: &str) -> axum::response::Response {
     if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
         return StatusCode::NOT_FOUND.into_response();
     }
-    let path = format!("static/hero/{filename}");
+    let path = format!("{dir}/{filename}");
     match tokio::fs::read(&path).await {
         Ok(bytes) => {
             let ct = if filename.ends_with(".png") { "image/png" }
@@ -888,6 +904,19 @@ async fn portal_signup_request(
     }
 
     let pseudo = payload.pseudo.trim().to_string();
+
+    if !pseudo.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        || pseudo.len() < 3
+        || pseudo.len() > 20
+    {
+        return Json(SignupResponse {
+            ok: false,
+            request_id: 0,
+            status: "rejected",
+            message: "Pseudo invalide : 3-20 caractères, lettres/chiffres/tiret/underscore uniquement, pas d'espaces.",
+            temp_password: None,
+        });
+    }
     let temp_password = payload
         .temp_password
         .map(|pwd| pwd.trim().to_string())
@@ -1539,7 +1568,7 @@ async fn list_users(State(state): State<WebState>) -> Json<Vec<User>> {
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users ORDER BY created_at_epoch ASC"
     )
     .fetch_all(&state.db)
@@ -1567,7 +1596,7 @@ async fn password_check(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(pseudo)
@@ -1775,7 +1804,7 @@ async fn admin_update_user(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users WHERE pseudo = $1"
     )
     .bind(&pseudo)
@@ -1794,6 +1823,7 @@ async fn admin_update_user(
     let mut new_request_github = row.request_github;
     let mut new_request_jellyfin = row.request_jellyfin;
     let mut new_request_songsurf = row.request_songsurf;
+    let mut new_approved = row.approved;
 
     if let Some(status_str) = payload.status {
         match status_str.to_lowercase().as_str() {
@@ -1825,9 +1855,13 @@ async fn admin_update_user(
         if access { new_request_github = false; }
     }
 
+    if let Some(a) = payload.approved {
+        new_approved = a;
+    }
+
     let _ = sqlx::query(
         "UPDATE web_users SET status=$1, access_github=$2, access_jellyfin=$3, access_songsurf=$4,
-         request_github=$5, request_jellyfin=$6, request_songsurf=$7 WHERE pseudo=$8"
+         request_github=$5, request_jellyfin=$6, request_songsurf=$7, approved=$8 WHERE pseudo=$9"
     )
     .bind(&new_status)
     .bind(new_access_github)
@@ -1836,6 +1870,7 @@ async fn admin_update_user(
     .bind(new_request_github)
     .bind(new_request_jellyfin)
     .bind(new_request_songsurf)
+    .bind(new_approved)
     .bind(&pseudo)
     .execute(&state.db)
     .await;
@@ -1885,7 +1920,7 @@ async fn member_profile_data(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&query.pseudo)
@@ -1894,6 +1929,25 @@ async fn member_profile_data(
     .unwrap_or(None);
 
     if let Some(row) = maybe_row {
+        let jwt_secret = state.songsurf_jwt_secret.as_str();
+        let base_url   = state.songsurf_url.as_str();
+        let songsurf_url = if row.access_songsurf && !jwt_secret.is_empty() && !base_url.is_empty() {
+            let now = now_epoch();
+            let claims = SurfClaims {
+                sub: row.pseudo.clone(),
+                role: row.role.clone(),
+                email: String::new(),
+                token_type: "access".to_string(),
+                iat: now,
+                exp: now + 8 * 3600,
+            };
+            encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes()))
+                .ok()
+                .map(|token| format!("{}?token={}", base_url, token))
+        } else {
+            None
+        };
+
         return Json(MemberProfileResponse {
             ok: true,
             pseudo: row.pseudo.clone(),
@@ -1914,6 +1968,8 @@ async fn member_profile_data(
             avatar_filename: row.avatar_filename.clone(),
             avatar_size_bytes: row.avatar_size_bytes.map(|n| n as usize),
             created_at_epoch: row.created_at_epoch as u64,
+            approved: row.approved,
+            songsurf_url,
         });
     }
 
@@ -1937,6 +1993,8 @@ async fn member_profile_data(
         avatar_filename: None,
         avatar_size_bytes: None,
         created_at_epoch: 0,
+        approved: false,
+        songsurf_url: None,
     })
 }
 
@@ -1949,7 +2007,7 @@ async fn member_update_profile(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&payload.pseudo)
@@ -2023,6 +2081,17 @@ async fn member_request_access(
             ok: false,
             message: "Pseudo manquant.",
         });
+    }
+    let is_approved: bool = sqlx::query_scalar(
+        "SELECT approved FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None)
+    .unwrap_or(false);
+    if !is_approved {
+        return Json(ActionResponse { ok: false, message: "Ton compte est en attente de validation par l'admin." });
     }
 
     let service = payload.service.trim().to_ascii_lowercase();
@@ -2296,6 +2365,22 @@ async fn admin_message_reply(
     })
 }
 
+async fn admin_mark_thread_read(
+    State(state): State<WebState>,
+    Json(payload): Json<MessageListQuery>,
+) -> Json<ActionResponse> {
+    let from_pseudo = payload.pseudo.trim().to_string();
+    let admin = admin_pseudo_from_env();
+    let _ = sqlx::query(
+        "UPDATE web_messages SET is_read=true WHERE LOWER(from_pseudo)=LOWER($1) AND LOWER(to_pseudo)=LOWER($2) AND is_read=false"
+    )
+    .bind(&from_pseudo)
+    .bind(&admin)
+    .execute(&state.db)
+    .await;
+    Json(ActionResponse { ok: true, message: "Lu." })
+}
+
 async fn admin_donations_all(State(state): State<WebState>) -> Json<Vec<DonationProofView>> {
     let rows: Vec<DonationRow> = sqlx::query_as(
         "SELECT id, pseudo, method, code, reviewed, approved, created_at_epoch FROM web_donations ORDER BY created_at_epoch DESC"
@@ -2345,8 +2430,8 @@ async fn member_update_password(
     }
 
     let new_password = payload.new_password.trim().to_string();
-    if new_password.len() < 4 {
-        return Json(ActionResponse { ok: false, message: "Nouveau mot de passe trop court." });
+    if new_password.len() < 8 {
+        return Json(ActionResponse { ok: false, message: "Mot de passe trop court (minimum 8 caractères)." });
     }
 
     // Fetch current user
@@ -2354,7 +2439,7 @@ async fn member_update_password(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch
+                must_change_password, password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&pseudo)
@@ -2609,6 +2694,17 @@ async fn member_wall_post(
     let pseudo = payload.pseudo.trim().to_string();
     if pseudo.is_empty() {
         return Json(ActionResponse { ok: false, message: "Pseudo manquant." });
+    }
+    let is_approved: bool = sqlx::query_scalar(
+        "SELECT approved FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
+    )
+    .bind(&pseudo)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None)
+    .unwrap_or(false);
+    if !is_approved {
+        return Json(ActionResponse { ok: false, message: "Ton compte est en attente de validation par l'admin." });
     }
     let result = sqlx::query(
         "INSERT INTO web_wall_posts (pseudo, body, created_at_epoch) VALUES ($1, $2, $3)"

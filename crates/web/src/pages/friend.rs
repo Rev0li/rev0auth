@@ -82,12 +82,7 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
                 <span class="hero-step-hint">rev0auth sur GitHub</span>
             </div>
             <span class="hero-step-arrow">→</span>
-            <div class="hero-step"
-                 data-popup-title="Inscription"
-                 data-popup-desc="Demande ton accès au réseau privé rev0auth."
-                 data-popup-href="/portal"
-                 data-popup-img="/static/hero/portal.png"
-                 data-popup-target="">
+            <div class="hero-step">
                 <span class="hero-step-icon">✍️</span>
                 <span class="hero-step-label">Inscription</span>
                 <span class="hero-step-hint">Demande ton accès</span>
@@ -128,10 +123,9 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
                     <div class="svc-card-body" id="songsurf-body"></div>
                 </div>
 
-                <div class="svc-card">
-                    <div class="svc-card-banner svc-banner-jellyfin">
-                        <span class="svc-icon">🎬</span>
-                        <span>Jellyfin</span>
+                <div class="svc-card jf-svc-card" id="jellyfin-card">
+                    <div class="jf-svc-header">
+                        <span class="jf-svc-badge">🎬 Jellyfin</span>
                     </div>
                     <div class="svc-card-body" id="jellyfin-body"></div>
                 </div>
@@ -148,7 +142,7 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
                     <p>rev0auth est un projet open-source self-hosted.</p>
                     <p>Chaque contribution aide à maintenir l'infra, les tests et la doc publique.</p>
                 </div>
-                <a class="btn-action" href="https://github.com/sponsors/Rev0li" target="_blank" rel="noopener noreferrer">
+                <a class="btn-action" href="/members/profile#donation-card">
                     ❤️ Faire un don
                 </a>
             </div>

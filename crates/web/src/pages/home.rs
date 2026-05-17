@@ -31,7 +31,6 @@ pub async fn home() -> Html<String> {
 
             <!-- STEP 2: Password Input (hidden until pseudo is approved) -->
             <div id="step-2" class="hidden">
-                <p class="hint">Pseudo approuve ! Entre ton mot de passe.</p>
                 <label for="password">Mot de passe</label>
                 <input id="password" type="password" placeholder="ton_mot_de_passe" />
                 <button class="btn btn-primary" id="password-btn">Se connecter</button>

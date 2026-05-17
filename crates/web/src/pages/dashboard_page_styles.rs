@@ -146,6 +146,19 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .member-card:hover { border-color: var(--foreground); box-shadow: var(--shadow-soft); }
+        .member-card-pending { border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.04); }
+        .badge-pending {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            background: rgba(251,191,36,0.15);
+            color: #ca8a04;
+            border: 1px solid rgba(251,191,36,0.35);
+            border-radius: 9999px;
+            padding: 1px 6px;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
         .member-card-avatar-wrap { position: relative; }
         .member-card-avatar {
             width: 46px;
@@ -451,7 +464,7 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             border-radius: var(--radius-xl);
             padding: 7px 13px;
             font: inherit;
-            font-size: 0.875rem;
+            font-size: 1rem;
             background: var(--muted);
             color: var(--foreground);
             resize: none;
@@ -736,5 +749,9 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             .msg-thread-list  { max-height: 180px; }
             .member-gallery   { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
             .tabs { width: 100%; }
+        }
+        @media (max-width: 480px) {
+            .tab-btn { min-height: 44px; padding: 8px 12px; }
+            .member-gallery { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
         }
 "#;

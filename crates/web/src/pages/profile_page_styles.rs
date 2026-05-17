@@ -160,7 +160,7 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             border-radius: var(--radius-md);
             padding: 8px 10px;
             font: inherit;
-            font-size: 0.9rem;
+            font-size: 1rem;
             background: var(--muted);
             color: var(--foreground);
             outline: none;
@@ -269,6 +269,16 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
         }
 
         /* ===== Donation hint ===== */
+        .donation-gh-link {
+            display: inline-block;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 10px;
+            transition: opacity 0.15s;
+        }
+        .donation-gh-link:hover { opacity: 0.75; }
         .donation-hint {
             display: flex;
             gap: 8px;
@@ -341,5 +351,16 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             background: var(--card);
             border: 1px solid var(--border);
             color: var(--foreground);
+        }
+
+        /* ===== Responsive (sm < 480px) ===== */
+        @media (max-width: 480px) {
+            .page { padding: 12px 12px 60px; }
+            .profile-navbar { padding: 8px 12px; }
+            .profile-nav-pseudo { display: none; }
+            .btn-back { min-height: 44px; padding: 0 12px; }
+            .btn-profile-action { min-height: 44px; height: auto; padding: 10px 14px; }
+            .crypto-addr-row { flex-wrap: wrap; }
+            .info-item { flex-wrap: wrap; }
         }
 "#;

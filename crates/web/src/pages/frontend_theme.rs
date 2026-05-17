@@ -201,7 +201,7 @@ pub const FRONTEND_SHARED_CSS: &str = r#"
             border-radius: var(--radius-md);
             padding: 8px 12px;
             font: inherit;
-            font-size: 0.9375rem;
+            font-size: 1rem;
             background: var(--muted);
             color: var(--foreground);
             outline: none;

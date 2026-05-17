@@ -65,11 +65,19 @@ function createDashboardChatModule(ctx) {
         }).join('');
 
         list.querySelectorAll('button[data-thread]').forEach((btn) => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 adminChatState.selectedThread = btn.getAttribute('data-thread') || '';
                 localStorage.setItem('dashboard_chat_thread', adminChatState.selectedThread);
                 renderAdminThreadList();
                 renderAdminConversation();
+                if (adminChatState.selectedThread) {
+                    await fetch('/japprends/messages/mark-read', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ pseudo: adminChatState.selectedThread })
+                    }).catch(() => {});
+                    await loadAdminMessages();
+                }
             });
         });
     }
@@ -143,40 +151,6 @@ function createDashboardChatModule(ctx) {
         } catch (err) {
             setAdminReplyMsg(false, 'Erreur: ' + err.message);
         }
-    }
-
-    const EMOJIS = [
-        '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇',
-        '🙂','😉','😍','🥰','😘','😋','😜','🤪','😝','🤑',
-        '🤗','🤭','🤫','🤔','🤐','😐','😑','😶','😏','😒',
-        '🙄','😬','😔','😪','😴','😷','🤒','🤢','🤮','🥵',
-        '😵','🤯','🥳','😎','🤓','🧐','😕','😟','😮','😯',
-        '😲','🥺','😦','😧','😨','😢','😭','😱','😤','😡',
-        '😠','🤬','😈','👿',
-        '👍','👎','👌','🤌','✌️','🤞','🤙','👋','✋','💪',
-        '🙏','👏','🤝','🫡','🫶',
-        '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕',
-        '❤️‍🔥','💯',
-        '🌸','🌟','✨','🔥','💫','🌈','⭐','🌙','❄️','🌊',
-        '🎉','🎊','🎁','🎵','🎶','💬','👀','💤','💥','🚀',
-    ];
-    const adminEmojiBtn = document.getElementById('admin-emoji-btn');
-    const adminEmojiPanel = document.getElementById('admin-emoji-panel');
-    const adminReplyBody = document.getElementById('admin-reply-body');
-    if (adminEmojiBtn && adminEmojiPanel && adminReplyBody) {
-        adminEmojiPanel.innerHTML = EMOJIS.map((e) => '<button class="emoji-pick" type="button">' + e + '</button>').join('');
-        adminEmojiBtn.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            adminEmojiPanel.classList.toggle('open');
-        });
-        adminEmojiPanel.addEventListener('click', (ev) => {
-            const btn = ev.target.closest('.emoji-pick');
-            if (!btn) return;
-            adminReplyBody.value += btn.textContent;
-            adminReplyBody.focus();
-            adminEmojiPanel.classList.remove('open');
-        });
-        document.addEventListener('click', () => adminEmojiPanel.classList.remove('open'));
     }
 
     async function loadAdminMessages() {

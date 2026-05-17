@@ -20,17 +20,6 @@ pub async fn admin_login(has_key: bool) -> Html<String> {
     %%FRONTEND_THEME_BOOT%%
     <style>
         %%ADMIN_LOGIN_PAGE_STYLES%%
-        .yubikey-icon {{
-            font-size: 2.5rem;
-            display: block;
-            text-align: center;
-            margin: 12px 0;
-            animation: pulse 1.8s ease-in-out infinite;
-        }}
-        @keyframes pulse {{
-            0%, 100% {{ opacity: 1; transform: scale(1); }}
-            50% {{ opacity: 0.6; transform: scale(0.96); }}
-        }}
         .mono-hint {{
             font-family: monospace;
             background: var(--muted);
@@ -75,7 +64,6 @@ pub async fn admin_login(has_key: bool) -> Html<String> {
 fn yubikey_mode() -> &'static str {
     r#"<article class="card">
     <h1>Admin Access</h1>
-    <span class="yubikey-icon">🔑</span>
     <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 12px">Attente de connexion...</p>
     <div id="yubikey-result" class="result"></div>
     <button class="btn" id="yubikey-retry-btn" style="display:none;margin-top:8px;background:var(--background);color:var(--muted-foreground);border:1px solid var(--border)">
@@ -87,7 +75,6 @@ fn yubikey_mode() -> &'static str {
 fn bootstrap_mode() -> &'static str {
     r#"<article class="card">
     <h1>Admin Access</h1>
-    <span class="yubikey-icon" style="animation:none;opacity:0.35">🔑</span>
     <p id="yubikey-waiting" style="text-align:center;color:var(--muted-foreground);font-size:0.9rem;margin:0 0 20px">En attente de connexion...</p>
     <button class="btn" id="register-btn" style="display:none">Enregistrer</button>
     <div id="register-result" class="result" style="margin-top:10px"></div>
@@ -143,7 +130,7 @@ async function startAuth() {
 
     if (!data.webauthn_required) {
         if (waiting) waiting.style.display = 'none';
-        setResult(output, false, 'Aucune clé enregistrée. Recharge la page.');
+        setResult(output, false, 'Authentification non disponible. Recharge la page.');
         return;
     }
 
@@ -183,7 +170,6 @@ async function startAuth() {
         }
     } catch (err) {
         if (waiting) waiting.style.display = 'none';
-        setResult(output, false, 'Erreur YubiKey: ' + err.message);
         retryBtn.style.display = 'block';
     }
 }

@@ -88,6 +88,7 @@ pub async fn profile() -> Html<String> {
 
         <article class="card" id="donation-card">
             <h2>Don</h2>
+            <a class="donation-gh-link" href="https://github.com/sponsors/Rev0li" target="_blank" rel="noopener noreferrer">❤️ GitHub Sponsors →</a>
             <label for="donation-method" class="field-label">Méthode</label>
             <select id="donation-method" class="field-input">
                 <option value="pcs" selected>Coupon PCS</option>

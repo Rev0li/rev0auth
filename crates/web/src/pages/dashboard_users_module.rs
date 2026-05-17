@@ -47,17 +47,21 @@ function createDashboardUsersModule(ctx) {
                     const ghLabel = user.access_github ? 'Revoke GH' : 'Grant GH';
                     const jfLabel = user.access_jellyfin ? 'Revoke JF' : 'Grant JF';
                     const ssLabel = user.access_songsurf ? 'Revoke SS' : 'Grant SS';
-                    return '<div class="member-card" onclick="openUserProfile(\'' + escapeHtml(user.pseudo) + '\')">'
+                    const approveBtn = !user.approved
+                        ? '<button class="btn-small grant" onclick="approveUser(\'' + escapeHtml(user.pseudo) + '\')">✓ Approuver</button>'
+                        : '';
+                    return '<div class="member-card' + (!user.approved ? ' member-card-pending' : '') + '" onclick="openUserProfile(\'' + escapeHtml(user.pseudo) + '\')">'
                         + '<div class="member-card-avatar-wrap">'
                         + '<img class="member-card-avatar" src="' + avatarSrc + '" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
                         + '<div class="member-card-avatar-fallback">' + escapeHtml(initials) + '</div>'
                         + '</div>'
-                        + '<div class="member-card-pseudo">' + escapeHtml(user.pseudo) + '</div>'
+                        + '<div class="member-card-pseudo">' + escapeHtml(user.pseudo) + (!user.approved ? ' <span class="badge-pending">En attente</span>' : '') + '</div>'
                         + '<div class="member-card-meta">'
                         + statusDot(user.status) + ' ' + (user.status || 'unknown')
                         + ' ' + roleLabel(user.role)
                         + '</div>'
                         + '<div class="member-card-actions" onclick="event.stopPropagation()">'
+                        + approveBtn
                         + '<button class="btn-small warn" onclick="openUserProfile(\'' + escapeHtml(user.pseudo) + '\')">Profil</button>'
                         + '<button class="btn-small ' + (user.access_github ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + escapeHtml(user.pseudo) + '\', \'github\', ' + (!user.access_github) + ')">' + ghLabel + '</button>'
                         + '<button class="btn-small ' + (user.access_jellyfin ? 'danger' : 'grant') + '" onclick="toggleServiceAccess(\'' + escapeHtml(user.pseudo) + '\', \'jellyfin\', ' + (!user.access_jellyfin) + ')">' + jfLabel + '</button>'
@@ -135,6 +139,24 @@ function createDashboardUsersModule(ctx) {
             msg.style.color = '#dc4f2f';
             msg.textContent = 'Erreur: ' + err.message;
             msg.style.display = 'block';
+        }
+    }
+
+    async function approveUser(pseudo) {
+        try {
+            const res = await fetch('/japprends/users/' + pseudo, {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ approved: true })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                await loadUsers();
+            } else {
+                alert('Erreur: ' + data.message);
+            }
+        } catch (err) {
+            alert('Erreur: ' + err.message);
         }
     }
 

@@ -391,7 +391,7 @@ pub const CSS_FRIEND_CHAT_STYLES: &str = r#"
             border-radius: var(--radius-xl);
             padding: 7px 13px;
             font: inherit;
-            font-size: 0.875rem;
+            font-size: 1rem;
             background: var(--muted);
             color: var(--foreground);
             resize: none;
