@@ -88,7 +88,25 @@ function createFriendWallModule(ctx) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postMessage(); }
     });
 
+    async function checkApproved() {
+        try {
+            const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.approved) {
+                const compose = document.querySelector('.wall-compose');
+                if (compose) {
+                    compose.style.display = 'none';
+                    const hint = document.createElement('p');
+                    hint.className = 'wall-pending-hint';
+                    hint.textContent = 'Tu pourras poster une fois ton compte approuvé par l\'admin.';
+                    compose.parentNode.insertBefore(hint, compose);
+                }
+            }
+        } catch (_) {}
+    }
+
     loadWall();
+    checkApproved();
 
     return { loadWall };
 }
@@ -190,4 +208,11 @@ pub const CSS_FRIEND_WALL_STYLES: &str = r#"
             font-variant-numeric: tabular-nums;
         }
         .wall-char-count.warn { color: var(--destructive); font-weight: 600; }
+        .wall-pending-hint {
+            margin: 0;
+            font-size: 0.8125rem;
+            color: var(--muted-foreground);
+            text-align: center;
+            padding: 10px 0 2px;
+        }
 "#;
