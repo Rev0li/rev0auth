@@ -29,6 +29,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "0004_web_state",
         sql: include_str!("../../migrations/0004_web_state.sql"),
     },
+    Migration {
+        version: 5,
+        name: "0005_member_approved",
+        sql: include_str!("../../migrations/0005_member_approved.sql"),
+    },
 ];
 
 // Dev note: runs all pending SQL migrations in deterministic version order.
