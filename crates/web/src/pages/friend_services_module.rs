@@ -681,4 +681,7 @@ pub const CSS_FRIEND_SERVICES_STYLES: &str = r##"
         }
         .service-msg.ok    { display: block; background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
         .service-msg.error { display: block; background: var(--destructive-bg); color: var(--destructive); border: 1px solid var(--destructive-border); }
+        @media (max-width: 480px) {
+            .services-grid { grid-template-columns: 1fr; }
+        }
 "##;

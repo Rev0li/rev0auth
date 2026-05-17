@@ -40,4 +40,8 @@ pub const HOME_PAGE_STYLES: &str = r#"
         .hidden { display: none; }
         #step-1 .btn, #step-2 .btn { margin-top: 10px; }
         .result { margin-top: 8px; }
+        @media (max-width: 480px) {
+            .page { padding: 24px 16px; }
+            .card { padding: 16px; }
+        }
 "#;

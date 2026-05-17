@@ -348,4 +348,10 @@ pub const FRONTEND_SHARED_CSS: &str = r#"
             box-shadow: var(--shadow-hover);
             transform: scale(1.08);
         }
+
+        /* ===== Global touch targets (sm < 480px) ===== */
+        @media (max-width: 480px) {
+            .btn-action, .btn-primary { min-height: 44px; height: auto; padding: 10px 22px; }
+            .btn, .btn-small, .btn-secondary { min-height: 44px; }
+        }
 "#;
