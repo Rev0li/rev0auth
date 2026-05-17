@@ -75,6 +75,9 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             margin-bottom: 10px;
         }
         .card-danger { border-color: rgba(220,38,38,0.25); }
+        .admin-actions-row { display: flex; align-items: center; gap: 10px; }
+        .admin-actions-sep { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        .admin-actions-sub { margin: 0 0 8px; font-size: 0.875rem; font-weight: 600; }
 
         h2 {
             margin: 0 0 14px;

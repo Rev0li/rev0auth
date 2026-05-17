@@ -75,13 +75,84 @@ function createProfileAdminNavigatorModule(ctx) {
         window.location.href = target;
     }
 
+    async function loadApprovalStatus(pseudo) {
+        if (!adminMode) return;
+        try {
+            const res = await fetch('/members/profile/data?pseudo=' + encodeURIComponent(pseudo), { cache: 'no-store' });
+            const data = await res.json();
+            const approved = !!data.approved;
+            const btn = document.getElementById('approve-toggle-btn');
+            const label = document.getElementById('approve-status-label');
+            if (!btn || !label) return;
+            if (approved) {
+                btn.textContent = '✗ Révoquer';
+                btn.className = 'btn-profile-action danger';
+                label.textContent = 'Compte approuvé';
+            } else {
+                btn.textContent = '✓ Approuver';
+                btn.className = 'btn-profile-action';
+                label.textContent = 'En attente d\'approbation';
+            }
+            btn.style.display = 'inline-block';
+            btn.onclick = () => toggleApprove(pseudo, !approved);
+        } catch (_) {}
+    }
+
+    async function toggleApprove(pseudo, approve) {
+        const msg = document.getElementById('approve-msg');
+        try {
+            const res = await fetch('/japprends/users/' + encodeURIComponent(pseudo), {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ approved: approve })
+            });
+            const data = await res.json();
+            if (msg) {
+                msg.className = 'msg ' + (data.ok ? 'ok' : 'down');
+                msg.textContent = data.ok ? (approve ? 'Compte approuvé.' : 'Approbation révoquée.') : data.message;
+                msg.style.display = 'block';
+            }
+            if (data.ok) loadApprovalStatus(pseudo);
+        } catch (err) {
+            if (msg) { msg.className = 'msg down'; msg.textContent = 'Erreur: ' + err.message; msg.style.display = 'block'; }
+        }
+    }
+
+    async function sendAdminMessage(pseudo) {
+        const body = (document.getElementById('admin-msg-body') || {}).value?.trim();
+        const result = document.getElementById('admin-msg-result');
+        if (!body) {
+            if (result) { result.className = 'msg down'; result.textContent = 'Message vide.'; result.style.display = 'block'; }
+            return;
+        }
+        try {
+            const res = await fetch('/japprends/messages/reply', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ to_pseudo: pseudo, body })
+            });
+            const data = await res.json();
+            if (result) {
+                result.className = 'msg ' + (data.ok ? 'ok' : 'down');
+                result.textContent = data.ok ? 'Message envoyé.' : data.message;
+                result.style.display = 'block';
+            }
+            if (data.ok) { const ta = document.getElementById('admin-msg-body'); if (ta) ta.value = ''; }
+        } catch (err) {
+            if (result) { result.className = 'msg down'; result.textContent = 'Erreur: ' + err.message; result.style.display = 'block'; }
+        }
+    }
+
     if (adminMode) {
         document.getElementById('prev-user').addEventListener('click', () => goToAdminUser(-1));
         document.getElementById('next-user').addEventListener('click', () => goToAdminUser(1));
+        const sendBtn = document.getElementById('admin-send-msg-btn');
+        if (sendBtn) sendBtn.addEventListener('click', () => sendAdminMessage(ctx.pseudo));
     }
 
     return {
         loadAdminUsersNavigator,
+        loadApprovalStatus,
         goToAdminUser,
         deleteUser,
         openUserProfile,

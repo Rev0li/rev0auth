@@ -54,6 +54,20 @@ pub async fn profile() -> Html<String> {
             <div id="services-admin-msg" class="msg"></div>
         </article>
 
+        <article class="card admin-only" id="admin-actions-card">
+            <h2>Actions admin</h2>
+            <div class="admin-actions-row">
+                <button id="approve-toggle-btn" class="btn-profile-action" style="display:none">...</button>
+                <div id="approve-status-label" class="meta"></div>
+            </div>
+            <div id="approve-msg" class="msg" style="margin-top:6px"></div>
+            <hr class="admin-actions-sep" />
+            <h3 class="admin-actions-sub">Écrire un message</h3>
+            <textarea id="admin-msg-body" class="field-input" rows="3" placeholder="Ton message pour ce membre..."></textarea>
+            <button id="admin-send-msg-btn" class="btn-profile-action" style="margin-top:8px">Envoyer</button>
+            <div id="admin-msg-result" class="msg" style="margin-top:6px"></div>
+        </article>
+
         <article class="card">
             <h2>Avatar</h2>
             <div class="avatar-section">
@@ -293,6 +307,7 @@ pub async fn profile() -> Html<String> {
             }
             const profileData = await infoModule.loadProfile();
             if (adminMode && profileData) renderServicesAdmin(profileData);
+            if (adminMode) await adminNavigatorModule.loadApprovalStatus(pseudo);
             await avatarModule.loadAvatarState();
             if (!adminMode) {
                 await donationsModule.loadDonations();
