@@ -30,7 +30,10 @@ pub async fn home() -> Html<String> {
             <button class="btn btn-primary" id="login-btn">Se connecter</button>
             <div id="login-result" class="result"></div>
 
-            <a class="link" href="/portal">→ S'inscrire</a>
+            <button class="link" id="register-btn" onclick="document.getElementById('invite-info').style.display='flex';this.style.display='none';">Pas encore de compte ? S'inscrire</button>
+            <div id="invite-info" style="display:none;align-items:flex-start;gap:8px;margin-top:10px;padding:10px 12px;background:var(--muted);border:1px solid var(--border);border-radius:var(--radius-sm,0.5rem);font-size:0.875rem;color:var(--muted-foreground);">
+                <span>🔒</span><span>Inscription sur invitation uniquement — pas de lien ? Contacte un admin.</span>
+            </div>
         </article>
     </main>
 

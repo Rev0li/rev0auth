@@ -29,7 +29,8 @@ pub fn signup_invalid() -> Html<String> {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lien invalide</title>
     %%FRONTEND_THEME_BOOT%%
-    <style>%%SIGNUP_PAGE_STYLES%%</style>
+    <style>%%FRONTEND_SHARED_CSS%%
+    %%SIGNUP_PAGE_STYLES%%</style>
 </head>
 <body>
     <main class="page">
@@ -41,6 +42,7 @@ pub fn signup_invalid() -> Html<String> {
 </body>
 </html>"##
         .replace("%%FRONTEND_THEME_BOOT%%", frontend_theme::FRONTEND_THEME_BOOT)
+        .replace("%%FRONTEND_SHARED_CSS%%", frontend_theme::FRONTEND_SHARED_CSS)
         .replace("%%SIGNUP_PAGE_STYLES%%", signup_page_styles::SIGNUP_PAGE_STYLES),
     )
 }
@@ -54,7 +56,8 @@ pub fn signup_form(invite_code: &str) -> Html<String> {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Inscription — rev0auth</title>
     %%FRONTEND_THEME_BOOT%%
-    <style>%%SIGNUP_PAGE_STYLES%%</style>
+    <style>%%FRONTEND_SHARED_CSS%%
+    %%SIGNUP_PAGE_STYLES%%</style>
 </head>
 <body>
     <main class="page">
@@ -73,7 +76,7 @@ pub fn signup_form(invite_code: &str) -> Html<String> {
 
             <div class="field">
                 <label for="password">Mot de passe *</label>
-                <input id="password" type="password" placeholder="12 caractères minimum" autocomplete="new-password" />
+                <input id="password" type="password" placeholder="8 caractères minimum" autocomplete="new-password" />
             </div>
 
             <div class="field">
@@ -121,8 +124,8 @@ pub fn signup_form(invite_code: &str) -> Html<String> {
                 showResult(false, 'Pseudo invalide : 3-20 caractères, lettres/chiffres/tiret/underscore, pas d\'espaces.');
                 return;
             }
-            if (password.length < 12) {
-                showResult(false, 'Mot de passe trop court (12 caractères minimum).');
+            if (password.length < 8) {
+                showResult(false, 'Mot de passe trop court (8 caractères minimum).');
                 return;
             }
             if (password !== confirm) {
@@ -159,6 +162,7 @@ pub fn signup_form(invite_code: &str) -> Html<String> {
     Html(
         template
             .replace("%%FRONTEND_THEME_BOOT%%", frontend_theme::FRONTEND_THEME_BOOT)
+            .replace("%%FRONTEND_SHARED_CSS%%", frontend_theme::FRONTEND_SHARED_CSS)
             .replace("%%SIGNUP_PAGE_STYLES%%", signup_page_styles::SIGNUP_PAGE_STYLES)
             .replace("%%AVATAR_GRID%%", &grid)
             .replace("%%INVITE_CODE%%", invite_code),
