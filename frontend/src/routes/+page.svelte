@@ -1,12 +1,11 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { slide, fade } from 'svelte/transition';
+    import { slide } from 'svelte/transition';
 
     type Step = 'pseudo' | 'password' | 'admin';
-    type Tab  = 'login'  | 'register';
 
-    let tab  = $state<Tab>('login');
-    let step = $state<Step>('pseudo');
+    let step            = $state<Step>('pseudo');
+    let showInviteInfo  = $state(false);
 
     // Login state
     let pseudo       = $state('');
@@ -101,104 +100,86 @@
             <span class="portal-tagline">Espace privé</span>
         </div>
 
-        <!-- Tabs -->
-        <div class="tabs" role="tablist">
-            <button class="tab" class:active={tab === 'login'}    role="tab" onclick={() => { tab = 'login';    step = 'pseudo'; error = ''; }}>Connexion</button>
-            <button class="tab" class:active={tab === 'register'} role="tab" onclick={() => { tab = 'register'; error = ''; }}>S'inscrire</button>
-        </div>
-
         <!-- ── LOGIN ── -->
-        {#if tab === 'login'}
-            <div transition:fade={{ duration: 150 }}>
+        {#if step === 'pseudo'}
+            <div transition:slide={{ duration: 200 }}>
+                <div class="field">
+                    <label for="pseudo">Pseudo</label>
+                    <input id="pseudo" bind:value={pseudo} placeholder="ton_pseudo"
+                        onkeydown={(e) => onEnter(e, checkPseudo)} />
+                </div>
+                {#if error}<p class="chip-error">{error}</p>{/if}
+                <button class="btn-primary btn-full" onclick={checkPseudo} disabled={loading}>
+                    {loading ? '…' : 'Suivant →'}
+                </button>
 
-                {#if step === 'pseudo'}
-                    <div transition:slide={{ duration: 200 }}>
-                        <div class="field">
-                            <label for="pseudo">Pseudo</label>
-                            <input id="pseudo" bind:value={pseudo} placeholder="ton_pseudo"
-                                onkeydown={(e) => onEnter(e, checkPseudo)} />
-                        </div>
-                        {#if error}<p class="chip-error">{error}</p>{/if}
-                        <button class="btn-primary btn-full" onclick={checkPseudo} disabled={loading}>
-                            {loading ? '…' : 'Suivant →'}
-                        </button>
-                        <button class="link" onclick={() => { tab = 'register'; }}>Pas encore de compte ? S'inscrire</button>
+                {#if showInviteInfo}
+                    <div class="invite-info" transition:slide={{ duration: 180 }}>
+                        <span class="invite-info-icon">🔒</span>
+                        <span>Inscription sur invitation uniquement — pas de lien ? Contacte un admin.</span>
                     </div>
+                {:else}
+                    <button class="link" onclick={() => { showInviteInfo = true; }}>Pas encore de compte ? S'inscrire</button>
+                {/if}
+            </div>
 
-                {:else if step === 'password'}
-                    <div transition:slide={{ duration: 200 }}>
-                        <button class="back-btn" onclick={() => { step = 'pseudo'; error = ''; password = ''; }}>← {pseudo}</button>
-                        <div class="field">
-                            <label for="password">Mot de passe</label>
-                            <input id="password" type="password" bind:value={password} placeholder="••••••••"
-                                onkeydown={(e) => onEnter(e, loginMember)} />
-                        </div>
-                        {#if error}<p class="chip-error">{error}</p>{/if}
-                        <button class="btn-primary btn-full" onclick={loginMember} disabled={loading}>
-                            {loading ? '…' : 'Se connecter'}
-                        </button>
+        {:else if step === 'password'}
+            <div transition:slide={{ duration: 200 }}>
+                <button class="back-btn" onclick={() => { step = 'pseudo'; error = ''; password = ''; }}>← {pseudo}</button>
+                <div class="field">
+                    <label for="password">Mot de passe</label>
+                    <input id="password" type="password" bind:value={password} placeholder="••••••••"
+                        onkeydown={(e) => onEnter(e, loginMember)} />
+                </div>
+                {#if error}<p class="chip-error">{error}</p>{/if}
+                <button class="btn-primary btn-full" onclick={loginMember} disabled={loading}>
+                    {loading ? '…' : 'Se connecter'}
+                </button>
+            </div>
+
+        {:else if step === 'admin'}
+            <div transition:slide={{ duration: 200 }}>
+                <button class="back-btn" onclick={() => { step = 'pseudo'; error = ''; }}>← {pseudo}</button>
+                <p class="admin-hint">Accès admin</p>
+
+                <div class="field">
+                    <label for="seed">Seed</label>
+                    <input id="seed" bind:value={seed} placeholder="seed secret" />
+                </div>
+                <div class="field">
+                    <label for="adm-pwd">Mot de passe</label>
+                    <input id="adm-pwd" type="password" bind:value={password} placeholder="••••••••" />
+                </div>
+
+                <div class="field">
+                    <p class="challenge-label">Challenge — Clique uniquement sur 🔒</p>
+                    <div class="emoji-grid" role="group" aria-label="Challenge de sécurité">
+                        {#each EMOJIS as e}
+                            <button
+                                class="emoji-btn"
+                                class:selected={challenge === e.id}
+                                onclick={() => challenge = e.id}
+                                type="button"
+                            >{e.label}</button>
+                        {/each}
                     </div>
+                </div>
 
-                {:else if step === 'admin'}
-                    <div transition:slide={{ duration: 200 }}>
-                        <button class="back-btn" onclick={() => { step = 'pseudo'; error = ''; }}>← {pseudo}</button>
-                        <p class="admin-hint">Accès admin</p>
-
-                        <div class="field">
-                            <label for="seed">Seed</label>
-                            <input id="seed" bind:value={seed} placeholder="seed secret" />
-                        </div>
-                        <div class="field">
-                            <label for="adm-pwd">Mot de passe</label>
-                            <input id="adm-pwd" type="password" bind:value={password} placeholder="••••••••" />
-                        </div>
-
-                        <div class="field">
-                            <p class="challenge-label">Challenge — Clique uniquement sur 🔒</p>
-                            <div class="emoji-grid" role="group" aria-label="Challenge de sécurité">
-                                {#each EMOJIS as e}
-                                    <button
-                                        class="emoji-btn"
-                                        class:selected={challenge === e.id}
-                                        onclick={() => challenge = e.id}
-                                        type="button"
-                                    >{e.label}</button>
-                                {/each}
-                            </div>
-                        </div>
-
-                        {#if totpEnabled}
-                            <div class="field">
-                                <label for="otp">Code 2FA</label>
-                                <input id="otp" bind:value={otp} placeholder="123456" maxlength={6}
-                                    onkeydown={(e) => onEnter(e, loginAdmin)} />
-                            </div>
-                        {/if}
-
-                        {#if error}<p class="chip-error">{error}</p>{/if}
-                        <button class="btn-primary btn-full admin-btn" onclick={loginAdmin} disabled={loading}>
-                            {loading ? '…' : 'Connexion admin 🔑'}
-                        </button>
-
-                        <!-- honeypot — invisible -->
-                        <input style="display:none" tabindex="-1" aria-hidden="true" autocomplete="off" name="trap" />
+                {#if totpEnabled}
+                    <div class="field">
+                        <label for="otp">Code 2FA</label>
+                        <input id="otp" bind:value={otp} placeholder="123456" maxlength={6}
+                            onkeydown={(e) => onEnter(e, loginAdmin)} />
                     </div>
                 {/if}
 
-            </div>
-        {/if}
+                {#if error}<p class="chip-error">{error}</p>{/if}
+                <button class="btn-primary btn-full admin-btn" onclick={loginAdmin} disabled={loading}>
+                    {loading ? '…' : 'Connexion admin 🔑'}
+                </button>
 
-        <!-- ── REGISTER ── -->
-        {#if tab === 'register'}
-            <div transition:fade={{ duration: 150 }}>
-                <div class="invite-only">
-                    <p class="invite-icon">🔒</p>
-                    <p class="invite-title">Inscription sur invitation uniquement</p>
-                    <p class="meta">
-                        Tu as reçu un lien d'invitation ? Utilise-le directement.<br>
-                        Sinon, contacte un admin pour en obtenir un.
-                    </p>
-                </div>
+                <!-- honeypot — invisible -->
+                <input style="display:none" tabindex="-1" aria-hidden="true" autocomplete="off" name="trap" />
             </div>
         {/if}
 
@@ -233,32 +214,6 @@
     .portal-tagline {
         font-size: 0.8125rem;
         color: var(--muted-foreground);
-    }
-
-    /* Tabs */
-    .tabs {
-        display: flex;
-        gap: 4px;
-        background: var(--muted);
-        border-radius: var(--radius-full);
-        padding: 4px;
-        margin-bottom: 1.5rem;
-    }
-    .tab {
-        flex: 1;
-        height: 34px;
-        border: none;
-        border-radius: var(--radius-full);
-        font: 500 0.875rem/1 var(--font-sans);
-        cursor: pointer;
-        background: transparent;
-        color: var(--muted-foreground);
-        transition: background 0.15s, color 0.15s;
-    }
-    .tab.active {
-        background: var(--card);
-        color: var(--foreground);
-        box-shadow: var(--shadow-soft);
     }
 
     /* Back button */
@@ -325,18 +280,22 @@
         width: 100%;
     }
 
-    .invite-only {
-        text-align: center;
-        padding: 1.5rem 0.5rem;
+    .invite-info {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 14px;
+        padding: 10px 12px;
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+        color: var(--muted-foreground);
+        line-height: 1.5;
     }
-    .invite-icon {
-        font-size: 2rem;
-        margin: 0 0 0.75rem;
-        line-height: 1;
-    }
-    .invite-title {
-        font-weight: 600;
-        font-size: 0.9375rem;
-        margin: 0 0 0.625rem;
+    .invite-info-icon {
+        flex-shrink: 0;
+        font-size: 1rem;
+        line-height: 1.5;
     }
 </style>

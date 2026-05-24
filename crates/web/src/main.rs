@@ -718,6 +718,12 @@ async fn main() -> anyhow::Result<()> {
         .expect("Failed to connect to PostgreSQL");
     info!("Connected to PostgreSQL");
 
+    sqlx::migrate!("../api/migrations")
+        .run(&db)
+        .await
+        .expect("Failed to run database migrations");
+    info!("Database migrations applied");
+
     let state = WebState {
         db,
         admin_sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
