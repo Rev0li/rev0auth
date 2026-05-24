@@ -2,8 +2,8 @@ use axum::response::Html;
 
 use super::profile_page_assembly;
 
-pub async fn profile() -> Html<String> {
-    Html(profile_page_assembly::assemble_profile_page(
+pub async fn profile(songsurf_url: &str) -> Html<String> {
+    let html = profile_page_assembly::assemble_profile_page(
         r##"<!doctype html>
 <html lang="fr">
 <head>
@@ -66,6 +66,11 @@ pub async fn profile() -> Html<String> {
             <textarea id="admin-msg-body" class="field-input" rows="3" placeholder="Ton message pour ce membre..."></textarea>
             <button id="admin-send-msg-btn" class="btn-profile-action" style="margin-top:8px">Envoyer</button>
             <div id="admin-msg-result" class="msg" style="margin-top:6px"></div>
+        </article>
+
+        <article class="card admin-only" id="songsurf-logs-card">
+            <h2>Logs SongSurf</h2>
+            <div id="songsurf-logs-list" class="dl-log-list">Chargement…</div>
         </article>
 
         <article class="card">
@@ -166,6 +171,8 @@ pub async fn profile() -> Html<String> {
     </div>
 
     <script>
+        const SONGSURF_URL = '%%SONGSURF_URL%%';
+
         %%COMMON_JS_UTILS%%
         %%PROFILE_INFO_MODULE%%
         %%PROFILE_AVATAR_MODULE%%
@@ -295,6 +302,33 @@ pub async fn profile() -> Html<String> {
             }
         }
 
+        async function loadSongsurfLogs() {
+            if (!adminMode || !SONGSURF_URL) return;
+            const panel = document.getElementById('songsurf-logs-list');
+            if (!panel) return;
+            try {
+                const res = await fetch(
+                    SONGSURF_URL.replace(/\/$/, '') + '/api/admin/dl-logs?pseudo=' + encodeURIComponent(pseudo),
+                    { credentials: 'include' }
+                );
+                if (!res.ok) { panel.textContent = 'SongSurf indisponible.'; return; }
+                const data = await res.json();
+                if (!data.success || !data.entries || data.entries.length === 0) {
+                    panel.textContent = 'Aucun téléchargement.';
+                    return;
+                }
+                panel.innerHTML = data.entries.map(e =>
+                    '<div class="dl-log-row">'
+                    + '<span class="dl-log-ts">' + escapeHtml(e.timestamp) + '</span>'
+                    + '<span class="dl-log-track">' + escapeHtml(e.artist) + ' — ' + escapeHtml(e.title) + '</span>'
+                    + '<span class="dl-log-album">' + escapeHtml(e.album) + '</span>'
+                    + '</div>'
+                ).join('') + '<div class="dl-log-total">Total : ' + data.total + ' DL</div>';
+            } catch (e) {
+                panel.textContent = 'Erreur : ' + e.message;
+            }
+        }
+
         (async () => {
             if (adminMode) {
                 const ok = await ensureAdminSession();
@@ -308,6 +342,7 @@ pub async fn profile() -> Html<String> {
             const profileData = await infoModule.loadProfile();
             if (adminMode && profileData) renderServicesAdmin(profileData);
             if (adminMode) await adminNavigatorModule.loadApprovalStatus(pseudo);
+            if (adminMode) loadSongsurfLogs();
             await avatarModule.loadAvatarState();
             if (!adminMode) {
                 await donationsModule.loadDonations();
@@ -318,6 +353,6 @@ pub async fn profile() -> Html<String> {
 </body>
 </html>
 "##
-,
-    ))
+    );
+    Html(html.replace("%%SONGSURF_URL%%", songsurf_url))
 }

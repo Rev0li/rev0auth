@@ -20,7 +20,8 @@ RUN mkdir -p crates/api/src crates/web/src \
 RUN cargo build --release -p rev0auth-web \
  && rm -f target/release/deps/rev0auth_web* target/release/rev0auth-web
 
-# Layer: real sources
+# Layer: real sources (migrations embedded at compile time via sqlx::migrate!)
+COPY crates/api/migrations crates/api/migrations
 COPY crates/web/src crates/web/src
 RUN touch crates/web/src/main.rs \
  && cargo build --release -p rev0auth-web

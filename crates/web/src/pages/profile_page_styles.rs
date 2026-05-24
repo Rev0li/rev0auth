@@ -356,6 +356,22 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             color: var(--foreground);
         }
 
+        /* ===== SongSurf logs ===== */
+        .dl-log-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .dl-log-row {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 8px;
+            align-items: baseline;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .dl-log-ts { color: var(--muted-foreground); font-size: 11px; white-space: nowrap; }
+        .dl-log-track { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dl-log-album { color: var(--muted-foreground); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dl-log-total { margin-top: 8px; font-size: 12px; color: var(--muted-foreground); text-align: right; }
+
         /* ===== Responsive (sm < 480px) ===== */
         @media (max-width: 480px) {
             .page { padding: 12px 12px 60px; }
@@ -365,5 +381,7 @@ pub const PROFILE_PAGE_STYLES: &str = r#"
             .btn-profile-action { min-height: 44px; height: auto; padding: 10px 14px; }
             .crypto-addr-row { flex-wrap: wrap; }
             .info-item { flex-wrap: wrap; }
+            .dl-log-row { grid-template-columns: 1fr; }
+            .dl-log-ts { display: none; }
         }
 "#;

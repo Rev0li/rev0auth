@@ -811,8 +811,8 @@ async fn members_dashboard(State(state): State<WebState>) -> impl axum::response
     pages::friend(&state.songsurf_url).await
 }
 
-async fn members_profile_page() -> impl axum::response::IntoResponse {
-    pages::profile().await
+async fn members_profile_page(State(state): State<WebState>) -> impl axum::response::IntoResponse {
+    pages::profile(&state.songsurf_url).await
 }
 
 // ============================================================================
