@@ -18,13 +18,6 @@
     let loading      = $state(false);
     let error        = $state('');
 
-    // Register state
-    let regPseudo    = $state('');
-    let regReferral  = $state('');
-    let regLoading   = $state(false);
-    let regMsg       = $state('');
-    let regOk        = $state(false);
-
     const EMOJIS = [
         { id: 'spark',       label: '✨ Spark'  },
         { id: 'rocket',      label: '🚀 Rocket' },
@@ -94,24 +87,6 @@
         finally { loading = false; }
     }
 
-    async function register() {
-        regMsg = ''; regOk = false;
-        const key = regPseudo.trim().toLowerCase();
-        if (!key) { regMsg = 'Pseudo requis.'; return; }
-        regLoading = true;
-        try {
-            const r = await fetch('/portal', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ pseudo: key, referral: regReferral.trim() || null }),
-            });
-            const data = await r.json();
-            regOk = data.ok;
-            regMsg = data.message;
-        } catch { regMsg = 'Erreur réseau.'; }
-        finally { regLoading = false; }
-    }
-
     function onEnter(e: KeyboardEvent, fn: () => void) {
         if (e.key === 'Enter') fn();
     }
@@ -147,7 +122,7 @@
                         <button class="btn-primary btn-full" onclick={checkPseudo} disabled={loading}>
                             {loading ? '…' : 'Suivant →'}
                         </button>
-                        <a class="link" href="/portal">Pas encore de compte ? S'inscrire</a>
+                        <button class="link" onclick={() => { tab = 'register'; }}>Pas encore de compte ? S'inscrire</button>
                     </div>
 
                 {:else if step === 'password'}
@@ -216,24 +191,14 @@
         <!-- ── REGISTER ── -->
         {#if tab === 'register'}
             <div transition:fade={{ duration: 150 }}>
-                {#if regOk}
-                    <div class="chip-ok register-ok">
-                        ✓ Demande envoyée ! On revient vers toi dès que c'est approuvé.
-                    </div>
-                {:else}
-                    <div class="field">
-                        <label for="reg-pseudo">Pseudo souhaité</label>
-                        <input id="reg-pseudo" bind:value={regPseudo} placeholder="ton_pseudo" />
-                    </div>
-                    <div class="field">
-                        <label for="reg-ref">Référent <span class="meta">(optionnel)</span></label>
-                        <input id="reg-ref" bind:value={regReferral} placeholder="pseudo de quelqu'un qui te connaît" />
-                    </div>
-                    {#if regMsg}<p class="chip-error">{regMsg}</p>{/if}
-                    <button class="btn-primary btn-full" onclick={register} disabled={regLoading}>
-                        {regLoading ? '…' : "Demander l'accès"}
-                    </button>
-                {/if}
+                <div class="invite-only">
+                    <p class="invite-icon">🔒</p>
+                    <p class="invite-title">Inscription sur invitation uniquement</p>
+                    <p class="meta">
+                        Tu as reçu un lien d'invitation ? Utilise-le directement.<br>
+                        Sinon, contacte un admin pour en obtenir un.
+                    </p>
+                </div>
             </div>
         {/if}
 
@@ -352,9 +317,26 @@
         box-shadow: 0 0 0 3px var(--ring);
     }
 
-    .register-ok {
+    button.link {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .invite-only {
         text-align: center;
-        padding: 1.25rem;
+        padding: 1.5rem 0.5rem;
+    }
+    .invite-icon {
+        font-size: 2rem;
+        margin: 0 0 0.75rem;
+        line-height: 1;
+    }
+    .invite-title {
+        font-weight: 600;
         font-size: 0.9375rem;
+        margin: 0 0 0.625rem;
     }
 </style>
