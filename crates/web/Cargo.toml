@@ -23,6 +23,7 @@ webauthn-rs = "0.5"
 uuid = { version = "1", features = ["v4", "v5"] }
 url = "2"
 jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "cookies"] }
 
 [dev-dependencies]
 tower = "0.5"

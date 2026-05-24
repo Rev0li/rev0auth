@@ -28,7 +28,10 @@ async function loadInvites() {
                 ? '<button class="inv-copy-btn" data-link="' + link + '">Copier le lien</button>'
                 : '';
             return '<div class="inv-row">'
-                + '<div class="inv-meta">' + badge + noteHtml + '<span class="inv-dates">Créé ' + dt + ' · Expire ' + expDt + '</span></div>'
+                + '<div class="inv-meta">'
+                +   '<div class="inv-meta-top">' + badge + noteHtml + '</div>'
+                +   '<span class="inv-dates">Créé ' + dt + ' · Expire ' + expDt + '</span>'
+                + '</div>'
                 + '<div class="inv-actions">' + copyBtn + revokeBtn + '</div>'
                 + '</div>';
         }).join('');
@@ -103,27 +106,6 @@ function escapeHtml(s) {
 })();
 "#;
 
-pub const CSS_DASHBOARD_INVITES: &str = r#"
-.inv-gen-form { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
-.inv-gen-form input { flex: 1; min-width: 180px; padding: 0.4rem 0.65rem; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--input, var(--background)); color: var(--foreground); font-size: 0.85rem; }
-.inv-gen-form button { padding: 0.4rem 0.85rem; background: var(--foreground); color: var(--background); border: none; border-radius: 0.375rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-.inv-gen-msg { font-size: 0.8125rem; padding: 0.4rem 0.6rem; border-radius: 0.3rem; margin-bottom: 0.75rem; }
-.inv-gen-msg.ok { background: var(--success-bg, #dcfce7); color: var(--success, #166534); }
-.inv-gen-msg.err { background: var(--error-bg, #fee2e2); color: var(--error, #991b1b); }
-.invites-empty { font-size: 0.875rem; color: var(--muted-foreground); }
-.inv-row { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--border); gap: 0.75rem; flex-wrap: wrap; }
-.inv-row:last-child { border-bottom: none; }
-.inv-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-.inv-badge { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 999px; }
-.inv-badge.active { background: #dcfce7; color: #166534; }
-.inv-badge.used { background: #e0e7ff; color: #3730a3; }
-.inv-badge.expired { background: #f3f4f6; color: #6b7280; }
-.inv-note { font-size: 0.8125rem; color: var(--muted-foreground); }
-.inv-dates { font-size: 0.75rem; color: var(--muted-foreground); }
-.inv-actions { display: flex; gap: 0.4rem; }
-.inv-copy-btn, .inv-revoke-btn { font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 0.3rem; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--foreground); }
-.inv-revoke-btn { color: var(--error, #991b1b); border-color: var(--error, #991b1b); }
-"#;
 
 pub const HTML_INVITES_TAB: &str = r#"
 <section class="tab-page" id="tab-invitations">

@@ -624,6 +624,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/webauthn/remove", post(admin_webauthn_remove))
         .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/wall/:id", delete(admin_wall_delete))
+        .route("/japprends/songsurf-logs", get(admin_songsurf_logs))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
 
     Router::new()
@@ -858,6 +859,78 @@ async fn admin_auth_check() -> Json<ActionResponse> {
     })
 }
 
+#[derive(Deserialize)]
+struct SongsurfLogsQuery {
+    pseudo: Option<String>,
+    limit:  Option<u32>,
+}
+
+async fn admin_songsurf_logs(
+    State(state): State<WebState>,
+    Query(q): Query<SongsurfLogsQuery>,
+) -> impl IntoResponse {
+    let jwt_secret = state.songsurf_jwt_secret.as_str();
+    let songsurf_base = state.songsurf_url.as_str();
+
+    if jwt_secret.is_empty() || songsurf_base.is_empty() {
+        return (StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "success": false, "error": "SongSurf non configuré" }))).into_response();
+    }
+
+    let now = now_epoch();
+    let claims = SurfClaims {
+        sub: "admin".to_string(),
+        role: "admin".to_string(),
+        email: String::new(),
+        token_type: "access".to_string(),
+        iat: now,
+        exp: now + 120,
+    };
+    let token = match encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
+        Ok(t) => t,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "success": false, "error": "JWT error" }))).into_response(),
+    };
+
+    let pseudo = q.pseudo.unwrap_or_default();
+    let limit  = q.limit.unwrap_or(100).min(500);
+    let pseudo_enc: String = url::form_urlencoded::byte_serialize(pseudo.as_bytes()).collect();
+    let url = format!(
+        "{}/api/admin/dl-logs?pseudo={}&limit={}",
+        songsurf_base.trim_end_matches('/'),
+        pseudo_enc,
+        limit,
+    );
+
+    let client = match reqwest::Client::builder().danger_accept_invalid_certs(false).build() {
+        Ok(c) => c,
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "success": false, "error": "HTTP client error" }))).into_response(),
+    };
+
+    match client.get(&url)
+        .header("Cookie", format!("access_token={token}"))
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+    {
+        Ok(resp) if resp.status().is_success() => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(data) => Json(data).into_response(),
+                Err(_) => (StatusCode::BAD_GATEWAY,
+                    Json(serde_json::json!({ "success": false, "error": "Réponse SongSurf invalide" }))).into_response(),
+            }
+        }
+        Ok(resp) => {
+            let status = resp.status();
+            (StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({ "success": false, "error": format!("SongSurf: {}", status) }))).into_response()
+        }
+        Err(e) => (StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({ "success": false, "error": format!("SongSurf injoignable: {e}") }))).into_response(),
+    }
+}
+
 async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
     let api_upstream = api_upstream_addr();
     let api_ok = timeout(
@@ -927,8 +1000,8 @@ async fn signup_submit(
         return Json(SignupResponse { ok: false, message: "Pseudo invalide." });
     }
 
-    if payload.password.len() < 12 {
-        return Json(SignupResponse { ok: false, message: "Mot de passe trop court (12 caractères minimum)." });
+    if payload.password.len() < 8 {
+        return Json(SignupResponse { ok: false, message: "Mot de passe trop court (8 caractères minimum)." });
     }
 
     // Re-validate invite code

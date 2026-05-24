@@ -81,23 +81,23 @@ pub async fn profile(songsurf_url: &str) -> Html<String> {
                     <div id="avatar-state" class="info-label">Aucun avatar.</div>
                 </div>
                 <div class="avatar-actions-col">
-                    <input id="avatar" type="file" accept="image/*" style="display:none" />
-                    <button id="upload-avatar" class="btn-profile-action">Importer une image</button>
-                    <button id="delete-avatar" class="btn-profile-action danger">Supprimer</button>
+                    <button id="change-avatar" class="btn-profile-action">Sélectionner une nouvelle ↓</button>
                 </div>
             </div>
-            <div class="default-avatar-label">Avatars par défaut</div>
+            <div class="default-avatar-label" id="avatar-grid-label">Choisis ton avatar</div>
             <div id="default-avatar-grid" class="default-avatar-grid"></div>
             <div id="avatar-msg" class="msg"></div>
         </article>
 
-        <article class="card">
-            <h2>Mot de passe</h2>
-            <label for="current-password" class="field-label">Mot de passe actuel</label>
-            <input id="current-password" type="password" placeholder="Actuel" class="field-input" />
+        <article class="card" id="password-card">
+            <h2 id="password-card-title">Mot de passe</h2>
+            <div id="current-password-group">
+                <label for="current-password" class="field-label">Mot de passe actuel</label>
+                <input id="current-password" type="password" placeholder="Actuel" class="field-input" />
+            </div>
             <label for="new-password" class="field-label">Nouveau mot de passe</label>
-            <input id="new-password" type="password" placeholder="Nouveau" class="field-input" />
-            <label for="confirm-password" class="field-label">Confirmer le nouveau</label>
+            <input id="new-password" type="password" placeholder="Nouveau (8 car. min.)" class="field-input" />
+            <label for="confirm-password" class="field-label">Confirmer</label>
             <input id="confirm-password" type="password" placeholder="Confirmer" class="field-input" />
             <div class="actions">
                 <button id="save-password" class="btn-profile-action">Mettre à jour</button>
@@ -209,6 +209,8 @@ pub async fn profile(songsurf_url: &str) -> Html<String> {
             });
             document.getElementById('donation-card').style.display = 'none';
             document.getElementById('chat-fab-wrap').style.display = 'none';
+            document.getElementById('current-password-group').style.display = 'none';
+            document.getElementById('password-card-title').textContent = 'Réinitialiser le mot de passe';
         }
 
         async function ensureAdminSession() {
@@ -245,11 +247,11 @@ pub async fn profile(songsurf_url: &str) -> Html<String> {
             createFriendChatModule({ pseudo });
         }
 
-        document.getElementById('upload-avatar').addEventListener('click', () => {
-            document.getElementById('avatar').click();
-        });
-        document.getElementById('avatar').addEventListener('change', () => {
-            avatarModule.uploadAvatar();
+        document.getElementById('change-avatar').addEventListener('click', () => {
+            const grid = document.getElementById('default-avatar-grid');
+            grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('avatar-grid-label').style.color = 'var(--primary)';
+            setTimeout(() => { document.getElementById('avatar-grid-label').style.color = ''; }, 1500);
         });
 
         function renderServicesAdmin(data) {
@@ -303,12 +305,12 @@ pub async fn profile(songsurf_url: &str) -> Html<String> {
         }
 
         async function loadSongsurfLogs() {
-            if (!adminMode || !SONGSURF_URL) return;
+            if (!adminMode) return;
             const panel = document.getElementById('songsurf-logs-list');
             if (!panel) return;
             try {
                 const res = await fetch(
-                    SONGSURF_URL.replace(/\/$/, '') + '/api/admin/dl-logs?pseudo=' + encodeURIComponent(pseudo),
+                    '/japprends/songsurf-logs?pseudo=' + encodeURIComponent(pseudo) + '&limit=100',
                     { credentials: 'include' }
                 );
                 if (!res.ok) { panel.textContent = 'SongSurf indisponible.'; return; }

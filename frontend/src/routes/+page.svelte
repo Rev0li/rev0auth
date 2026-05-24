@@ -119,7 +119,7 @@
                         <span>Inscription sur invitation uniquement — pas de lien ? Contacte un admin.</span>
                     </div>
                 {:else}
-                    <button class="link" onclick={() => { showInviteInfo = true; }}>Pas encore de compte ? S'inscrire</button>
+                    <p class="invite-hint" onclick={() => { showInviteInfo = true; }} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter') showInviteInfo = true; }}>Pas encore de compte ?</p>
                 {/if}
             </div>
 
@@ -272,13 +272,15 @@
         box-shadow: 0 0 0 3px var(--ring);
     }
 
-    button.link {
-        background: none;
-        border: none;
-        padding: 0;
+    .invite-hint {
+        margin-top: 14px;
+        font-size: 0.8125rem;
+        color: var(--muted-foreground);
+        text-align: center;
         cursor: pointer;
-        width: 100%;
+        user-select: none;
     }
+    .invite-hint:hover { color: var(--foreground); }
 
     .invite-info {
         display: flex;
