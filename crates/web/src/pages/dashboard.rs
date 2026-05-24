@@ -30,6 +30,7 @@ pub async fn dashboard() -> Html<String> {
             <button class="tab-btn" data-tab-btn="members">Members</button>
             <button class="tab-btn" data-tab-btn="messages">Messages</button>
             <button class="tab-btn" data-tab-btn="donations">Donations</button>
+            <button class="tab-btn" data-tab-btn="invitations">Invitations</button>
             <button class="tab-btn" data-tab-btn="logs">Logs</button>
         </nav>
 
@@ -115,6 +116,9 @@ pub async fn dashboard() -> Html<String> {
             </div>
         </section>
 
+        <!-- ====== INVITATIONS ====== -->
+        %%DASHBOARD_INVITES_TAB%%
+
         <!-- ====== LOGS ====== -->
         <section class="tab-page" id="tab-logs">
             <div class="row">
@@ -148,6 +152,7 @@ pub async fn dashboard() -> Html<String> {
         %%DASHBOARD_DONATIONS_MODULE%%
 %%DASHBOARD_QUEUE_MODULE%%
         %%DASHBOARD_STATUS_MODULE%%
+        %%DASHBOARD_INVITES_MODULE%%
         const adminChatModule = createDashboardChatModule({ adminPseudo, adminChatState });
         const { setAdminReplyMsg, sendAdminReply, loadAdminMessages } = adminChatModule;
 
@@ -455,6 +460,7 @@ pub async fn dashboard() -> Html<String> {
             if (tab === 'messages') loadAdminMessages();
             if (tab === 'donations') loadAdminDonations();
             if (tab === 'members') { loadUsers(); loadAdminWall(); }
+            if (tab === 'invitations') loadInvites();
             if (tab === 'logs') runSweep();
         }
 

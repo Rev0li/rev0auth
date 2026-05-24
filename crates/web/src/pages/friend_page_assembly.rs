@@ -1,5 +1,5 @@
 use super::{
-    friend_avatar_module, friend_chat_module, friend_onboarding_module, friend_services_module,
+    friend_avatar_module, friend_chat_module, friend_services_module,
     friend_status_module, friend_wall_module, frontend_modules, frontend_theme, page_assembly,
     friend_page_styles,
 };
@@ -23,14 +23,6 @@ pub fn assemble_friend_page(template: &str, songsurf_url: &str) -> String {
             page_assembly::PageModule {
                 placeholder: "%%COMMON_JS_UTILS%%",
                 content: frontend_modules::JS_COMMON_UTILS,
-            },
-            page_assembly::PageModule {
-                placeholder: "%%FRIEND_ONBOARDING_CSS%%",
-                content: friend_onboarding_module::CSS_FRIEND_ONBOARDING_STYLES,
-            },
-            page_assembly::PageModule {
-                placeholder: "%%FRIEND_ONBOARDING_JS%%",
-                content: friend_onboarding_module::JS_FRIEND_ONBOARDING_MODULE,
             },
             page_assembly::PageModule {
                 placeholder: "%%FRIEND_SERVICES_CSS%%",

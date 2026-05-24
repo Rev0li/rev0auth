@@ -1,5 +1,6 @@
 pub mod home;
 pub mod portal;
+pub mod signup;
 pub mod dashboard;
 pub mod admin_login;
 pub mod friend;
@@ -11,7 +12,8 @@ pub mod page_assembly;
 pub mod friend_page_assembly;
 pub mod dashboard_page_assembly;
 pub mod profile_page_assembly;
-pub mod friend_onboarding_module;
+pub mod dashboard_invites_module;
+pub mod signup_page_styles;
 pub mod friend_services_module;
 pub mod friend_chat_module;
 pub mod friend_status_module;

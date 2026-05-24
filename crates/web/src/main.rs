@@ -9,6 +9,10 @@ use axum::{
     routing::{get, post, put, delete},
     Json, Router,
 };
+use argon2::{
+    password_hash::{rand_core::OsRng, SaltString},
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+};
 use data_encoding::BASE32_NOPAD;
 use hmac::{Hmac, Mac};
 use rand::{distributions::Alphanumeric, Rng};
@@ -85,7 +89,6 @@ struct UserRow {
     avatar_size_bytes: Option<i64>,
     avatar_mime_type: Option<String>,
     avatar_bytes: Option<Vec<u8>>,
-    must_change_password: bool,
     password_hash: String,
     created_at_epoch: i64,
     approved: bool,
@@ -113,7 +116,6 @@ impl From<UserRow> for User {
             avatar_size_bytes: r.avatar_size_bytes.map(|n| n as usize),
             avatar_mime_type: r.avatar_mime_type,
             avatar_bytes: r.avatar_bytes,
-            must_change_password: r.must_change_password,
             created_at_epoch: r.created_at_epoch as u64,
             approved: r.approved,
         }
@@ -145,33 +147,6 @@ fn user_status_to_str(s: UserStatus) -> &'static str {
     }
 }
 
-#[derive(Debug, Clone, sqlx::FromRow)]
-struct SignupRequestRow {
-    id: i64,
-    pseudo: String,
-    referral: String,
-    temp_password: String,
-    status: String,
-    created_at_epoch: i64,
-}
-
-impl From<SignupRequestRow> for SignupRequestRecord {
-    fn from(r: SignupRequestRow) -> Self {
-        let status = match r.status.as_str() {
-            "approved" => ManualStatus::Approved,
-            "rejected" => ManualStatus::Rejected,
-            _ => ManualStatus::Pending,
-        };
-        SignupRequestRecord {
-            id: r.id as u64,
-            pseudo: r.pseudo,
-            referral: r.referral,
-            temp_password: r.temp_password,
-            status,
-            created_at_epoch: r.created_at_epoch as u64,
-        }
-    }
-}
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 struct MessageRow {
@@ -290,7 +265,6 @@ struct User {
     avatar_size_bytes: Option<usize>,
     avatar_mime_type: Option<String>,
     avatar_bytes: Option<Vec<u8>>,
-    must_change_password: bool,
     created_at_epoch: u64,
     approved: bool,
 }
@@ -304,31 +278,62 @@ struct WallPost {
     created_at_epoch: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum ManualStatus {
-    Pending,
-    Approved,
-    Rejected,
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct InviteRow {
+    id: i64,
+    code: String,
+    note: String,
+    created_at_epoch: i64,
+    expires_at_epoch: i64,
+    used_by: Option<String>,
+    used_at_epoch: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct SignupRequestRecord {
+struct InviteRecord {
     id: u64,
-    pseudo: String,
-    referral: String,
-    #[serde(skip)]
-    temp_password: String,
-    status: ManualStatus,
+    code: String,
+    note: String,
     created_at_epoch: u64,
+    expires_at_epoch: u64,
+    used_by: Option<String>,
+    used_at_epoch: Option<u64>,
+}
+
+impl From<InviteRow> for InviteRecord {
+    fn from(r: InviteRow) -> Self {
+        InviteRecord {
+            id: r.id as u64,
+            code: r.code,
+            note: r.note,
+            created_at_epoch: r.created_at_epoch as u64,
+            expires_at_epoch: r.expires_at_epoch as u64,
+            used_by: r.used_by,
+            used_at_epoch: r.used_at_epoch.map(|t| t as u64),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
-struct SignupRequestInput {
-    pseudo: String,
-    referral: String,
+struct GenerateInviteInput {
     #[serde(default)]
-    temp_password: Option<String>,
+    note: String,
+}
+
+#[derive(Debug, Serialize)]
+struct GenerateInviteResponse {
+    ok: bool,
+    code: String,
+    message: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+struct SignupInput {
+    pseudo: String,
+    password: String,
+    invite_code: String,
+    #[serde(default)]
+    avatar_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -463,11 +468,7 @@ struct PasswordCheckResponse {
 #[derive(Debug, Serialize)]
 struct SignupResponse {
     ok: bool,
-    request_id: u64,
-    status: &'static str,
     message: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temp_password: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -581,7 +582,6 @@ struct StatusAllResponse {
     web_ok: bool,
     sprint: &'static str,
     tests_api_total: u32,
-    signup_requests_pending: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -597,15 +597,9 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/tdd", get(dashboard))
         .route("/status", get(status))
         .route("/status/all", get(status_all))
-        .route("/japprends/signup-requests", get(admin_signup_requests))
-        .route(
-            "/japprends/signup-requests/:id/approve",
-            post(admin_approve_signup_request),
-        )
-        .route(
-            "/japprends/signup-requests/:id/reject",
-            post(admin_reject_signup_request),
-        )
+        .route("/japprends/invites", get(admin_list_invites))
+        .route("/japprends/invites", post(admin_create_invite))
+        .route("/japprends/invites/:id", delete(admin_revoke_invite))
         .route("/japprends/ping", get(admin_ping))
         .route("/japprends/auth-check", post(admin_auth_check))
         .route("/user/ping", get(user_ping))
@@ -636,7 +630,8 @@ fn build_router(state: WebState) -> Router {
         .route("/", get(home))
         .route("/dashboard", get(dashboard_decoy))
         .route("/portal", get(portal))
-        .route("/portal/signup-request", post(portal_signup_request))
+        .route("/signup", get(signup_page))
+        .route("/signup", post(signup_submit))
         .route("/portal/login", post(portal_login))
         .route("/japprends/login", get(admin_login_page))
         .route("/japprends/login", post(admin_login))
@@ -867,13 +862,6 @@ async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
     .map(|r| r.is_ok())
     .unwrap_or(false);
 
-    let signup_requests_pending: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM web_signup_requests WHERE status = 'pending'"
-    )
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or(0);
-
     Json(StatusAllResponse {
         checked_at_epoch: now_epoch(),
         admin_ok: true,
@@ -882,49 +870,75 @@ async fn status_all(State(state): State<WebState>) -> Json<StatusAllResponse> {
         web_ok: true,
         sprint: "AUTH-006",
         tests_api_total: 18,
-        signup_requests_pending: signup_requests_pending as usize,
     })
 }
 
 // ============================================================================
-// PORTAL HANDLERS - Signup & Login
+// SIGNUP HANDLERS - Invite-only registration
 // ============================================================================
 
-async fn portal_signup_request(
-    State(state): State<WebState>,
-    Json(payload): Json<SignupRequestInput>,
-) -> Json<SignupResponse> {
-    if payload.pseudo.trim().is_empty() || payload.referral.trim().is_empty() {
-        return Json(SignupResponse {
-            ok: false,
-            request_id: 0,
-            status: "rejected",
-            message: "Champs invalides: remplis pseudo et referral.",
-            temp_password: None,
-        });
-    }
+#[derive(Debug, Deserialize)]
+struct InviteQuery {
+    invite: Option<String>,
+}
 
+async fn signup_page(
+    Query(query): Query<InviteQuery>,
+    State(state): State<WebState>,
+) -> axum::response::Html<String> {
+    let code = match query.invite {
+        Some(c) if !c.is_empty() => c,
+        _ => return pages::signup::signup_invalid(),
+    };
+
+    let valid: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM web_invites WHERE code = $1 AND used_by IS NULL AND expires_at_epoch > $2)"
+    )
+    .bind(&code)
+    .bind(now_epoch() as i64)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if valid {
+        pages::signup::signup_form(&code)
+    } else {
+        pages::signup::signup_invalid()
+    }
+}
+
+async fn signup_submit(
+    State(state): State<WebState>,
+    Json(payload): Json<SignupInput>,
+) -> Json<SignupResponse> {
     let pseudo = payload.pseudo.trim().to_string();
+    let code = payload.invite_code.trim().to_string();
 
     if !pseudo.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
         || pseudo.len() < 3
         || pseudo.len() > 20
     {
-        return Json(SignupResponse {
-            ok: false,
-            request_id: 0,
-            status: "rejected",
-            message: "Pseudo invalide : 3-20 caractères, lettres/chiffres/tiret/underscore uniquement, pas d'espaces.",
-            temp_password: None,
-        });
+        return Json(SignupResponse { ok: false, message: "Pseudo invalide." });
     }
-    let temp_password = payload
-        .temp_password
-        .map(|pwd| pwd.trim().to_string())
-        .filter(|pwd| !pwd.is_empty())
-        .unwrap_or_else(generate_temp_password);
 
-    // Check if pseudo already exists
+    if payload.password.len() < 12 {
+        return Json(SignupResponse { ok: false, message: "Mot de passe trop court (12 caractères minimum)." });
+    }
+
+    // Re-validate invite code
+    let invite_id: Option<i64> = sqlx::query_scalar(
+        "SELECT id FROM web_invites WHERE code = $1 AND used_by IS NULL AND expires_at_epoch > $2"
+    )
+    .bind(&code)
+    .bind(now_epoch() as i64)
+    .fetch_optional(&state.db)
+    .await
+    .unwrap_or(None);
+
+    let Some(invite_id) = invite_id else {
+        return Json(SignupResponse { ok: false, message: "Lien d'invitation invalide ou expiré." });
+    };
+
     let exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
     )
@@ -934,57 +948,54 @@ async fn portal_signup_request(
     .unwrap_or(false);
 
     if exists {
-        return Json(SignupResponse {
-            ok: false,
-            request_id: 0,
-            status: "rejected",
-            message: "Pseudo deja utilise.",
-            temp_password: None,
-        });
+        return Json(SignupResponse { ok: false, message: "Ce pseudo est déjà utilisé." });
     }
 
-    // Insert user
+    let Some(hashed) = hash_password(&payload.password) else {
+        return Json(SignupResponse { ok: false, message: "Erreur interne lors du hachage du mot de passe." });
+    };
+
     let insert_result = sqlx::query(
-        "INSERT INTO web_users (pseudo, role, active, status, must_change_password, password_hash, created_at_epoch)
-         VALUES ($1, 'member', true, 'actif', true, $2, $3)"
+        "INSERT INTO web_users (pseudo, role, active, status, password_hash, approved, created_at_epoch)
+         VALUES ($1, 'member', true, 'actif', $2, true, $3)"
     )
     .bind(&pseudo)
-    .bind(&temp_password)
+    .bind(&hashed)
     .bind(now_epoch() as i64)
     .execute(&state.db)
     .await;
 
     if let Err(e) = insert_result {
-        tracing::error!("Failed to insert user {pseudo}: {e}");
-        return Json(SignupResponse {
-            ok: false,
-            request_id: 0,
-            status: "error",
-            message: "Erreur lors de la creation du compte.",
-            temp_password: None,
-        });
+        tracing::error!("Failed to create user {pseudo}: {e}");
+        return Json(SignupResponse { ok: false, message: "Erreur lors de la création du compte." });
     }
 
-    // Insert signup request
-    let request_id: i64 = sqlx::query_scalar(
-        "INSERT INTO web_signup_requests (pseudo, referral, temp_password, status, created_at_epoch)
-         VALUES ($1, $2, $3, 'approved', $4) RETURNING id"
+    // Save avatar if selected
+    if let Some(avatar_id) = payload.avatar_id.as_deref() {
+        if let Some((_, _, svg)) = pages::signup::AVATARS.iter().find(|(id, _, _)| *id == avatar_id) {
+            let _ = sqlx::query(
+                "UPDATE web_users SET avatar_bytes = $1, avatar_mime_type = 'image/svg+xml', avatar_filename = 'avatar.svg', avatar_size_bytes = $2 WHERE LOWER(pseudo) = LOWER($3)"
+            )
+            .bind(svg.as_bytes())
+            .bind(svg.len() as i64)
+            .bind(&pseudo)
+            .execute(&state.db)
+            .await;
+        }
+    }
+
+    // Mark invite as used
+    let _ = sqlx::query(
+        "UPDATE web_invites SET used_by = $1, used_at_epoch = $2 WHERE id = $3"
     )
     .bind(&pseudo)
-    .bind(payload.referral.trim())
-    .bind(&temp_password)
     .bind(now_epoch() as i64)
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or(0);
+    .bind(invite_id)
+    .execute(&state.db)
+    .await;
 
-    Json(SignupResponse {
-        ok: true,
-        request_id: request_id as u64,
-        status: "approved",
-        message: "Compte cree immediatement.",
-        temp_password: Some(temp_password),
-    })
+    info!(target: "rev0auth", "New user signed up: {}", pseudo);
+    Json(SignupResponse { ok: true, message: "Compte créé avec succès." })
 }
 
 async fn portal_login(
@@ -1393,127 +1404,77 @@ async fn admin_webauthn_auth_finish(
 }
 
 // ============================================================================
-// ADMIN HANDLERS - Signup Request Queue
+// ADMIN HANDLERS - Invitations
 // ============================================================================
 
-async fn admin_signup_requests(State(state): State<WebState>) -> Json<Vec<SignupRequestRecord>> {
-    let rows: Vec<SignupRequestRow> = sqlx::query_as(
-        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests ORDER BY created_at_epoch ASC"
+async fn admin_list_invites(State(state): State<WebState>) -> Json<Vec<InviteRecord>> {
+    let rows: Vec<InviteRow> = sqlx::query_as(
+        "SELECT id, code, note, created_at_epoch, expires_at_epoch, used_by, used_at_epoch FROM web_invites ORDER BY created_at_epoch DESC"
     )
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
-    Json(rows.into_iter().map(SignupRequestRecord::from).collect())
+    Json(rows.into_iter().map(InviteRecord::from).collect())
 }
 
-async fn admin_approve_signup_request(
-    Path(id): Path<u64>,
+async fn admin_create_invite(
     State(state): State<WebState>,
-) -> Json<AccountPasswordResponse> {
-    // Fetch the signup request
-    let maybe_req: Option<SignupRequestRow> = sqlx::query_as(
-        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests WHERE id = $1"
+    Json(payload): Json<GenerateInviteInput>,
+) -> Json<GenerateInviteResponse> {
+    let code: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(16)
+        .map(char::from)
+        .collect();
+    let now = now_epoch();
+    let expires = now + 7 * 24 * 3600;
+
+    let result = sqlx::query(
+        "INSERT INTO web_invites (code, note, created_at_epoch, expires_at_epoch) VALUES ($1, $2, $3, $4)"
     )
-    .bind(id as i64)
-    .fetch_optional(&state.db)
-    .await
-    .unwrap_or(None);
-
-    let Some(req) = maybe_req else {
-        return Json(AccountPasswordResponse {
-            ok: false,
-            message: "Demande introuvable.".to_string(),
-            temp_password: None,
-        });
-    };
-
-    // Check if user already exists
-    let user_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM web_users WHERE LOWER(pseudo) = LOWER($1))"
-    )
-    .bind(&req.pseudo)
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or(false);
-
-    if user_exists {
-        return Json(AccountPasswordResponse {
-            ok: false,
-            message: "Utilisateur existe deja.".to_string(),
-            temp_password: None,
-        });
-    }
-
-    let temp_password = if req.temp_password.trim().is_empty() {
-        generate_temp_password()
-    } else {
-        req.temp_password.clone()
-    };
-
-    // Insert user
-    let _ = sqlx::query(
-        "INSERT INTO web_users (pseudo, role, active, status, must_change_password, password_hash, created_at_epoch)
-         VALUES ($1, 'member', true, 'actif', true, $2, $3)
-         ON CONFLICT (pseudo) DO NOTHING"
-    )
-    .bind(&req.pseudo)
-    .bind(&temp_password)
-    .bind(now_epoch() as i64)
+    .bind(&code)
+    .bind(payload.note.trim())
+    .bind(now as i64)
+    .bind(expires as i64)
     .execute(&state.db)
     .await;
 
-    // Update request status
-    let _ = sqlx::query("UPDATE web_signup_requests SET status = 'approved' WHERE id = $1")
-        .bind(id as i64)
-        .execute(&state.db)
-        .await;
-
-    info!(target: "rev0auth", "User approved: {}", req.pseudo);
-    write_admin_audit(&state, "approve_signup", req.pseudo.clone(), format!("request #{id}")).await;
-
-    Json(AccountPasswordResponse {
-        ok: true,
-        message: "Demande approuvee. Mot de passe temporaire genere.".to_string(),
-        temp_password: Some(temp_password),
-    })
+    match result {
+        Ok(_) => {
+            info!(target: "rev0auth", "Invite created: {}", code);
+            Json(GenerateInviteResponse { ok: true, code, message: "Invitation generee." })
+        }
+        Err(e) => {
+            tracing::error!("Failed to create invite: {e}");
+            Json(GenerateInviteResponse { ok: false, code: String::new(), message: "Erreur lors de la creation." })
+        }
+    }
 }
 
-async fn admin_reject_signup_request(
+async fn admin_revoke_invite(
     Path(id): Path<u64>,
     State(state): State<WebState>,
 ) -> Json<ActionResponse> {
-    let maybe_req: Option<SignupRequestRow> = sqlx::query_as(
-        "SELECT id, pseudo, referral, temp_password, status, created_at_epoch FROM web_signup_requests WHERE id = $1"
+    let result = sqlx::query(
+        "DELETE FROM web_invites WHERE id = $1 AND used_by IS NULL"
     )
     .bind(id as i64)
-    .fetch_optional(&state.db)
-    .await
-    .unwrap_or(None);
+    .execute(&state.db)
+    .await;
 
-    let Some(req) = maybe_req else {
-        return Json(ActionResponse {
-            ok: false,
-            message: "Demande introuvable.",
-        });
-    };
-
-    let _ = sqlx::query("UPDATE web_signup_requests SET status = 'rejected' WHERE id = $1")
-        .bind(id as i64)
-        .execute(&state.db)
-        .await;
-
-    write_admin_audit(&state, "reject_signup", req.pseudo.clone(), format!("request #{id}")).await;
-    Json(ActionResponse {
-        ok: true,
-        message: "Demande rejetee.",
-    })
+    match result {
+        Ok(r) if r.rows_affected() > 0 => Json(ActionResponse { ok: true, message: "Invitation revoquee." }),
+        Ok(_) => Json(ActionResponse { ok: false, message: "Invitation introuvable ou deja utilisee." }),
+        Err(_) => Json(ActionResponse { ok: false, message: "Erreur lors de la revocation." }),
+    }
 }
 
 async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
     Json(vec![
         EndpointInfo { method: "GET", path: "/", scope: "public" },
         EndpointInfo { method: "GET", path: "/portal", scope: "public" },
-        EndpointInfo { method: "POST", path: "/portal/signup-request", scope: "public" },
+        EndpointInfo { method: "GET", path: "/signup", scope: "public" },
+        EndpointInfo { method: "POST", path: "/signup", scope: "public" },
         EndpointInfo { method: "POST", path: "/portal/login", scope: "public" },
         EndpointInfo { method: "GET", path: "/japprends/login", scope: "public" },
         EndpointInfo { method: "POST", path: "/japprends/login", scope: "public" },
@@ -1524,9 +1485,9 @@ async fn admin_all_endpoints() -> Json<Vec<EndpointInfo>> {
         EndpointInfo { method: "GET", path: "/japprends/ping", scope: "admin" },
         EndpointInfo { method: "POST", path: "/japprends/auth-check", scope: "admin" },
         EndpointInfo { method: "GET", path: "/user/ping", scope: "admin" },
-        EndpointInfo { method: "GET", path: "/japprends/signup-requests", scope: "admin" },
-        EndpointInfo { method: "POST", path: "/japprends/signup-requests/:id/approve", scope: "admin" },
-        EndpointInfo { method: "POST", path: "/japprends/signup-requests/:id/reject", scope: "admin" },
+        EndpointInfo { method: "GET", path: "/japprends/invites", scope: "admin" },
+        EndpointInfo { method: "POST", path: "/japprends/invites", scope: "admin" },
+        EndpointInfo { method: "DELETE", path: "/japprends/invites/:id", scope: "admin" },
         EndpointInfo { method: "POST", path: "/japprends/users", scope: "admin" },
         EndpointInfo { method: "PUT", path: "/japprends/users/:pseudo", scope: "admin" },
         EndpointInfo { method: "DELETE", path: "/japprends/users/:pseudo", scope: "admin" },
@@ -1569,7 +1530,7 @@ async fn list_users(State(state): State<WebState>) -> Json<Vec<User>> {
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users ORDER BY created_at_epoch ASC"
     )
     .fetch_all(&state.db)
@@ -1597,7 +1558,7 @@ async fn password_check(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(pseudo)
@@ -1609,11 +1570,21 @@ async fn password_check(
         return fail("Mot de passe incorrect.");
     };
 
-    if row.password_hash != password {
+    if !verify_password(password, &row.password_hash) {
         return fail("Mot de passe incorrect.");
     }
 
-    let requires_change = row.must_change_password;
+    // Upgrade automatique si l'ancien compte avait un mot de passe en plain text
+    if !row.password_hash.starts_with("$argon2") {
+        if let Some(new_hash) = hash_password(password) {
+            let _ = sqlx::query("UPDATE web_users SET password_hash = $1 WHERE LOWER(pseudo) = LOWER($2)")
+                .bind(&new_hash)
+                .bind(pseudo)
+                .execute(&state.db)
+                .await;
+        }
+    }
+
     let access_songsurf = row.access_songsurf;
     let role = role_str_to_static(&row.role);
 
@@ -1637,12 +1608,8 @@ async fn password_check(
 
     Json(PasswordCheckResponse {
         ok: true,
-        state: if requires_change { "onboarding" } else { "ok" },
-        message: if requires_change {
-            "Mot de passe correct. Onboarding requis."
-        } else {
-            "Mot de passe correct. Connexion autorisee."
-        },
+        state: "ok",
+        message: "Mot de passe correct. Connexion autorisee.",
         songsurf_url,
     }).into_response()
 }
@@ -1715,10 +1682,13 @@ async fn admin_set_password(
     State(state): State<WebState>,
     Json(payload): Json<AdminSetPasswordInput>,
 ) -> Json<ActionResponse> {
+    let Some(hashed) = hash_password(&payload.password) else {
+        return Json(ActionResponse { ok: false, message: "Erreur interne lors du hachage." });
+    };
     let result = sqlx::query(
-        "UPDATE web_users SET password_hash = $1, must_change_password = true WHERE LOWER(pseudo) = LOWER($2)"
+        "UPDATE web_users SET password_hash = $1 WHERE LOWER(pseudo) = LOWER($2)"
     )
-    .bind(&payload.password)
+    .bind(&hashed)
     .bind(&pseudo)
     .execute(&state.db)
     .await;
@@ -1805,7 +1775,7 @@ async fn admin_update_user(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users WHERE pseudo = $1"
     )
     .bind(&pseudo)
@@ -1921,7 +1891,7 @@ async fn member_profile_data(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&query.pseudo)
@@ -2008,7 +1978,7 @@ async fn member_update_profile(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&payload.pseudo)
@@ -2458,7 +2428,7 @@ async fn member_update_password(
         "SELECT pseudo, role, active, status, bio, commentary, access_github, access_jellyfin, access_songsurf,
                 request_github, request_jellyfin, request_songsurf, github_star_claimed, github_username,
                 linkedin_name, avatar_filename, avatar_size_bytes, avatar_mime_type, avatar_bytes,
-                must_change_password, password_hash, created_at_epoch, approved
+                password_hash, created_at_epoch, approved
          FROM web_users WHERE LOWER(pseudo) = LOWER($1)"
     )
     .bind(&pseudo)
@@ -2470,21 +2440,22 @@ async fn member_update_password(
         return Json(ActionResponse { ok: false, message: "Utilisateur introuvable." });
     };
 
-    if !row.must_change_password {
-        // Not first-login: must provide current password
-        if let Some(current_password) = payload.current_password.as_ref() {
-            if &row.password_hash != current_password {
-                return Json(ActionResponse { ok: false, message: "Mot de passe actuel invalide." });
-            }
-        } else {
-            return Json(ActionResponse { ok: false, message: "Mot de passe actuel requis." });
+    if let Some(current_password) = payload.current_password.as_ref() {
+        if !verify_password(current_password, &row.password_hash) {
+            return Json(ActionResponse { ok: false, message: "Mot de passe actuel invalide." });
         }
+    } else {
+        return Json(ActionResponse { ok: false, message: "Mot de passe actuel requis." });
     }
 
+    let Some(hashed) = hash_password(&new_password) else {
+        return Json(ActionResponse { ok: false, message: "Erreur interne lors du hachage." });
+    };
+
     let _ = sqlx::query(
-        "UPDATE web_users SET password_hash=$1, must_change_password=false WHERE LOWER(pseudo) = LOWER($2)"
+        "UPDATE web_users SET password_hash=$1 WHERE LOWER(pseudo) = LOWER($2)"
     )
-    .bind(&new_password)
+    .bind(&hashed)
     .bind(&pseudo)
     .execute(&state.db)
     .await;
@@ -2805,12 +2776,27 @@ async fn write_admin_audit(state: &WebState, action: &'static str, target: Strin
 }
 
 
-fn generate_temp_password() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(12)
-        .map(char::from)
-        .collect()
+fn hash_password(password: &str) -> Option<String> {
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .ok()
+        .map(|h| h.to_string())
+}
+
+fn verify_password(password: &str, stored: &str) -> bool {
+    if stored.is_empty() {
+        return false;
+    }
+    if stored.starts_with("$argon2") {
+        PasswordHash::new(stored)
+            .ok()
+            .map(|h| Argon2::default().verify_password(password.as_bytes(), &h).is_ok())
+            .unwrap_or(false)
+    } else {
+        // Legacy plain text — fallback pour les anciens comptes
+        password == stored
+    }
 }
 
 fn now_epoch() -> u64 {

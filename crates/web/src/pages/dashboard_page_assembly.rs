@@ -1,7 +1,7 @@
 use super::{
-    dashboard_chat_module, dashboard_donations_module, dashboard_queue_module,
-    dashboard_status_module, dashboard_users_module, frontend_modules,
-    dashboard_page_styles, frontend_theme, page_assembly,
+    dashboard_chat_module, dashboard_donations_module, dashboard_invites_module,
+    dashboard_queue_module, dashboard_status_module, dashboard_users_module,
+    frontend_modules, dashboard_page_styles, frontend_theme, page_assembly,
 };
 
 pub fn assemble_dashboard_page(template: &str) -> String {
@@ -39,6 +39,14 @@ page_assembly::PageModule {
             page_assembly::PageModule {
                 placeholder: "%%DASHBOARD_STATUS_MODULE%%",
                 content: dashboard_status_module::JS_DASHBOARD_STATUS_MODULE,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%DASHBOARD_INVITES_MODULE%%",
+                content: dashboard_invites_module::JS_DASHBOARD_INVITES_MODULE,
+            },
+            page_assembly::PageModule {
+                placeholder: "%%DASHBOARD_INVITES_TAB%%",
+                content: dashboard_invites_module::HTML_INVITES_TAB,
             },
             page_assembly::PageModule {
                 placeholder: "%%DASHBOARD_PAGE_STYLES%%",

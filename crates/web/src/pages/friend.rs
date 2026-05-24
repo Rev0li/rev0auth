@@ -13,7 +13,6 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
     %%FRONTEND_THEME_BOOT%%
     <style>
         %%FRIEND_PAGE_STYLES%%
-        %%FRIEND_ONBOARDING_CSS%%
         %%FRIEND_SERVICES_CSS%%
         %%FRIEND_CHAT_CSS%%
         %%FRIEND_STATUS_CSS%%
@@ -22,28 +21,6 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
     </style>
 </head>
 <body>
-
-    <!-- Onboarding modal — first login -->
-    <div id="onboarding-modal" class="onboarding-modal">
-        <div class="onboarding-card">
-            <h2>Première connexion</h2>
-            <p class="onboarding-intro">Choisis ton mot de passe et une photo de profil avant de continuer.</p>
-
-            <label for="onboarding-new-password" class="onboarding-label">Nouveau mot de passe</label>
-            <input id="onboarding-new-password" class="onboarding-field" type="password" placeholder="nouveau mot de passe" />
-
-            <label for="onboarding-confirm-password" class="onboarding-label">Confirmer le mot de passe</label>
-            <input id="onboarding-confirm-password" class="onboarding-field" type="password" placeholder="retape le nouveau mot de passe" />
-
-            <span class="onboarding-label" style="margin-top:14px;display:block">Choisis un avatar (optionnel)</span>
-            <div id="onboarding-avatar-grid" class="onboarding-avatar-grid"></div>
-
-            <div class="actions actions-tight">
-                <button id="onboarding-submit" class="btn-action">Valider et continuer</button>
-            </div>
-            <div id="onboarding-msg" class="onboarding-msg"></div>
-        </div>
-    </div>
 
     <!-- Navbar -->
     <nav class="navbar">
@@ -214,8 +191,6 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
         const pseudo = localStorage.getItem('logged_pseudo');
         if (!pseudo) { window.location.href = '/'; }
 
-        const needsOnboarding = localStorage.getItem('needs_onboarding') === '1';
-
         %%COMMON_JS_UTILS%%
 
         const avatarModule = createFriendAvatarModule({ pseudo });
@@ -225,7 +200,6 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
         const servicesModule = createFriendServicesModule({ pseudo });
         const chatModule = createFriendChatModule({ pseudo });
         const wallModule = createFriendWallModule({ pseudo });
-        const onboardingModule = createFriendOnboardingModule({ pseudo, avatarModule });
 
         // Populate pseudo displays
         const pseudoDisplay = document.getElementById('pseudo-display');
@@ -244,11 +218,6 @@ pub async fn friend(songsurf_url: &str) -> Html<String> {
 
         document.getElementById('logout-btn').addEventListener('click', logout);
 
-        if (needsOnboarding) {
-            onboardingModule.openOnboardingModal();
-        }
-
-        %%FRIEND_ONBOARDING_JS%%
         %%FRIEND_SERVICES_JS%%
         %%FRIEND_CHAT_JS%%
         %%FRIEND_STATUS_JS%%

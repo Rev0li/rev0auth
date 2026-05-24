@@ -11,113 +11,26 @@ pub async fn portal() -> Html<String> {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>rev0auth - Inscription</title>
     %%FRONTEND_THEME_BOOT%%
-    <style>
-        %%PORTAL_PAGE_STYLES%%
-    </style>
+    <style>%%PORTAL_PAGE_STYLES%%</style>
 </head>
 <body>
     <main class="page">
         <div class="header">
-            <h1>S'inscrire</h1>
+            <h1>Inscription</h1>
             <a class="link" href="/">← Connexion</a>
         </div>
-
-        <article class="card">
-            <p class="hint">Tu recevras un mot de passe temporaire a copier apres envoi.</p>
-
-            <label for="pseudo">Pseudo *</label>
-            <input id="pseudo" placeholder="ton_pseudo" required />
-            <small class="hint-warn">⚠ Ton pseudo est définitif — il ne pourra jamais être modifié.</small>
-
-            <label for="referral">Comment tu m'as connu ? *</label>
-            <textarea id="referral" rows="2" placeholder="Ami, réseau social, portfolio..." required style="resize:vertical"></textarea>
-
-            <button class="btn btn-primary" id="signup-btn">Envoyer ma demande</button>
-            <div id="temp-password-box" class="result"></div>
-            <div id="signup-error" class="result"></div>
+        <article class="card" style="text-align:center;padding:2rem 1.5rem;">
+            <p style="font-size:1.5rem;margin-bottom:0.75rem">🔒</p>
+            <p style="font-weight:600;margin-bottom:0.5rem">Inscription sur invitation uniquement</p>
+            <p style="font-size:0.875rem;color:var(--muted-foreground)">
+                Tu as reçu un lien d'invitation ? Utilise-le directement.<br>
+                Sinon, contacte un admin pour en obtenir un.
+            </p>
         </article>
     </main>
-
-    <script>
-        function setResult(el, ok, text) {
-            el.className = 'result ' + (ok ? 'ok' : 'down');
-            el.textContent = text;
-        }
-
-        function bindEnterToClick(inputId, buttonId) {
-            const input = document.getElementById(inputId);
-            const button = document.getElementById(buttonId);
-            if (!input || !button) return;
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    button.click();
-                }
-            });
-        }
-
-        function generateTempPassword() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-            const bytes = new Uint8Array(12);
-            crypto.getRandomValues(bytes);
-            return Array.from(bytes, (value) => chars[value % chars.length]).join('');
-        }
-
-        bindEnterToClick('pseudo', 'signup-btn');
-        bindEnterToClick('referral', 'signup-btn');
-
-        const PSEUDO_RE = /^[a-zA-Z0-9_-]{3,20}$/;
-
-        document.getElementById('signup-btn').addEventListener('click', async () => {
-            const pseudo = document.getElementById('pseudo').value.trim();
-            const referral = document.getElementById('referral').value.trim();
-            const output = document.getElementById('signup-error');
-            const tempPasswordBox = document.getElementById('temp-password-box');
-
-            if (!pseudo || !referral) {
-                setResult(output, false, 'Remplis les champs obligatoires (pseudo, comment tu m\'as connu).');
-                return;
-            }
-            if (!PSEUDO_RE.test(pseudo)) {
-                setResult(output, false, 'Pseudo invalide : 3-20 caractères, lettres/chiffres/tiret/underscore uniquement, pas d\'espaces.');
-                return;
-            }
-
-            const tempPassword = generateTempPassword();
-
-            try {
-                const res = await fetch('/portal/signup-request', {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({ pseudo, referral, temp_password: tempPassword })
-                });
-                const data = await res.json();
-
-                if (data.ok) {
-                    output.style.display = 'none';
-                    output.textContent = '';
-                    const pwd = data.temp_password || tempPassword;
-                    tempPasswordBox.style.display = 'block';
-                    setTimeout(() => tempPasswordBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
-                    tempPasswordBox.innerHTML = 'Mot de passe temporaire :<br><code id="shown-pwd" style="font-size:1.1em;letter-spacing:0.05em;user-select:all">' + pwd + '</code>'
-                        + '<button type="button" id="copy-pwd-btn" class="copy-btn" onclick="(function(){navigator.clipboard.writeText(document.getElementById(\'shown-pwd\').textContent).then(()=>{var b=document.getElementById(\'copy-pwd-btn\');b.textContent=\'✓ Copié\';setTimeout(()=>{b.textContent=\'Copier\'},1800)})})()">Copier</button>'
-                        + '<br><small style="opacity:0.7;margin-top:4px;display:block">Utile pour la 1er connexion seulement.</small>';
-                } else {
-                    setResult(output, false, data.message || 'Inscription refusee.');
-                    tempPasswordBox.style.display = 'none';
-                    tempPasswordBox.textContent = '';
-                }
-            } catch (err) {
-                setResult(output, false, 'Erreur réseau. Vérifie ta connexion et réessaie.');
-                tempPasswordBox.style.display = 'none';
-            }
-        });
-    </script>
 </body>
-</html>
-"##
+</html>"##
         .replace("%%FRONTEND_THEME_BOOT%%", frontend_theme::FRONTEND_THEME_BOOT)
-    .replace("%%PORTAL_PAGE_STYLES%%", portal_page_styles::PORTAL_PAGE_STYLES)
-        .replace("%%FRONTEND_SHARED_CSS%%", frontend_theme::FRONTEND_SHARED_CSS),
+        .replace("%%PORTAL_PAGE_STYLES%%", portal_page_styles::PORTAL_PAGE_STYLES),
     )
 }
