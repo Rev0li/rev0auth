@@ -43,6 +43,11 @@
 <div class="dashboard">
     <header class="dash-header">
         <span class="dash-brand">rev0auth <span class="dash-role">admin</span></span>
+        {#if data.songsurfUrl}
+            <a class="btn-songsurf" href={data.songsurfUrl} target="_blank" rel="noopener">
+                SongSurf ↗
+            </a>
+        {/if}
         <span class="dash-pseudo">{data.admin}</span>
         <button class="btn-logout" onclick={logout}>Déconnexion</button>
     </header>
@@ -94,6 +99,15 @@
         color: #a078ff; border-radius: 99px; padding: 2px 7px;
         vertical-align: middle;
     }
+    .btn-songsurf {
+        font: 500 0.8125rem/1 var(--font-sans);
+        background: var(--muted); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); padding: 5px 12px;
+        color: var(--foreground); text-decoration: none;
+        transition: border-color 0.15s;
+    }
+    .btn-songsurf:hover { border-color: var(--primary); color: var(--primary); }
+
     .dash-pseudo {
         font-size: 0.875rem; color: var(--muted-foreground);
         margin-left: auto;

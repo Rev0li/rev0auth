@@ -1,6 +1,4 @@
 <script lang="ts">
-    const ROLES = ['guest', 'member', 'mod', 'admin'];
-
     type User = {
         pseudo: string; role: string; active: boolean; approved: boolean;
         status: string; createdAt: number;
@@ -12,15 +10,35 @@
 
     let members = $state<User[]>(initial);
     let busy = $state<Record<string, boolean>>({});
+    let expanded = $state<string | null>(null);
+
+    // Create form
     let createOpen = $state(false);
     let newPseudo = $state('');
     let newPassword = $state('');
-    let newRole = $state('member');
     let createErr = $state('');
     let createLoading = $state(false);
 
+    // Reset password (per member)
+    let resetPseudo = $state<string | null>(null);
+    let newPwd = $state('');
+    let resetLoading = $state(false);
+    let resetMsg = $state('');
+
+    // Send message (per member)
+    let msgPseudo = $state<string | null>(null);
+    let msgBody = $state('');
+    let msgLoading = $state(false);
+    let msgResult = $state('');
+
     function fmt(epoch: number) {
         return new Date(epoch * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function toggle(pseudo: string) {
+        expanded = expanded === pseudo ? null : pseudo;
+        resetPseudo = null; resetMsg = ''; newPwd = '';
+        msgPseudo = null; msgBody = ''; msgResult = '';
     }
 
     async function patch(pseudo: string, updates: Record<string, unknown>) {
@@ -31,9 +49,7 @@
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(updates),
             });
-            if (r.ok) {
-                members = members.map(u => u.pseudo === pseudo ? { ...u, ...updates } : u);
-            }
+            if (r.ok) members = members.map(u => u.pseudo === pseudo ? { ...u, ...updates } : u);
         } finally { busy[pseudo] = false; }
     }
 
@@ -43,7 +59,38 @@
         try {
             await fetch(`/japprends/users/${pseudo}`, { method: 'DELETE' });
             members = members.filter(u => u.pseudo !== pseudo);
+            if (expanded === pseudo) expanded = null;
         } finally { busy[pseudo] = false; }
+    }
+
+    async function resetPassword() {
+        if (!resetPseudo || !newPwd) return;
+        resetLoading = true; resetMsg = '';
+        try {
+            const r = await fetch(`/japprends/users/${resetPseudo}/password`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ password: newPwd }),
+            });
+            const d = await r.json();
+            resetMsg = d.ok ? '✓ Mot de passe modifié' : (d.message ?? 'Erreur');
+            if (d.ok) { newPwd = ''; resetPseudo = null; }
+        } finally { resetLoading = false; }
+    }
+
+    async function sendMessage() {
+        if (!msgPseudo || !msgBody.trim()) return;
+        msgLoading = true; msgResult = '';
+        try {
+            const r = await fetch('/japprends/messages/reply', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ to: msgPseudo, body: msgBody.trim() }),
+            });
+            const d = await r.json();
+            msgResult = d.ok ? '✓ Message envoyé' : 'Erreur';
+            if (d.ok) { msgBody = ''; msgPseudo = null; }
+        } finally { msgLoading = false; }
     }
 
     async function createMember() {
@@ -55,17 +102,17 @@
             const r = await fetch('/japprends/users', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ pseudo: key, password: newPassword, role: newRole }),
+                body: JSON.stringify({ pseudo: key, password: newPassword, role: 'member' }),
             });
             const data = await r.json();
             if (!data.ok) { createErr = data.message ?? 'Erreur.'; return; }
             members = [...members, {
-                pseudo: key, role: newRole, active: true, approved: false,
+                pseudo: key, role: 'member', active: true, approved: false,
                 status: 'offline', createdAt: Math.floor(Date.now() / 1000),
                 accessGithub: false, accessJellyfin: false, accessSongsurf: false,
                 requestGithub: false, requestJellyfin: false, requestSongsurf: false,
             }];
-            newPseudo = ''; newPassword = ''; newRole = 'member'; createOpen = false;
+            newPseudo = ''; newPassword = ''; createOpen = false;
         } finally { createLoading = false; }
     }
 
@@ -90,9 +137,6 @@
         <div class="create-form">
             <input bind:value={newPseudo} placeholder="pseudo" autocomplete="off" />
             <input bind:value={newPassword} type="password" placeholder="mot de passe" />
-            <select bind:value={newRole}>
-                {#each ROLES as r}<option value={r}>{r}</option>{/each}
-            </select>
             <button class="btn-action grant" onclick={createMember} disabled={createLoading}>
                 {createLoading ? '…' : 'Créer'}
             </button>
@@ -102,71 +146,102 @@
 
     <div class="member-list">
         {#each members as u (u.pseudo)}
-            <div class="member-row" class:inactive={!u.active}>
-                <div class="member-identity">
-                    <span class="pseudo">{u.pseudo}</span>
-                    <span class="role-badge role-{u.role}">{u.role}</span>
-                    {#if u.requestGithub || u.requestJellyfin || u.requestSongsurf}
-                        <span class="chip-request">demande accès</span>
-                    {/if}
-                </div>
+            {@const isExpanded = expanded === u.pseudo}
+            <div class="member-card" class:open={isExpanded}>
 
-                <div class="member-meta">
+                <!-- ── Row cliquable ── -->
+                <button class="member-row" onclick={() => toggle(u.pseudo)}>
+                    <div class="member-identity">
+                        <span class="pseudo">{u.pseudo}</span>
+                        {#if u.requestGithub || u.requestJellyfin || u.requestSongsurf}
+                            <span class="chip-request">demande accès</span>
+                        {/if}
+                    </div>
                     <span class="meta-date">{fmt(u.createdAt)}</span>
-                </div>
+                    <span class="chevron">{isExpanded ? '▲' : '▼'}</span>
+                </button>
 
-                <div class="member-actions">
-                    <select
-                        value={u.role}
-                        disabled={busy[u.pseudo]}
-                        onchange={(e) => patch(u.pseudo, { role: (e.target as HTMLSelectElement).value })}
-                    >
-                        {#each ROLES as r}<option value={r}>{r}</option>{/each}
-                    </select>
+                <!-- ── Détail expandable ── -->
+                {#if isExpanded}
+                    <div class="member-detail">
 
-                    <button
-                        class="btn-action {u.active ? 'revoke' : 'grant'}"
-                        disabled={busy[u.pseudo]}
-                        onclick={() => patch(u.pseudo, { active: !u.active })}
-                    >
-                        {u.active ? 'Désactiver' : 'Réactiver'}
-                    </button>
+                        <!-- Accès services -->
+                        <div class="detail-section">
+                            <span class="detail-label">Accès services</span>
+                            <div class="access-grid">
+                                <button
+                                    class="btn-access {u.accessSongsurf ? 'granted' : ''}"
+                                    disabled={busy[u.pseudo]}
+                                    onclick={() => patch(u.pseudo, { accessSongsurf: !u.accessSongsurf, requestSongsurf: false })}
+                                >
+                                    SongSurf {u.accessSongsurf ? '✓' : '—'}
+                                </button>
+                                <button
+                                    class="btn-access {u.accessJellyfin ? 'granted' : ''}"
+                                    disabled={busy[u.pseudo]}
+                                    onclick={() => patch(u.pseudo, { accessJellyfin: !u.accessJellyfin, requestJellyfin: false })}
+                                >
+                                    Jellyfin {u.accessJellyfin ? '✓' : '—'}
+                                </button>
+                                <button
+                                    class="btn-access {u.accessGithub ? 'granted' : ''}"
+                                    disabled={busy[u.pseudo]}
+                                    onclick={() => patch(u.pseudo, { accessGithub: !u.accessGithub, requestGithub: false })}
+                                >
+                                    GitHub {u.accessGithub ? '✓' : '—'}
+                                </button>
+                            </div>
+                        </div>
 
-                    <button
-                        class="btn-action danger"
-                        disabled={busy[u.pseudo]}
-                        onclick={() => deleteMember(u.pseudo)}
-                    >
-                        ✕
-                    </button>
-                </div>
+                        <!-- Reset mot de passe -->
+                        <div class="detail-section">
+                            <span class="detail-label">Mot de passe</span>
+                            {#if resetPseudo === u.pseudo}
+                                <div class="inline-form">
+                                    <input type="password" bind:value={newPwd} placeholder="Nouveau mot de passe" />
+                                    <button class="btn-action grant" onclick={resetPassword} disabled={resetLoading || !newPwd}>
+                                        {resetLoading ? '…' : 'Valider'}
+                                    </button>
+                                    <button class="btn-action" onclick={() => { resetPseudo = null; newPwd = ''; }}>Annuler</button>
+                                </div>
+                                {#if resetMsg}<span class="feedback">{resetMsg}</span>{/if}
+                            {:else}
+                                <button class="btn-action" onclick={() => { resetPseudo = u.pseudo; resetMsg = ''; }}>
+                                    Réinitialiser
+                                </button>
+                            {/if}
+                        </div>
 
-                {#if u.requestGithub || u.requestJellyfin || u.requestSongsurf}
-                    <div class="access-requests">
-                        {#if u.requestGithub}
+                        <!-- Envoyer un message -->
+                        <div class="detail-section">
+                            <span class="detail-label">Message</span>
+                            {#if msgPseudo === u.pseudo}
+                                <div class="inline-form">
+                                    <textarea bind:value={msgBody} placeholder="Ton message…" rows="2"></textarea>
+                                    <button class="btn-action grant" onclick={sendMessage} disabled={msgLoading || !msgBody.trim()}>
+                                        {msgLoading ? '…' : 'Envoyer'}
+                                    </button>
+                                    <button class="btn-action" onclick={() => { msgPseudo = null; msgBody = ''; }}>Annuler</button>
+                                </div>
+                                {#if msgResult}<span class="feedback">{msgResult}</span>{/if}
+                            {:else}
+                                <button class="btn-action" onclick={() => { msgPseudo = u.pseudo; msgResult = ''; }}>
+                                    Envoyer un message
+                                </button>
+                            {/if}
+                        </div>
+
+                        <!-- Danger zone -->
+                        <div class="detail-section danger-zone">
                             <button
-                                class="btn-access {u.accessGithub ? 'granted' : ''}"
-                                onclick={() => patch(u.pseudo, { accessGithub: !u.accessGithub, requestGithub: false })}
+                                class="btn-action danger"
+                                disabled={busy[u.pseudo]}
+                                onclick={() => deleteMember(u.pseudo)}
                             >
-                                GitHub {u.accessGithub ? '✓' : '?'}
+                                Supprimer le compte
                             </button>
-                        {/if}
-                        {#if u.requestJellyfin}
-                            <button
-                                class="btn-access {u.accessJellyfin ? 'granted' : ''}"
-                                onclick={() => patch(u.pseudo, { accessJellyfin: !u.accessJellyfin, requestJellyfin: false })}
-                            >
-                                Jellyfin {u.accessJellyfin ? '✓' : '?'}
-                            </button>
-                        {/if}
-                        {#if u.requestSongsurf}
-                            <button
-                                class="btn-access {u.accessSongsurf ? 'granted' : ''}"
-                                onclick={() => patch(u.pseudo, { accessSongsurf: !u.accessSongsurf, requestSongsurf: false })}
-                            >
-                                SongSurf {u.accessSongsurf ? '✓' : '?'}
-                            </button>
-                        {/if}
+                        </div>
+
                     </div>
                 {/if}
             </div>
@@ -177,9 +252,7 @@
 <style>
     .members-tab { display: flex; flex-direction: column; gap: 1rem; }
 
-    .tab-header {
-        display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-    }
+    .tab-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     .tab-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
     .count {
         display: inline-flex; align-items: center; justify-content: center;
@@ -204,67 +277,71 @@
         padding: 1rem; background: var(--muted); border-radius: var(--radius-md);
         border: 1px solid var(--border);
     }
-    .create-form input, .create-form select { flex: 1; min-width: 120px; }
+    .create-form input { flex: 1; min-width: 140px; }
     .err { font-size: 0.8125rem; color: var(--destructive); }
 
     .member-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
+    .member-card {
+        border: 1px solid var(--border); border-radius: var(--radius-md);
+        background: var(--card); overflow: hidden;
+        transition: border-color 0.15s;
+    }
+    .member-card.open { border-color: var(--primary); }
+
     .member-row {
-        display: flex; flex-direction: column; gap: 0.5rem;
-        padding: 0.75rem 1rem; border: 1px solid var(--border);
-        border-radius: var(--radius-md); background: var(--card);
-        transition: opacity 0.15s;
+        width: 100%; display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.75rem 1rem; background: none; border: none;
+        cursor: pointer; text-align: left;
     }
-    .member-row.inactive { opacity: 0.5; }
+    .member-row:hover { background: var(--muted); }
 
-    .member-identity { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .member-identity { display: flex; align-items: center; gap: 0.5rem; flex: 1; }
     .pseudo { font-weight: 600; font-size: 0.9375rem; }
-
-    .role-badge {
-        font-size: 0.6875rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.04em; border-radius: 99px; padding: 2px 8px;
-    }
-    .role-admin  { background: rgba(160,120,255,0.15); color: #a078ff; }
-    .role-mod    { background: rgba(90,180,255,0.15);  color: #5ab4ff; }
-    .role-member { background: var(--muted); color: var(--muted-foreground); }
-    .role-guest  { background: var(--muted); color: var(--muted-foreground); opacity: 0.6; }
-
-    .chip-warn {
-        font-size: 0.6875rem; padding: 2px 8px; border-radius: 99px;
-        background: rgba(255,180,50,0.15); color: #c88a00; border: 1px solid rgba(255,180,50,0.3);
-    }
     .chip-request {
         font-size: 0.6875rem; padding: 2px 8px; border-radius: 99px;
         background: var(--destructive-bg); color: var(--destructive);
         border: 1px solid var(--destructive-border);
     }
+    .meta-date { font-size: 0.8125rem; color: var(--muted-foreground); margin-left: auto; }
+    .chevron { font-size: 0.6875rem; color: var(--muted-foreground); flex-shrink: 0; }
 
-    .member-meta { display: flex; align-items: center; gap: 0.5rem; }
-    .meta-date { font-size: 0.8125rem; color: var(--muted-foreground); }
-
-    .member-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
-    .member-actions select {
-        width: auto; font-size: 0.8125rem; padding: 4px 8px;
+    /* ── Detail panel ── */
+    .member-detail {
+        border-top: 1px solid var(--border);
+        padding: 1rem; display: flex; flex-direction: column; gap: 1rem;
+        background: var(--muted);
     }
+
+    .detail-section { display: flex; flex-direction: column; gap: 0.5rem; }
+    .detail-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--muted-foreground); }
+
+    .access-grid { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    .btn-access {
+        font: 500 0.8125rem/1 var(--font-sans);
+        border: 1px solid var(--border); background: var(--card);
+        border-radius: var(--radius-sm); padding: 5px 12px; cursor: pointer;
+        color: var(--muted-foreground); transition: all 0.15s;
+    }
+    .btn-access:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-access.granted { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
+
+    .inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
+    .inline-form input, .inline-form textarea { flex: 1; min-width: 180px; }
 
     .btn-action {
-        font: 500 0.8125rem/1 var(--font-sans); border: 1px solid transparent;
-        border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer;
-        transition: opacity 0.15s;
+        font: 500 0.8125rem/1 var(--font-sans); border: 1px solid var(--border);
+        background: var(--card); border-radius: var(--radius-sm);
+        padding: 5px 12px; cursor: pointer; color: var(--foreground);
+        white-space: nowrap;
     }
     .btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-action.grant   { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
-    .btn-action.revoke  { background: var(--muted); border-color: var(--border); color: var(--muted-foreground); }
-    .btn-action.danger  { background: var(--destructive-bg); border-color: var(--destructive-border); color: var(--destructive); }
+    .btn-action.grant  { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
+    .btn-action.danger { background: var(--destructive-bg); border-color: var(--destructive-border); color: var(--destructive); }
 
-    .access-requests {
-        display: flex; gap: 0.4rem; flex-wrap: wrap;
-        padding-top: 0.5rem; border-top: 1px solid var(--border);
-    }
-    .btn-access {
-        font: 500 0.8125rem/1 var(--font-sans); border: 1px solid var(--destructive-border);
-        background: var(--destructive-bg); color: var(--destructive);
-        border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer;
-    }
-    .btn-access.granted { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
+    .feedback { font-size: 0.8125rem; color: var(--muted-foreground); }
+
+    .danger-zone { padding-top: 0.5rem; border-top: 1px solid var(--border); }
 </style>

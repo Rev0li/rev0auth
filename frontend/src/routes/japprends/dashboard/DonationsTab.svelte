@@ -31,13 +31,16 @@
         } finally { busy[id] = false; }
     }
 
-    $effect(() => { load(); });
+    $effect(() => {
+        load();
+        const id = setInterval(load, 30_000);
+        return () => clearInterval(id);
+    });
 </script>
 
 <div class="donations-tab">
     <div class="tab-header">
         <h2>Donations</h2>
-        <button class="btn-refresh" onclick={load}>↺</button>
         {#if donations.filter(d => !d.reviewed).length > 0}
             <span class="badge-alert">{donations.filter(d => !d.reviewed).length} en attente</span>
         {/if}
@@ -86,11 +89,6 @@
 
     .tab-header { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     .tab-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .btn-refresh {
-        background: var(--muted); border: 1px solid var(--border);
-        border-radius: var(--radius-sm); padding: 4px 10px;
-        font-size: 1rem; cursor: pointer; color: var(--muted-foreground);
-    }
     .badge-alert {
         font-size: 0.75rem; font-weight: 600;
         background: var(--destructive-bg); border: 1px solid var(--destructive-border);

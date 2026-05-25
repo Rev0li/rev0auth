@@ -2,15 +2,9 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 
-    // WebAuthn mode (YubiKey) — auto-starts on load.
-    // Falls back to seed+password form if WebAuthn fails or user prefers it.
+    let waiting = $state(true);
+    let result  = $state<{ ok: boolean; msg: string } | null>(null);
 
-    type Mode = 'webauthn' | 'password';
-    let mode     = $state<Mode>('webauthn');
-    let waiting  = $state(true);
-    let result   = $state<{ ok: boolean; msg: string } | null>(null);
-
-    // ── WebAuthn helpers ────────────────────────────────────────────────
     function b64ToBuffer(b64: string): ArrayBuffer {
         const pad = (b64 + '===').slice(0, b64.length + (4 - b64.length % 4) % 4)
             .replace(/-/g, '+').replace(/_/g, '/');
@@ -48,7 +42,7 @@
 
         if (!data.webauthn_required) {
             waiting = false;
-            result = { ok: false, msg: 'Authentification non disponible. Recharge la page.' };
+            result = { ok: false, msg: 'WebAuthn non configuré sur ce serveur.' };
             return;
         }
 
@@ -96,37 +90,6 @@
     }
 
     onMount(() => { startWebAuthn(); });
-
-    // ── Password form ───────────────────────────────────────────────────
-    let pseudo    = $state('');
-    let seed      = $state('');
-    let pwd       = $state('');
-    let otp       = $state('');
-    let pwdLoading = $state(false);
-    let pwdError   = $state('');
-
-    async function loginPassword() {
-        pwdError = '';
-        pwdLoading = true;
-        try {
-            const r = await fetch('/japprends/login', {
-                method:  'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    pseudo,
-                    seed,
-                    password:        pwd,
-                    otp:             otp || undefined,
-                    challenge_choice: 'secure-lock',
-                    trap_value:      '',
-                }),
-            });
-            const d = await r.json() as { ok: boolean; message?: string };
-            if (d.ok) goto('/japprends/dashboard');
-            else pwdError = d.message ?? 'Identifiants invalides.';
-        } catch { pwdError = 'Erreur réseau.'; }
-        finally { pwdLoading = false; }
-    }
 </script>
 
 <main class="admin-bg">
@@ -135,53 +98,21 @@
             <span class="brand-badge">rev0auth admin</span>
         </div>
 
-        {#if mode === 'webauthn'}
-            <h1>Admin Access</h1>
+        <h1>Admin Access</h1>
+        <p class="hint-key">Touche ta YubiKey pour te connecter</p>
 
-            {#if waiting}
-                <p class="hint">Attente de connexion YubiKey…</p>
+        {#if waiting && !result}
+            <div class="spinner-row">
+                <span class="spinner"></span>
+                <span class="hint">En attente…</span>
+            </div>
+        {/if}
+
+        {#if result}
+            <p class="result" class:ok={result.ok} class:err={!result.ok}>{result.msg}</p>
+            {#if !result.ok}
+                <button class="btn" onclick={startWebAuthn}>Réessayer</button>
             {/if}
-
-            {#if result}
-                <p class="result" class:ok={result.ok} class:err={!result.ok}>{result.msg}</p>
-                {#if !result.ok}
-                    <button class="btn retry-btn" onclick={startWebAuthn}>Réessayer</button>
-                {/if}
-            {/if}
-
-            <button class="link-btn" onclick={() => { mode = 'password'; }}>
-                Utiliser un mot de passe
-            </button>
-
-        {:else}
-            <h1>Admin — Mot de passe</h1>
-
-            <div class="field">
-                <label for="pseudo">Pseudo admin</label>
-                <input id="pseudo" type="text" bind:value={pseudo} autocomplete="username" />
-            </div>
-            <div class="field">
-                <label for="seed">Seed</label>
-                <input id="seed" type="text" bind:value={seed} autocomplete="off" />
-            </div>
-            <div class="field">
-                <label for="pwd">Mot de passe</label>
-                <input id="pwd" type="password" bind:value={pwd} autocomplete="current-password" />
-            </div>
-            <div class="field">
-                <label for="otp">Code 2FA <span class="optional">(si activé)</span></label>
-                <input id="otp" type="text" bind:value={otp} autocomplete="one-time-code" maxlength="6" />
-            </div>
-
-            {#if pwdError}<p class="result err">{pwdError}</p>{/if}
-
-            <button class="btn" disabled={pwdLoading} onclick={loginPassword}>
-                {pwdLoading ? '…' : 'Se connecter'}
-            </button>
-
-            <button class="link-btn" onclick={() => { mode = 'webauthn'; startWebAuthn(); }}>
-                ← Utiliser la YubiKey
-            </button>
         {/if}
     </div>
 </main>
@@ -197,17 +128,17 @@
 
     .card {
         width: 100%;
-        max-width: 380px;
+        max-width: 360px;
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: var(--radius-lg);
         padding: 2rem;
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 1.25rem;
+        text-align: center;
     }
 
-    .brand { text-align: center; }
     .brand-badge {
         display: inline-block;
         font-size: 0.75rem;
@@ -223,20 +154,34 @@
     h1 {
         font-size: 1.25rem;
         font-weight: 700;
-        text-align: center;
         margin: 0;
         color: var(--foreground);
     }
 
-    .hint {
-        text-align: center;
+    .hint-key {
         font-size: 0.875rem;
         color: var(--muted-foreground);
         margin: 0;
     }
 
+    .spinner-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.625rem;
+    }
+    .spinner {
+        width: 16px; height: 16px;
+        border: 2px solid var(--border);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hint { font-size: 0.875rem; color: var(--muted-foreground); }
+
     .result {
-        text-align: center;
         font-size: 0.875rem;
         padding: 8px 12px;
         border-radius: var(--radius-sm);
@@ -245,58 +190,16 @@
     .result.ok  { color: hsl(142 71% 45%); background: hsl(142 71% 45% / 0.12); }
     .result.err { color: hsl(0 72% 51%);   background: hsl(0 72% 51% / 0.1); }
 
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-    .field label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--foreground);
-    }
-    .field input {
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        background: var(--background);
-        color: var(--foreground);
-        font-size: 0.875rem;
-        outline: none;
-    }
-    .field input:focus { border-color: var(--ring); }
-    .optional { color: var(--muted-foreground); font-weight: 400; }
-
     .btn {
         width: 100%;
         padding: 0.6rem 1rem;
-        background: var(--primary);
-        color: var(--primary-foreground);
-        border: none;
+        background: var(--muted);
+        color: var(--foreground);
+        border: 1px solid var(--border);
         border-radius: var(--radius-sm);
-        font-size: 0.9rem;
+        font-size: 0.875rem;
         font-weight: 500;
         cursor: pointer;
-        transition: opacity 0.15s;
     }
-    .btn:disabled { opacity: 0.6; cursor: default; }
-    .btn:not(:disabled):hover { opacity: 0.9; }
-
-    .retry-btn {
-        background: var(--muted);
-        color: var(--muted-foreground);
-    }
-
-    .link-btn {
-        background: none;
-        border: none;
-        color: var(--muted-foreground);
-        font-size: 0.83rem;
-        cursor: pointer;
-        text-align: center;
-        padding: 0;
-        text-decoration: underline;
-        text-underline-offset: 2px;
-    }
-    .link-btn:hover { color: var(--foreground); }
+    .btn:hover { border-color: var(--primary); }
 </style>

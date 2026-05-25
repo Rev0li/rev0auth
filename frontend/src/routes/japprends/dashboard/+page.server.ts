@@ -22,5 +22,9 @@ export const load: PageServerLoad = async ({ locals }) => {
         requestSongsurf:  users.requestSongsurf,
     }).from(users).orderBy(asc(users.createdAt));
 
-    return { users: allUsers, admin: locals.adminSession.pseudo };
+    return {
+        users: allUsers,
+        admin: locals.adminSession.pseudo,
+        songsurfUrl: process.env.SONGSURF_URL ?? null,
+    };
 };

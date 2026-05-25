@@ -38,13 +38,16 @@
         posts = posts.filter(p => p.id !== id);
     }
 
-    $effect(() => { load(); });
+    $effect(() => {
+        load();
+        const id = setInterval(load, 20_000);
+        return () => clearInterval(id);
+    });
 </script>
 
 <div class="wall-tab">
     <div class="tab-header">
         <h2>Mur communautaire</h2>
-        <button class="btn-refresh" onclick={load}>↺</button>
     </div>
 
     <div class="compose">
@@ -88,11 +91,6 @@
 
     .tab-header { display: flex; align-items: center; gap: 0.75rem; }
     .tab-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .btn-refresh {
-        background: var(--muted); border: 1px solid var(--border);
-        border-radius: var(--radius-sm); padding: 4px 10px;
-        font-size: 1rem; cursor: pointer; color: var(--muted-foreground);
-    }
 
     .compose {
         display: flex; flex-direction: column; gap: 0.5rem;
