@@ -22,5 +22,5 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# SQLite data directory
-data/
+# SQLite data directory (anchored — évite d'ignorer src/routes/*/data/)
+/data/

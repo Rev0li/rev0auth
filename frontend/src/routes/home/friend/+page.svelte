@@ -14,7 +14,7 @@
     ] as const;
 
     // Onboarding
-    let showOnboarding = $state($page.url.searchParams.get('onboarding') === '1' || data.user.mustChangePassword);
+    let showOnboarding = $state($page.url.searchParams.get('onboarding') === '1');
     let newPwd     = $state('');
     let confirmPwd = $state('');
     let onbError   = $state('');
@@ -108,8 +108,8 @@
         } finally { onbLoading = false; }
     }
 
-    function timeAgo(date: Date | string) {
-        const d   = new Date(date);
+    function timeAgo(date: Date | string | number) {
+        const d   = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
         const sec = Math.floor((Date.now() - d.getTime()) / 1000);
         if (sec < 60) return 'à l\'instant';
         if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`;

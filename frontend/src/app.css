@@ -1,71 +1,26 @@
-/* ===== Design tokens — light ===== */
+/* ===== MyCss design tokens (CDN) ===== */
+@import url('https://cdn.jsdelivr.net/gh/Rev0li/MyCss@main/dist/tokens.css');
+
+/* ===== Project-specific overrides ===== */
 :root {
-    --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
-
-    --background:           #F7F4EF;
-    --foreground:           #111111;
-    --card:                 #FFFFFF;
-    --card-foreground:      #111111;
-    --muted:                #FCFBF8;
-    --muted-foreground:     #6B6B6B;
-    --primary:              #E8B7C4;
-    --primary-foreground:   #111111;
-    --primary-hover:        #DCA2B5;
-    --secondary:            #FCFBF8;
-    --secondary-foreground: #111111;
-    --accent:               #6EDAD3;
-    --accent-foreground:    #111111;
-    --border:               rgba(17,17,17,0.08);
-    --ring:                 rgba(232,183,196,0.35);
-
-    --success:              #65B48A;
-    --success-bg:           rgba(101,180,138,0.12);
-    --success-border:       rgba(101,180,138,0.35);
-    --destructive:          #D96B6B;
-    --destructive-bg:       rgba(217,107,107,0.12);
-    --destructive-border:   rgba(217,107,107,0.35);
-    --warning:              #D9A84C;
-
+    /* Radius scale — align with existing page components */
     --radius-sm:   0.5rem;
-    --radius-md:   0.875rem;
     --radius-lg:   1.125rem;
-    --radius-xl:   1.75rem;
-    --radius-full: 9999px;
+    --radius-xl:   var(--radius-lg, 1.75rem); /* alias → shadcn-svelte compat */
 
-    --shadow-soft:  0 4px 24px rgba(0,0,0,0.06);
-    --shadow-hover: 0 8px 30px rgba(0,0,0,0.10);
+    /* Hover state (not in MyCss base) */
+    --primary-hover: #DCA2B5;
+
+    /* Semantic state backgrounds */
+    --success-bg:          rgba(101, 180, 138, 0.12);
+    --success-border:      rgba(101, 180, 138, 0.35);
+    --destructive-bg:      rgba(217, 107, 107, 0.12);
+    --destructive-border:  rgba(217, 107, 107, 0.35);
 }
 
-/* ===== Design tokens — dark ===== */
-html.dark {
-    --background:           #111111;
-    --foreground:           #F7F4EF;
-    --card:                 #1A1A1A;
-    --card-foreground:      #F7F4EF;
-    --muted:                #222222;
-    --muted-foreground:     #8A8A8A;
-    --secondary:            #222222;
-    --secondary-foreground: #F7F4EF;
-    --border:               rgba(255,255,255,0.08);
-    --shadow-soft:          0 4px 24px rgba(0,0,0,0.30);
-    --shadow-hover:         0 8px 30px rgba(0,0,0,0.45);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-        --background:           #111111;
-        --foreground:           #F7F4EF;
-        --card:                 #1A1A1A;
-        --card-foreground:      #F7F4EF;
-        --muted:                #222222;
-        --muted-foreground:     #8A8A8A;
-        --secondary:            #222222;
-        --secondary-foreground: #F7F4EF;
-        --border:               rgba(255,255,255,0.08);
-        --shadow-soft:          0 4px 24px rgba(0,0,0,0.30);
-        --shadow-hover:         0 8px 30px rgba(0,0,0,0.45);
-    }
+/* Dark overrides inherit everything from MyCss .dark — add missing project tokens */
+.dark {
+    --primary-hover: #DCA2B5;
 }
 
 /* ===== Reset ===== */

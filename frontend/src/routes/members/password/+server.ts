@@ -19,7 +19,7 @@ export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
     if (!valid) return json({ ok: false, message: 'Mot de passe actuel incorrect.' }, { status: 401 });
 
     const hash = await hashPassword(newPassword);
-    await db.update(users).set({ passwordHash: hash, mustChangePassword: false }).where(eq(users.pseudo, user.pseudo));
+    await db.update(users).set({ passwordHash: hash }).where(eq(users.pseudo, user.pseudo));
 
     // Re-issue session with updated state
     const token = await createSession(user.pseudo, 'member');

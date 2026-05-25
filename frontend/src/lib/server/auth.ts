@@ -1,14 +1,12 @@
-import bcrypt from 'bcryptjs';
+import argon2 from 'argon2';
 import { randomBytes, createHmac } from 'crypto';
 
-const SALT_ROUNDS = 12;
-
 export function hashPassword(plain: string): Promise<string> {
-    return bcrypt.hash(plain, SALT_ROUNDS);
+    return argon2.hash(plain);
 }
 
 export function verifyPassword(plain: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(plain, hash);
+    return argon2.verify(hash, plain);
 }
 
 export function generateToken(bytes = 32): string {

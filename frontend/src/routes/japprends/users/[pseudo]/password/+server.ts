@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
-import { users, auditLog } from '$lib/server/db/schema.js';
+import { users } from '$lib/server/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
 
@@ -13,14 +13,8 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
 
     const hash = await hashPassword(password);
     await db.update(users)
-        .set({ passwordHash: hash, mustChangePassword: true })
+        .set({ passwordHash: hash })
         .where(eq(users.pseudo, key));
-
-    await db.insert(auditLog).values({
-        timestampEpoch: Date.now(),
-        action: 'reset_password',
-        target: key,
-    });
 
     return json({ ok: true });
 };

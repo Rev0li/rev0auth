@@ -16,10 +16,9 @@ export const GET: RequestHandler = async ({ params, locals }) => {
     const user = rows[0];
     if (!user?.avatarBytes) throw error(404, 'Pas d\'avatar.');
 
-    // better-sqlite3 returns blobs as Buffer (subclass of Uint8Array)
-    const bytes = user.avatarBytes as unknown as Buffer;
+    const bytes = user.avatarBytes;
 
-    return new Response(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, {
+    return new Response(new Uint8Array(bytes), {
         headers: { 'Content-Type': user.avatarMime ?? 'image/jpeg' },
     });
 };

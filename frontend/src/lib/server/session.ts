@@ -4,23 +4,23 @@ import { generateToken } from './auth.js';
 import { eq, and, gt } from 'drizzle-orm';
 import type { Session } from './db/schema.js';
 
-const MEMBER_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-const ADMIN_TTL_MS  =  8 * 60 * 60 * 1000; // 8h
+const MEMBER_TTL_S = 24 * 60 * 60;
+const ADMIN_TTL_S  =  8 * 60 * 60;
 
 export const ADMIN_COOKIE  = 'rev0auth_admin_session';
 export const MEMBER_COOKIE = 'rev0auth_member_session';
 
 export async function createSession(pseudo: string, kind: 'admin' | 'member'): Promise<string> {
     const token     = generateToken(32);
-    const ttl       = kind === 'admin' ? ADMIN_TTL_MS : MEMBER_TTL_MS;
-    const expiresAt = new Date(Date.now() + ttl);
+    const ttl       = kind === 'admin' ? ADMIN_TTL_S : MEMBER_TTL_S;
+    const expiresAt = Math.floor(Date.now() / 1000) + ttl;
 
     await db.insert(sessions).values({ token, pseudo, kind, expiresAt });
     return token;
 }
 
 export async function getSession(token: string, kind: 'admin' | 'member'): Promise<Session | null> {
-    const now = new Date();
+    const now = Math.floor(Date.now() / 1000);
     const rows = await db
         .select()
         .from(sessions)
@@ -33,15 +33,18 @@ export async function deleteSession(token: string): Promise<void> {
     await db.delete(sessions).where(eq(sessions.token, token));
 }
 
-export function sessionCookieOpts(ttlMs: number) {
-    return {
-        httpOnly: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        maxAge: ttlMs / 1000,
-        secure: process.env.NODE_ENV === 'production',
-    };
-}
+export const ADMIN_COOKIE_OPTS = {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: ADMIN_TTL_S,
+    secure: process.env.NODE_ENV === 'production',
+};
 
-export const ADMIN_COOKIE_OPTS  = sessionCookieOpts(ADMIN_TTL_MS);
-export const MEMBER_COOKIE_OPTS = sessionCookieOpts(MEMBER_TTL_MS);
+export const MEMBER_COOKIE_OPTS = {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: MEMBER_TTL_S,
+    secure: process.env.NODE_ENV === 'production',
+};
