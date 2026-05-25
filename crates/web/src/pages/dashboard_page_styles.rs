@@ -62,6 +62,30 @@ pub const DASHBOARD_PAGE_STYLES: &str = r#"
             white-space: nowrap;
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-songsurf {
+            display: inline-flex;
+            align-items: center;
+            height: 28px;
+            padding: 0 12px;
+            border: 1px solid rgba(232,183,196,0.45);
+            border-radius: 999px;
+            background: rgba(232,183,196,0.12);
+            color: #E8B7C4;
+            font: 700 0.75rem/1 var(--font-sans);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-songsurf:hover {
+            background: rgba(232,183,196,0.24);
+            border-color: rgba(232,183,196,0.7);
+        }
+
         /* ===== Tabs — MyCss pill style ===== */
         .tabs {
             display: flex;

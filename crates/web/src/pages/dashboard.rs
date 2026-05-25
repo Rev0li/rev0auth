@@ -22,7 +22,10 @@ pub async fn dashboard() -> Html<String> {
     <main class="wrap">
         <header class="header">
             <h1>Dashboard</h1>
-            <div class="chip" id="last-check">—</div>
+            <div class="header-actions">
+                <div class="chip" id="last-check">—</div>
+                <a class="btn-songsurf" href="/japprends/songsurf-access">♪ SongSurf →</a>
+            </div>
         </header>
 
         <nav class="tabs">
