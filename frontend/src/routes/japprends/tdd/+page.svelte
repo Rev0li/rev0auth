@@ -74,22 +74,20 @@
         });
     }
 
-    // ── Demandes ─────────────────────────────────────────────────────
-    let pending    = $state([...data.pending]);
-    let approvePwd = $state<Record<number, string>>({});
+    // ── Invitations ──────────────────────────────────────────────────
+    let pending = $state([...data.pending]);
 
-    async function approve(id: number, pseudo: string) {
-        const pwd = approvePwd[id] ?? '';
-        if (!pwd) { alert('Entre un mot de passe pour ' + pseudo); return; }
-        const r = await fetch(`/japprends/signup-requests/${id}/approve`, {
+    async function createInvite() {
+        const note = prompt('Note pour cette invitation (optionnel) :') ?? '';
+        const r = await fetch('/japprends/signup-requests', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ password: pwd }),
+            body: JSON.stringify({ note, ttlDays: 7 }),
         });
-        if (r.ok) pending = pending.filter(p => p.id !== id);
+        if (r.ok) await invalidateAll();
     }
 
-    async function reject(id: number) {
+    async function revokeInvite(id: number) {
         await fetch(`/japprends/signup-requests/${id}/reject`, { method: 'POST' });
         pending = pending.filter(p => p.id !== id);
     }
@@ -125,7 +123,7 @@
         ).sort((a, b) => {
             const aLast = a.msgs[0]?.createdAt ?? 0;
             const bLast = b.msgs[0]?.createdAt ?? 0;
-            return new Date(bLast).getTime() - new Date(aLast).getTime();
+            return (bLast as number) - (aLast as number);
         })
     );
 
@@ -168,9 +166,9 @@
         goto('/');
     }
 
-    function timeAgo(date: Date | string | null) {
+    function timeAgo(date: Date | string | number | null) {
         if (!date) return '–';
-        const d = new Date(date);
+        const d = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
         const sec = Math.floor((Date.now() - d.getTime()) / 1000);
         if (sec < 60) return 'à l\'instant';
         if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`;
@@ -294,28 +292,25 @@
         </div>
     {/if}
 
-    <!-- ══ DEMANDES ══ -->
+    <!-- ══ INVITATIONS ══ -->
     {#if tab === 'demandes'}
         <div transition:fade={{ duration: 120 }}>
+            <div style="margin-bottom:1rem">
+                <button class="btn-secondary" onclick={createInvite}>+ Créer une invitation</button>
+            </div>
             {#if pending.length === 0}
-                <p class="empty-state">Aucune demande en attente. 🎉</p>
+                <p class="empty-state">Aucune invitation active.</p>
             {:else}
                 <div class="requests-list">
-                    {#each pending as req (req.id)}
+                    {#each pending as inv (inv.id)}
                         <div class="req-card card" transition:slide={{ duration: 200 }}>
                             <div class="req-header">
-                                <strong>{req.pseudo}</strong>
-                                {#if req.referral}<span class="meta">référent : {req.referral}</span>{/if}
-                                <span class="meta" style="margin-left:auto">{timeAgo(req.createdAt)}</span>
+                                <code style="font-size:0.8rem">{inv.code}</code>
+                                {#if inv.note}<span class="meta">{inv.note}</span>{/if}
+                                <span class="meta" style="margin-left:auto">expire {timeAgo(inv.expiresAt)}</span>
                             </div>
                             <div class="req-actions">
-                                <div class="field">
-                                    <label for="pwd-{req.id}">Mot de passe initial</label>
-                                    <input id="pwd-{req.id}" type="password" placeholder="définir un mot de passe"
-                                        bind:value={approvePwd[req.id]} />
-                                </div>
-                                <button class="btn-secondary grant" onclick={() => approve(req.id, req.pseudo)}>✓ Approuver</button>
-                                <button class="btn-secondary revoke" onclick={() => reject(req.id)}>✗ Rejeter</button>
+                                <button class="btn-secondary revoke" onclick={() => revokeInvite(inv.id)}>✗ Révoquer</button>
                             </div>
                         </div>
                     {/each}
@@ -471,16 +466,7 @@
     {#if tab === 'audit'}
         <div transition:fade={{ duration: 120 }}>
             <div class="audit-list">
-                {#each data.auditLog as entry (entry.id)}
-                    <div class="audit-row">
-                        <span class="audit-time meta">{timeAgo(new Date(entry.timestampEpoch))}</span>
-                        <span class="audit-action">{entry.action}</span>
-                        {#if entry.target}<span class="audit-target meta">→ {entry.target}</span>{/if}
-                        {#if entry.detail}<span class="meta audit-detail">{entry.detail}</span>{/if}
-                    </div>
-                {:else}
-                    <p class="empty-state">Aucune entrée d'audit.</p>
-                {/each}
+                <p class="empty-state">Audit log non disponible.</p>
             </div>
         </div>
     {/if}

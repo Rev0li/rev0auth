@@ -9,7 +9,7 @@ export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
 
     const runId = randomUUID();
-    const executedAt = new Date();
+    const executedAt = Math.floor(Date.now() / 1000);
 
     const output = await new Promise<string>((resolve) => {
         const proc = spawn(

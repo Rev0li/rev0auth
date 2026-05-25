@@ -12,10 +12,10 @@ export const load: PageServerLoad = async ({ locals }) => {
         db.select().from(users).where(eq(users.pseudo, pseudo)).limit(1),
         db.select().from(wallPosts).orderBy(desc(wallPosts.createdAt)).limit(30),
         db.select({
-            pseudo:     users.pseudo,
-            status:     users.status,
-            role:       users.role,
-            bio:        users.bio,
+            pseudo:    users.pseudo,
+            status:    users.status,
+            role:      users.role,
+            bio:       users.bio,
             avatarMime: users.avatarMime,
         }).from(users).where(eq(users.active, true)),
         db.select({ n: count() }).from(messages)
