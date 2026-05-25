@@ -43,8 +43,8 @@
 <div class="dashboard">
     <header class="dash-header">
         <span class="dash-brand">rev0auth <span class="dash-role">admin</span></span>
-        {#if data.songsurfUrl}
-            <a class="btn-songsurf" href={data.songsurfUrl} target="_blank" rel="noopener">
+        {#if data.songsurfEnabled}
+            <a class="btn-songsurf" href="/japprends/songsurf-access" target="_blank" rel="noopener">
                 SongSurf ↗
             </a>
         {/if}

@@ -25,6 +25,6 @@ export const load: PageServerLoad = async ({ locals }) => {
     return {
         users: allUsers,
         admin: locals.adminSession.pseudo,
-        songsurfUrl: process.env.SONGSURF_URL ?? null,
+        songsurfEnabled: !!(process.env.SONGSURF_URL && process.env.AUTH_JWT_SECRET),
     };
 };

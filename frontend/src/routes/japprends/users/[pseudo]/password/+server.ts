@@ -7,14 +7,13 @@ import { hashPassword } from '$lib/server/auth.js';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
-    const key = params.pseudo.toLowerCase();
     const { password } = await request.json();
     if (!password) return json({ ok: false, message: 'Mot de passe requis.' }, { status: 400 });
 
     const hash = await hashPassword(password);
     await db.update(users)
         .set({ passwordHash: hash })
-        .where(eq(users.pseudo, key));
+        .where(eq(users.pseudo, params.pseudo));
 
     return json({ ok: true });
 };

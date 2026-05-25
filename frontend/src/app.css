@@ -25,6 +25,7 @@
 
 /* ===== Reset ===== */
 *, *::before, *::after { box-sizing: border-box; }
+button { color: inherit; }
 body {
     font-family: var(--font-sans);
     font-size: 0.9375rem;

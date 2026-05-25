@@ -10,24 +10,22 @@ function requireAdmin({ locals }: { locals: App.Locals }) {
 
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
     requireAdmin({ locals });
-    const key = params.pseudo.toLowerCase();
     const updates = await request.json();
 
     delete updates.passwordHash;
     delete updates.pseudo;
     delete updates.avatarBytes;
 
-    await db.update(users).set(updates).where(eq(users.pseudo, key));
+    await db.update(users).set(updates).where(eq(users.pseudo, params.pseudo));
 
     return json({ ok: true });
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
     requireAdmin({ locals });
-    const key = params.pseudo.toLowerCase();
 
-    await db.delete(sessions).where(eq(sessions.pseudo, key));
-    await db.delete(users).where(eq(users.pseudo, key));
+    await db.delete(sessions).where(eq(sessions.pseudo, params.pseudo));
+    await db.delete(users).where(eq(users.pseudo, params.pseudo));
 
     return json({ ok: true });
 };
