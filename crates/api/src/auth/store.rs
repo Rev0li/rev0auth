@@ -165,7 +165,11 @@ impl AppState {
         }
     }
 
-    pub async fn issue_refresh_for_user(&self, user: &User, csrf_token: &str) -> String {
+    pub async fn issue_refresh_for_user(
+        &self,
+        user: &User,
+        csrf_token: &str,
+    ) -> Result<String, &'static str> {
         match &self.backend {
             AuthBackend::Memory(memory) => {
                 let token = generate_refresh_token();
@@ -180,13 +184,13 @@ impl AppState {
 
                 let mut refresh_tokens = memory.refresh_tokens.write().await;
                 refresh_tokens.insert(token.clone(), session);
-                token
+                Ok(token)
             }
             AuthBackend::Postgres(pool) => {
                 let token = generate_refresh_token();
                 let expires_at = epoch_to_utc(now_epoch() + self.token_service.refresh_ttl_secs());
 
-                let insert_result = sqlx::query(
+                sqlx::query(
                     r#"
                     INSERT INTO auth_refresh_tokens (token, user_id, csrf_token, expires_at)
                     VALUES ($1, $2, $3, $4)
@@ -197,12 +201,10 @@ impl AppState {
                 .bind(csrf_token)
                 .bind(expires_at)
                 .execute(pool)
-                .await;
+                .await
+                .map_err(|_| "refresh_token_insert_failed")?;
 
-                if insert_result.is_err() {
-                    return generate_refresh_token();
-                }
-                token
+                Ok(token)
             }
         }
     }
@@ -337,7 +339,26 @@ impl AppState {
                 let mut events = memory.audit_events.write().await;
                 events.push(event.clone());
             }
-            AuthBackend::Postgres(_) => {}
+            AuthBackend::Postgres(pool) => {
+                let event_type_str = match &event.event_type {
+                    AuditEventType::CreateUser => "create_user",
+                    AuditEventType::Login => "login",
+                    AuditEventType::Refresh => "refresh",
+                    AuditEventType::FailedAuth => "failed_auth",
+                };
+                let _ = sqlx::query(
+                    r#"
+                    INSERT INTO auth_audit_logs (timestamp_epoch, user_id, event_type, ip)
+                    VALUES ($1, $2, $3, $4)
+                    "#,
+                )
+                .bind(event.timestamp as i64)
+                .bind(event.user_id)
+                .bind(event_type_str)
+                .bind(&event.ip)
+                .execute(pool)
+                .await;
+            }
         }
 
         info!(
@@ -356,7 +377,33 @@ impl AppState {
                 let events = memory.audit_events.read().await;
                 events.iter().cloned().rev().collect()
             }
-            AuthBackend::Postgres(_) => Vec::new(),
+            AuthBackend::Postgres(pool) => {
+                let rows = sqlx::query_as::<_, (Option<Uuid>, String, String, i64)>(
+                    r#"
+                    SELECT user_id, event_type, ip, EXTRACT(EPOCH FROM created_at)::BIGINT
+                    FROM auth_audit_logs
+                    ORDER BY created_at DESC
+                    LIMIT 500
+                    "#,
+                )
+                .fetch_all(pool)
+                .await
+                .unwrap_or_default();
+
+                rows.into_iter()
+                    .map(|(user_id, event_type, ip, ts)| AuditEvent {
+                        timestamp: ts.max(0) as u64,
+                        user_id,
+                        event_type: match event_type.as_str() {
+                            "create_user" => AuditEventType::CreateUser,
+                            "login" => AuditEventType::Login,
+                            "refresh" => AuditEventType::Refresh,
+                            _ => AuditEventType::FailedAuth,
+                        },
+                        ip,
+                    })
+                    .collect()
+            }
         }
     }
 
@@ -508,8 +555,8 @@ mod tests {
             .await
             .expect("user should be created");
 
-        let first = state.issue_refresh_for_user(&user, "csrf-a").await;
-        let second = state.issue_refresh_for_user(&user, "csrf-b").await;
+        let first = state.issue_refresh_for_user(&user, "csrf-a").await.expect("first token");
+        let second = state.issue_refresh_for_user(&user, "csrf-b").await.expect("second token");
 
         assert_ne!(first, second);
         assert_eq!(first.len(), 64);
@@ -530,7 +577,7 @@ mod tests {
             .await
             .expect("user should be created");
 
-        let original = state.issue_refresh_for_user(&user, "csrf-test").await;
+        let original = state.issue_refresh_for_user(&user, "csrf-test").await.expect("issue token");
         let _ = state
             .rotate_refresh_token(&original, "csrf-test")
             .await
@@ -552,7 +599,7 @@ mod tests {
             .await
             .expect("user should be created");
 
-        let original = state.issue_refresh_for_user(&user, "csrf-test").await;
+        let original = state.issue_refresh_for_user(&user, "csrf-test").await.expect("issue token");
         let (rotated_user, new_token) = state
             .rotate_refresh_token(&original, "csrf-test")
             .await

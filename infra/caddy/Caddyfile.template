@@ -1,15 +1,17 @@
 # rev0auth — Caddyfile template (VPS production)
 #
-# Two services behind Caddy:
-#   auth.example.com  → rev0auth web portal  (Docker :3000)
-#   api.example.com   → rev0auth API          (Docker :8080)  [optional — only if API is public]
+# Services behind Caddy:
+#   auth.example.com/japprends/*  → SvelteKit admin   (Docker :4173)
+#   auth.example.com/*            → Rust SSR portal    (Docker :3000)
+#   api.example.com               → Rust API           (Docker :8080)  [optionnel]
 #
 # Required env vars (in /etc/caddy/rev0auth-caddy.env):
-#   WEB_DOMAIN      e.g. auth.rev0univers.com
-#   WEB_UPSTREAM    e.g. 127.0.0.1:3000
-#   API_DOMAIN      e.g. api.rev0univers.com   (leave empty if API is internal only)
-#   API_UPSTREAM    e.g. 127.0.0.1:8080
-#   ACME_EMAIL      e.g. you@example.com
+#   WEB_DOMAIN        e.g. auth.rev0univers.com
+#   WEB_UPSTREAM      e.g. 127.0.0.1:3000       (Rust SSR)
+#   FRONTEND_UPSTREAM e.g. 127.0.0.1:4173       (SvelteKit)
+#   API_DOMAIN        e.g. api.rev0univers.com   (leave empty if API is internal only)
+#   API_UPSTREAM      e.g. 127.0.0.1:8080
+#   ACME_EMAIL        e.g. you@example.com
 
 {
     email {$ACME_EMAIL:admin@example.com}
@@ -18,7 +20,7 @@
     }
 }
 
-# ── Web portal (auth + member dashboard) ─────────────────────────────────────
+# ── Web portal ────────────────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
 
@@ -29,7 +31,16 @@
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
     }
 
-    reverse_proxy {$WEB_UPSTREAM:127.0.0.1:3000}
+    # Admin dashboard (SvelteKit) — login + dashboard + toutes les API admin
+    @svelte path /japprends/*
+    handle @svelte {
+        reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
+    }
+
+    # Reste du site (Rust SSR) — portail membre, signup, home, etc.
+    handle {
+        reverse_proxy {$WEB_UPSTREAM:127.0.0.1:3000}
+    }
 }
 
 # ── API (optional — expose only if SongSurf or external clients need it) ─────

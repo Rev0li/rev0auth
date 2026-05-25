@@ -67,7 +67,10 @@ pub async fn signup(
         .issue_access_token(&user)
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "token_issue_failed"))?;
     let csrf_token = extract_csrf_header_token(&headers)?;
-    let refresh_token = state.issue_refresh_for_user(&user, &csrf_token).await;
+    let refresh_token = state
+        .issue_refresh_for_user(&user, &csrf_token)
+        .await
+        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "refresh_token_insert_failed"))?;
 
     Ok(Json(AuthResponse {
         user_id: user.id,
@@ -158,7 +161,10 @@ pub async fn login(
         .issue_access_token(&user)
         .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "token_issue_failed"))?;
     let csrf_token = generate_csrf_token();
-    let refresh_token = state.issue_refresh_for_user(&user, &csrf_token).await;
+    let refresh_token = state
+        .issue_refresh_for_user(&user, &csrf_token)
+        .await
+        .map_err(|_| err(StatusCode::INTERNAL_SERVER_ERROR, "refresh_token_insert_failed"))?;
 
     let headers = build_auth_set_cookie_headers(
         &access_token,
