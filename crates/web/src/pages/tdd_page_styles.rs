@@ -111,6 +111,16 @@ pub const TDD_PAGE_STYLES: &str = r#"
             padding: 1px 6px;
             font: 0.84em var(--font-mono);
         }
+        .btn-songsurf {
+            background: rgba(232,183,196,0.15);
+            border: 1px solid rgba(232,183,196,0.45);
+            color: #E8B7C4;
+            font-weight: 700;
+        }
+        .btn-songsurf:hover {
+            background: rgba(232,183,196,0.28);
+            border-color: rgba(232,183,196,0.7);
+        }
         @media (max-width: 860px) {
             .grid { grid-template-columns: 1fr 1fr; }
         }

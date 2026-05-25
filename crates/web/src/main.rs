@@ -625,6 +625,7 @@ fn build_router(state: WebState) -> Router {
         .route("/japprends/webauthn/credential/export", get(admin_webauthn_credential_export))
         .route("/japprends/wall/:id", delete(admin_wall_delete))
         .route("/japprends/songsurf-logs", get(admin_songsurf_logs))
+        .route("/japprends/songsurf-access", get(admin_songsurf_access))
         .route_layer(from_fn_with_state(protected_state, require_admin_session));
 
     Router::new()
@@ -928,6 +929,29 @@ async fn admin_songsurf_logs(
         }
         Err(e) => (StatusCode::BAD_GATEWAY,
             Json(serde_json::json!({ "success": false, "error": format!("SongSurf injoignable: {e}") }))).into_response(),
+    }
+}
+
+async fn admin_songsurf_access(State(state): State<WebState>) -> impl IntoResponse {
+    let jwt_secret = state.songsurf_jwt_secret.as_str();
+    let songsurf_url = state.songsurf_url.as_str();
+
+    if jwt_secret.is_empty() || songsurf_url.is_empty() {
+        return (StatusCode::SERVICE_UNAVAILABLE, "SongSurf non configuré (AUTH_JWT_SECRET ou SONGSURF_URL manquant)").into_response();
+    }
+
+    let now = now_epoch();
+    let claims = SurfClaims {
+        sub: "rev0admin".to_string(),
+        role: "admin".to_string(),
+        email: String::new(),
+        token_type: "access".to_string(),
+        iat: now,
+        exp: now + 8 * 3600,
+    };
+    match encode(&Header::default(), &claims, &EncodingKey::from_secret(jwt_secret.as_bytes())) {
+        Ok(token) => Redirect::to(&format!("{}?token={}", songsurf_url.trim_end_matches('/'), token)).into_response(),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Erreur génération JWT").into_response(),
     }
 }
 

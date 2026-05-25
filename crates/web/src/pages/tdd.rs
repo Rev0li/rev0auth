@@ -49,6 +49,7 @@ pub async fn tdd_dashboard() -> Html<String> {
                 <button id="run-sweep">Lancer le sweep</button>
                 <button id="clear-log">Effacer le log</button>
                 <a class="btn" href="/dashboard">Retour dashboard ops</a>
+                <a class="btn btn-songsurf" href="/japprends/songsurf-access">♪ SongSurf Admin →</a>
             </div>
 
             <div class="suite-list" id="suite-list">
