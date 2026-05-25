@@ -72,8 +72,8 @@ services:
       - .secrets
     environment:
       PORT: "4173"
-      # ORIGIN doit correspondre au domaine public (ex: https://auth.rev0univers.com)
-      # Injecté depuis .env : ORIGIN=https://auth.rev0univers.com
+      # ORIGIN doit correspondre au domaine public — injecté depuis .env
+      REV0AUTH_WEB_UPSTREAM: "http://web:3000"
     ports:
       - "127.0.0.1:4173:4173"
     healthcheck:

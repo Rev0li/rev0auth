@@ -88,7 +88,7 @@
             });
             const resp = await finishRes.json() as { ok: boolean; message?: string };
             result = { ok: resp.ok, msg: resp.message ?? (resp.ok ? 'Connexion réussie.' : 'Échec.') };
-            if (resp.ok) setTimeout(() => goto('/japprends/tdd'), 350);
+            if (resp.ok) setTimeout(() => goto('/japprends/dashboard'), 350);
         } catch (err) {
             waiting = false;
             result = { ok: false, msg: (err as Error).message ?? 'Erreur WebAuthn.' };
@@ -122,7 +122,7 @@
                 }),
             });
             const d = await r.json() as { ok: boolean; message?: string };
-            if (d.ok) goto('/japprends/tdd');
+            if (d.ok) goto('/japprends/dashboard');
             else pwdError = d.message ?? 'Identifiants invalides.';
         } catch { pwdError = 'Erreur réseau.'; }
         finally { pwdLoading = false; }

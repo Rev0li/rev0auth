@@ -31,8 +31,8 @@
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
     }
 
-    # Admin dashboard (SvelteKit) — login + dashboard + toutes les API admin
-    @svelte path /japprends/*
+    # Admin dashboard (SvelteKit) — login + dashboard + assets SvelteKit
+    @svelte path /japprends/* /_app/*
     handle @svelte {
         reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
     }
