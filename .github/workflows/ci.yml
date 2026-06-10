@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev/svelte]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend (svelte-check + vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+
+  api:
+    name: API Rust (cargo test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Sans DATABASE_URL l'API tourne en mode mémoire — suffisant pour les tests unitaires
+      - run: cargo test -p rev0auth-api
