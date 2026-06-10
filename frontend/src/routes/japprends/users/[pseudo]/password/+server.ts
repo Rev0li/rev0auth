@@ -12,10 +12,16 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     if (!password) return json({ ok: false, message: 'Mot de passe requis.' }, { status: 400 });
 
     const hash = await hashPassword(password);
-    await db.update(users)
+    const updated = await db.update(users)
         .set({ passwordHash: hash })
-        .where(sql`LOWER(${users.pseudo}) = LOWER(${params.pseudo})`);
+        .where(sql`LOWER(${users.pseudo}) = LOWER(${params.pseudo})`)
+        .returning({ pseudo: users.pseudo });
 
+    if (updated.length === 0) {
+        return json({ ok: false, message: 'Utilisateur introuvable.' });
+    }
+
+    await writeAudit('set_password', locals.adminSession.pseudo, updated[0].pseudo, 'password replaced');
     return json({ ok: true });
 };
 

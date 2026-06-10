@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export const POST: RequestHandler = async ({ request }) => {
     const { pseudo } = await request.json();
@@ -16,7 +16,8 @@ export const POST: RequestHandler = async ({ request }) => {
         return json({ ok: true, state: 'admin', totpEnabled });
     }
 
-    const user = await db.select().from(users).where(eq(users.pseudo, key)).limit(1);
+    // LOWER() côté SQL : la base peut contenir des pseudos legacy en casse mixte (créés côté Rust)
+    const user = await db.select().from(users).where(sql`LOWER(${users.pseudo}) = ${key}`).limit(1);
     if (!user[0]) return json({ ok: false, state: 'missing', message: 'Compte introuvable.' });
     if (!user[0].active) return json({ ok: false, state: 'inactive', message: 'Compte inactif.' });
 

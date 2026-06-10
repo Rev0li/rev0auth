@@ -45,8 +45,10 @@ export const POST: RequestHandler = async ({ request }) => {
         return json({ ok: false, message: 'Ce pseudo est déjà utilisé.' }, { status: 409 });
     }
 
+    // Pseudo stocké en lowercase : les lookups (portal/login, avatars…) comparent en lowercase
+    const storedPseudo = cleanPseudo.toLowerCase();
     const passwordHash = await hashPassword(password);
-    await db.insert(users).values({ pseudo: cleanPseudo, passwordHash, approved: true, status: 'actif' });
+    await db.insert(users).values({ pseudo: storedPseudo, passwordHash, approved: true, status: 'actif' });
 
     if (avatar_id && AVATAR_SVG[avatar_id]) {
         const svg = AVATAR_SVG[avatar_id];
@@ -63,7 +65,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     await db
         .update(invites)
-        .set({ usedBy: cleanPseudo, usedAt: now })
+        .set({ usedBy: storedPseudo, usedAt: now })
         .where(eq(invites.id, invite.id));
 
     return json({ ok: true, message: 'Compte créé avec succès.' });

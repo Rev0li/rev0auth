@@ -10,6 +10,7 @@ export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
     const { currentPassword, newPassword } = await request.json();
     if (!currentPassword || !newPassword) return json({ ok: false, message: 'Champs requis.' }, { status: 400 });
+    if (newPassword.length < 8) return json({ ok: false, message: 'Minimum 8 caractères.' }, { status: 400 });
 
     const rows = await db.select().from(users).where(eq(users.pseudo, locals.memberSession.pseudo)).limit(1);
     const user = rows[0];

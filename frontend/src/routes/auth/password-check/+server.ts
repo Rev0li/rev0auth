@@ -5,6 +5,7 @@ import { users } from '$lib/server/db/schema.js';
 import { sql } from 'drizzle-orm';
 import { verifyPassword } from '$lib/server/auth.js';
 import { createSession, MEMBER_COOKIE, MEMBER_COOKIE_OPTS } from '$lib/server/session.js';
+import { checkRateLimit, recordFailure, clearAttempts, getIp } from '$lib/server/ratelimit.js';
 import { SignJWT } from 'jose';
 
 async function buildSongsurfUrl(pseudo: string, role: string): Promise<string | null> {
@@ -28,6 +29,11 @@ async function buildSongsurfUrl(pseudo: string, role: string): Promise<string | 
 }
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
+    const ip = getIp(request);
+    if (checkRateLimit(ip).blocked) {
+        return json({ ok: false, state: 'invalid', message: 'Trop de tentatives, réessaie dans 15 minutes.' }, { status: 429 });
+    }
+
     const { pseudo, password } = await request.json();
     const key = pseudo?.trim()?.toLowerCase();
     if (!key || !password?.trim()) {
@@ -42,14 +48,17 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const user = rows[0];
     if (!user || !user.active) {
+        recordFailure(ip);
         return json({ ok: false, state: 'invalid', message: 'Mot de passe incorrect.' });
     }
 
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
+        recordFailure(ip);
         return json({ ok: false, state: 'invalid', message: 'Mot de passe incorrect.' });
     }
 
+    clearAttempts(ip);
     const token = await createSession(user.pseudo, 'member');
     cookies.set(MEMBER_COOKIE, token, MEMBER_COOKIE_OPTS);
 
