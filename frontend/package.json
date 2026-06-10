@@ -38,6 +38,7 @@
 	"dependencies": {
 		"@sveltejs/adapter-node": "^5.5.4",
 		"argon2": "^0.44.0",
+		"better-auth": "^1.6.16",
 		"drizzle-orm": "^0.45.2",
 		"jose": "^6.2.3",
 		"postgres": "^3.4.9"
