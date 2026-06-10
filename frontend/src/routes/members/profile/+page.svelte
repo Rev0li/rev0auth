@@ -2,6 +2,7 @@
     import type { PageData } from './$types.js';
     import { goto, invalidateAll } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
+    import { AVATARS } from '$lib/avatars.js';
 
     let { data }: { data: PageData } = $props();
 
@@ -31,32 +32,27 @@
     }
 
     // ── Avatar ────────────────────────────────────────────────────────
-    let avatarFile:   File | null = null;
-    let avatarPreview = $state<string | null>(null);
-    let avatarLoading = $state(false);
-    let avatarMsg     = $state('');
+    let selectedAvatar = $state('');
+    let avatarLoading  = $state(false);
+    let avatarMsg      = $state('');
 
-    function onAvatarChange(e: Event) {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-        avatarFile = file;
-        avatarPreview = URL.createObjectURL(file);
-    }
-
-    async function uploadAvatar() {
-        if (!avatarFile) return;
+    async function saveAvatar() {
+        if (!selectedAvatar) return;
         avatarLoading = true; avatarMsg = '';
         try {
-            const fd = new FormData();
-            fd.append('avatar', avatarFile);
-            const r = await fetch('/members/avatar', { method: 'POST', body: fd });
-            avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur upload.';
+            const r = await fetch('/members/avatar', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ avatar_id: selectedAvatar }),
+            });
+            avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur lors de la mise à jour.';
+            if (r.ok) { selectedAvatar = ''; await invalidateAll(); }
         } finally { avatarLoading = false; }
     }
 
     async function deleteAvatar() {
         await fetch('/members/avatar', { method: 'DELETE' });
-        avatarPreview = null;
+        selectedAvatar = '';
         invalidateAll();
     }
 
@@ -174,16 +170,29 @@
                 <h2 class="section-title">Avatar</h2>
                 <div class="avatar-area">
                     <img
-                        src={avatarPreview ?? `/members/avatar/${data.user.pseudo}`}
+                        src={`/members/avatar/${data.user.pseudo}`}
                         alt="Avatar"
                         class="profile-avatar"
                         onerror={(e) => (e.currentTarget as HTMLImageElement).src = ''}
                     />
+                    <div class="avatar-grid">
+                        {#each AVATARS as av}
+                            <button
+                                type="button"
+                                class="avatar-btn"
+                                class:selected={selectedAvatar === av.id}
+                                onclick={() => { selectedAvatar = selectedAvatar === av.id ? '' : av.id; }}
+                                title={av.name}
+                            >
+                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                                {@html av.svg}
+                                <span>{av.name}</span>
+                            </button>
+                        {/each}
+                    </div>
                     <div class="avatar-actions">
-                        <label class="btn-secondary" for="avatar-input">Choisir une image</label>
-                        <input id="avatar-input" type="file" accept="image/*" onchange={onAvatarChange} style="display:none" />
-                        {#if avatarPreview}
-                            <button class="btn-primary" onclick={uploadAvatar} disabled={avatarLoading}>
+                        {#if selectedAvatar}
+                            <button class="btn-primary" onclick={saveAvatar} disabled={avatarLoading}>
                                 {avatarLoading ? '…' : 'Sauvegarder'}
                             </button>
                         {/if}
@@ -380,7 +389,27 @@
     .avatar-area { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
     .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
     .avatar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .avatar-actions label { cursor: pointer; }
+    .avatar-grid { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .avatar-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        padding: 6px;
+        cursor: pointer;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        width: 72px;
+    }
+    .avatar-btn :global(svg) { width: 48px; height: 48px; border-radius: 50%; }
+    .avatar-btn span { font-size: 0.7rem; color: var(--muted-foreground); }
+    .avatar-btn:hover { border-color: var(--ring); }
+    .avatar-btn.selected {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px var(--primary);
+    }
 
     .folder-tabs { display: flex; gap: 4px; }
     .folder-btn {

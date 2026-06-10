@@ -3,23 +3,26 @@ import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { eq } from 'drizzle-orm';
+import { AVATAR_SVG, isAvatarId } from '$lib/avatars.js';
 
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']);
-const MAX_BYTES    = 512 * 1024; // 512 KB
-
+// Le client n'envoie jamais de fichier : seulement un id du catalogue $lib/avatars.
+// Les bytes sont stockés en DB (le Rust web les sert encore pendant la migration).
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
 
-    const formData = await request.formData();
-    const file = formData.get('avatar') as File | null;
-    if (!file) return json({ ok: false, message: 'Fichier requis.' }, { status: 400 });
-    if (!ALLOWED_MIME.has(file.type)) return json({ ok: false, message: 'Format non supporté.' }, { status: 415 });
+    const { avatar_id } = await request.json().catch(() => ({}));
+    if (!isAvatarId(avatar_id)) {
+        return json({ ok: false, message: 'Avatar inconnu.' }, { status: 400 });
+    }
 
-    const buf = Buffer.from(await file.arrayBuffer());
-    if (buf.byteLength > MAX_BYTES) return json({ ok: false, message: 'Fichier trop volumineux (max 512 KB).' }, { status: 413 });
-
+    const svg = AVATAR_SVG[avatar_id];
     await db.update(users)
-        .set({ avatarBytes: buf, avatarMime: file.type })
+        .set({
+            avatarBytes:     Buffer.from(svg),
+            avatarMime:      'image/svg+xml',
+            avatarFilename:  `${avatar_id}.svg`,
+            avatarSizeBytes: svg.length,
+        })
         .where(eq(users.pseudo, locals.memberSession.pseudo));
 
     return json({ ok: true });
@@ -28,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 export const DELETE: RequestHandler = async ({ locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
     await db.update(users)
-        .set({ avatarBytes: null, avatarMime: null })
+        .set({ avatarBytes: null, avatarMime: null, avatarFilename: null, avatarSizeBytes: null })
         .where(eq(users.pseudo, locals.memberSession.pseudo));
     return json({ ok: true });
 };
