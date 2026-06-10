@@ -12,15 +12,24 @@ export const GET: RequestHandler = async ({ locals }) => {
     return json(rows);
 };
 
+const VALID_METHODS = new Set(['crypto', 'pcs']);
+
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
     const { method, code } = await request.json();
-    if (!method || !code?.trim()) return json({ ok: false }, { status: 400 });
+    const m = typeof method === 'string' ? method.trim().toLowerCase() : '';
+    const c = typeof code === 'string' ? code.trim() : '';
+    if (!VALID_METHODS.has(m)) {
+        return json({ ok: false, message: 'Methode invalide. Utilise crypto ou pcs.' }, { status: 400 });
+    }
+    if (!c) {
+        return json({ ok: false, message: 'Code/reference donation manquant.' }, { status: 400 });
+    }
 
     await db.insert(donations).values({
         pseudo: locals.memberSession.pseudo,
-        method,
-        code,
+        method: m,
+        code: c,
     });
     return json({ ok: true });
 };

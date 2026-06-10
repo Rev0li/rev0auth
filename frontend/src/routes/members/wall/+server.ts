@@ -2,7 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { wallPosts } from '$lib/server/db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { and, eq, desc } from 'drizzle-orm';
 
 export const GET: RequestHandler = async ({ locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
@@ -24,10 +24,12 @@ export const DELETE: RequestHandler = async ({ url, locals }) => {
     const id = parseInt(url.searchParams.get('id') ?? '');
     if (isNaN(id)) return json({ ok: false }, { status: 400 });
 
-    // Members can only delete their own posts
-    await db.delete(wallPosts).where(
-        eq(wallPosts.id, id)
-        // no pseudo check needed — admin can use japprends route
-    );
-    return json({ ok: true });
+    const deleted = await db.delete(wallPosts)
+        .where(and(eq(wallPosts.id, id), eq(wallPosts.pseudo, locals.memberSession.pseudo)))
+        .returning({ id: wallPosts.id });
+
+    if (deleted.length === 0) {
+        return json({ ok: false, message: 'Introuvable ou non autorisé.' }, { status: 404 });
+    }
+    return json({ ok: true, message: 'Message supprimé.' });
 };
