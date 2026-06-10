@@ -1,26 +1,13 @@
 import { redirect, error } from '@sveltejs/kit';
-import { SignJWT } from 'jose';
 import type { RequestHandler } from './$types.js';
+import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
 
 export const GET: RequestHandler = async ({ locals }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé');
 
-    const jwtSecret = process.env.AUTH_JWT_SECRET ?? '';
-    const songsurfUrl = (process.env.SONGSURF_URL ?? '').replace(/\/$/, '');
+    if (!songsurfConfigured()) throw error(503, 'SongSurf non configuré');
 
-    if (!jwtSecret || !songsurfUrl) throw error(503, 'SongSurf non configuré');
+    const token = await signSongsurfJwt('rev0admin', 'admin', 8 * 3600);
 
-    const now = Math.floor(Date.now() / 1000);
-    const token = await new SignJWT({
-        sub:        'rev0admin',
-        role:       'admin',
-        email:      '',
-        token_type: 'access',
-        iat:        now,
-    })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setExpirationTime(now + 8 * 3600)
-        .sign(new TextEncoder().encode(jwtSecret));
-
-    throw redirect(302, `${songsurfUrl}?token=${token}`);
+    throw redirect(302, `${songsurfBaseUrl()}?token=${token}`);
 };

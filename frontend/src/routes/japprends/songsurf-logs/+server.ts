@@ -1,31 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { SignJWT } from 'jose';
+import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
 
-    const jwtSecret  = (process.env.SONGSURF_JWT_SECRET ?? '').trim();
-    const songsurfBase = (process.env.SONGSURF_URL ?? '').trim();
-    if (!jwtSecret || !songsurfBase) {
+    if (!songsurfConfigured()) {
         return json({ success: false, error: 'SongSurf non configuré' }, { status: 503 });
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    const token = await new SignJWT({
-        sub: 'admin',
-        role: 'admin',
-        email: '',
-        token_type: 'access',
-    })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt(now)
-        .setExpirationTime(now + 120)
-        .sign(new TextEncoder().encode(jwtSecret));
+    const token = await signSongsurfJwt('admin', 'admin', 120);
 
     const pseudo = url.searchParams.get('pseudo') ?? '';
     const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '100') || 100, 500);
-    const target = `${songsurfBase.replace(/\/+$/, '')}/api/admin/dl-logs?pseudo=${encodeURIComponent(pseudo)}&limit=${limit}`;
+    const target = `${songsurfBaseUrl()}/api/admin/dl-logs?pseudo=${encodeURIComponent(pseudo)}&limit=${limit}`;
 
     try {
         const ctrl = new AbortController();
