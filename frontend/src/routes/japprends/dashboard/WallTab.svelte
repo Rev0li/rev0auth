@@ -34,7 +34,7 @@
     }
 
     async function remove(id: number) {
-        await fetch(`/japprends/wall?id=${id}`, { method: 'DELETE' });
+        await fetch(`/japprends/wall/${id}`, { method: 'DELETE' });
         posts = posts.filter(p => p.id !== id);
     }
 

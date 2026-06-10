@@ -2,8 +2,9 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
-import { eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
+import { writeAudit } from '$lib/server/audit.js';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
@@ -13,7 +14,31 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     const hash = await hashPassword(password);
     await db.update(users)
         .set({ passwordHash: hash })
-        .where(eq(users.pseudo, params.pseudo));
+        .where(sql`LOWER(${users.pseudo}) = LOWER(${params.pseudo})`);
 
     return json({ ok: true });
+};
+
+export const DELETE: RequestHandler = async ({ locals, params }) => {
+    if (!locals.adminSession) throw error(401, 'Non autorisé.');
+    const pseudo = params.pseudo!;
+
+    const found = await db.select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(sql`LOWER(${users.pseudo}) = LOWER(${pseudo})`)
+        .limit(1);
+
+    if (found.length === 0) {
+        return json({ ok: false, message: 'Utilisateur introuvable.' });
+    }
+    if (!found[0].passwordHash) {
+        return json({ ok: false, message: 'Pas de mot de passe pour cet utilisateur.' });
+    }
+
+    await db.update(users)
+        .set({ passwordHash: '' })
+        .where(sql`LOWER(${users.pseudo}) = LOWER(${pseudo})`);
+
+    await writeAudit('remove_password', locals.adminSession.pseudo, pseudo, 'password cleared');
+    return json({ ok: true, message: 'Mot de passe supprime.' });
 };
