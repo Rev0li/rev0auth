@@ -28,4 +28,16 @@ export async function initDb() {
             cases       TEXT NOT NULL DEFAULT '[]'
         )
     `;
+
+    await client`
+        CREATE TABLE IF NOT EXISTS web_audit_log (
+            id               BIGSERIAL PRIMARY KEY,
+            action           TEXT NOT NULL,
+            actor_pseudo     TEXT NOT NULL,
+            target           TEXT NOT NULL DEFAULT '',
+            detail           TEXT NOT NULL DEFAULT '',
+            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+        )
+    `;
+    await client`CREATE INDEX IF NOT EXISTS web_audit_log_created_idx ON web_audit_log (created_at_epoch DESC)`;
 }

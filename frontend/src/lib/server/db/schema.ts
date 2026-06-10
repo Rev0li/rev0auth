@@ -102,6 +102,17 @@ export const testRuns = pgTable('web_test_runs', {
     cases:      text('cases').notNull().default('[]'),
 });
 
+// ─── web_audit_log (SvelteKit-specific, created via init SQL) ────────────────
+
+export const auditLog = pgTable('web_audit_log', {
+    id:          bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    action:      text('action').notNull(),
+    actorPseudo: text('actor_pseudo').notNull(),
+    target:      text('target').notNull().default(''),
+    detail:      text('detail').notNull().default(''),
+    createdAt:   bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type User       = typeof users.$inferSelect;
@@ -112,3 +123,4 @@ export type Donation   = typeof donations.$inferSelect;
 export type WallPost   = typeof wallPosts.$inferSelect;
 export type Invite     = typeof invites.$inferSelect;
 export type TestRun    = typeof testRuns.$inferSelect;
+export type AuditEntry = typeof auditLog.$inferSelect;
