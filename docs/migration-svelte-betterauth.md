@@ -4,7 +4,7 @@
 > Branche : `dev/svelte`.
 > **Mis à jour étape par étape — chaque case cochée est validée.**
 
-Dernière mise à jour : 2026-05-31 — *Fin de session. Phase 1 ≈ terminée (code complet, tests utilisateur à faire). Reprise → tests + Phase 2 BetterAuth.*
+Dernière mise à jour : 2026-06-10 — *Phase 1 testée (34+11 PASS) et commitée en blocs atomiques. Fixes de l'audit appliqués (S1-S4, P1-P5, compose, CI, env dev). Reprise → Phase 2 BetterAuth.*
 
 ---
 
@@ -102,10 +102,20 @@ Idem Members : 3 sont **déjà couverts** sous une autre forme par les endpoints
 - [ ] **TODO différé** : `/static/hero/:filename` et `/static/tuto/:filename` sont dans `auth/static/`, pas dans `frontend/static/`. Aucune référence côté SvelteKit actuel — à traiter quand les pages Rust qui les consomment seront migrées (copier les assets dans `frontend/static/hero/` + `frontend/static/tuto/`, SvelteKit les servira automatiquement).
 
 #### Migration & validation
-- [ ] Migrer pages manquantes (ordre suggéré : audit → songsurf-logs → members/dashboard)
-- [ ] Migrer endpoints manquants par groupe (status → members → admin)
+- [x] Migrer pages manquantes (ordre suggéré : audit → songsurf-logs → members/dashboard) *(2026-05-30)*
+- [x] Migrer endpoints manquants par groupe (status → members → admin) *(2026-05-30)*
+- [x] Tests des blocs : 34 PASS / 0 FAIL (handoff + smoke par rôle admin/membre) *(2026-06-10)*
 - [ ] Vérifier parité styles (CSS pages)
-- [ ] Tests manuels flow complet par rôle (guest / member / mod / admin)
+- [ ] Test navigateur : grille avatars profil + bouton refresh audit
+
+> **Note 2026-06-10 — audit & fixes** : audit complet dans `docs/audit-migration-svelte-2026-06-10.md`.
+> Appliqués : S1 (verifyPassword hash vide), S2 (rate limit login membre), S3 (refactor `avatar_id`,
+> plus d'upload SVG — catalogue `$lib/avatars.ts`), S4 (secret unifié `AUTH_JWT_SECRET`, helper
+> `$lib/server/songsurf.ts` — corrigeait un vrai 502), P1 (cascade+audit delete_user), P2 (pseudo
+> lowercase au signup, lookups LOWER()), P4 (audit set_password), P5 (min 8 chars). Compose : healthcheck
+> node, `REV0AUTH_API_UPSTREAM`, `ORIGIN`. CI `ci.yml` (check+vitest+cargo). `loadEnv` dans vite.config
+> (le dev ne chargeait pas `.env` → les tests manuels n'avaient jamais pu tourner).
+> **Page `GET /portal` non migrée** (seul le Rust la sert) — ajoutée à la checklist Phase 3.
 
 ### Phase 2 — Intégrer BetterAuth sur Drizzle
 **Objectif** : remplacer l'auth custom par BetterAuth sans casser le schema partagé.
@@ -126,6 +136,8 @@ Idem Members : 3 sont **déjà couverts** sous une autre forme par les endpoints
 **Objectif** : SvelteKit seul derrière Caddy, `crates/web/` retiré du build.
 
 - [ ] Vérifier que toutes les routes `crates/web/` ont un équivalent SvelteKit
+  - ⚠️ connu : page `GET /portal` non migrée (audit 2026-06-10)
+  - ⚠️ connu : assets `static/hero/`, `static/tuto/` à copier dans `frontend/static/`
 - [ ] Retirer service `web` de `docker-compose.yml`
 - [ ] Retirer `Dockerfile.web`
 - [ ] Mettre à jour Caddy : `:3000` → SvelteKit (port node adapter)
@@ -188,21 +200,18 @@ Ce fichier sert à un autre Claude (ou à toi-même) pour valider la tâche sans
 
 ## Point de reprise — prochaine session
 
-**État au 2026-05-31 (fin session)** :
+**État au 2026-06-10 (fin session)** :
 
-### Code livré dans cette session (branche `dev/svelte`, non commité)
-1. **Bloc Status** — 4 endpoints + helper `api-health.ts`
-2. **Bloc Members** — 4 modifs réelles (donations validation, crypto-addresses, account DELETE cascade, wall ownership fix)
-3. **Bloc Admin** — 5 endpoints créés (ping, auth-check, user/ping, password DELETE, wall DELETE) + cleanup wall query-based
-4. **3 pages** — `/japprends/audit`, `/japprends/songsurf-logs`, `/members/dashboard` (redirect)
-5. **Infra audit log** — nouvelle table `web_audit_log` + helper `writeAudit()` + remplacement des `console.info`
-
-Tous les `npm run check` passent (0 errors).
+### Fait dans cette session
+1. **Phase 1 validée** : 34 PASS / 0 FAIL (handoff + smoke), 11/11 sur les fixes — voir `migration-tests-todo.md`
+2. **13 commits** sur `dev/svelte` : 6 blocs Phase 1 + fixes audit (sécurité, parité, compose, CI, env dev)
+3. **Audit complet** : `docs/audit-migration-svelte-2026-06-10.md` — tous les points bloquants traités
+4. **CI en place** : `.github/workflows/ci.yml` (check + vitest + cargo test)
 
 ### À faire en premier au démarrage prochain
-1. **Lire `docs/migration-tests-todo.md`** — handoff du dernier bloc (3 pages + audit)
-2. **Demander à l'user** s'il a testé localement les blocs précédents (Status, Members, Admin) et le bloc en cours (pages + audit), ou s'il veut qu'on enchaîne sur la base que le code compile
-3. **Si tests OK** → commit en plusieurs commits atomiques par bloc, puis attaquer **Phase 2 BetterAuth**
+1. Lire `docs/migration-tests-todo.md` — section "Tests restants" (navigateur + checklist deploy VPS)
+2. Au prochain deploy : nettoyer `SONGSURF_JWT_SECRET` des `.env`/`.secrets` (VPS + local), vérifier `ORIGIN` et le healthcheck frontend
+3. Continuer **Phase 2 BetterAuth** (fondations posées, voir ci-dessous)
 
 ### Phase 2 — point d'entrée
 - Lire la roadmap Phase 2 plus haut dans ce doc
