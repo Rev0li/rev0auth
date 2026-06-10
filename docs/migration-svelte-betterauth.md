@@ -120,9 +120,18 @@ Idem Members : 3 sont **déjà couverts** sous une autre forme par les endpoints
 ### Phase 2 — Intégrer BetterAuth sur Drizzle
 **Objectif** : remplacer l'auth custom par BetterAuth sans casser le schema partagé.
 
-- [ ] Installer `better-auth` + adapter Drizzle
-- [ ] Configurer `better-auth` avec table `web_users` existante (custom mapping)
-- [ ] Mapper le RBAC (`guest` / `member` / `mod` / `admin`) sur les rôles BetterAuth
+- [x] Installer `better-auth` + adapter Drizzle *(2026-06-10 — v1.6.16)*
+- [x] Configurer BetterAuth (instance `lib/server/auth-v2.ts`, handler `/api/auth/[...all]`) *(2026-06-10)*
+
+> **Note 2026-06-10 — choix de schéma** : tables dédiées `ba_*` (générées par `@better-auth/cli`,
+> créées via `initDb()`) plutôt qu'un mapping direct sur `web_users` : le core BetterAuth exige
+> email/id/timestamps incompatibles avec le shape `web_users` (pseudo PK, epochs). La migration des
+> comptes se fera par script `web_users` → `ba_users` + `ba_accounts` (email synthétique
+> `<pseudo>@local.invalid`, plugin `username` pour le login pseudo+mdp). `web_users` reste la table
+> des données applicatives (rôle, accès, avatar…). Testé : sign-up, sign-in/username, get-session.
+
+- [ ] Script de migration des comptes `web_users` → `ba_users`/`ba_accounts` (hashes Argon2 à porter — vérifier la compat `password` de ba_accounts ou forcer un re-set)
+- [ ] Mapper le RBAC (`guest` / `member` / `mod` / `admin`) sur les rôles BetterAuth (additionalField `role` déjà en place)
 - [ ] Migrer le flow login email/password
 - [ ] Migrer le flow signup (avec approval queue existante)
 - [ ] Migrer TOTP admin (`ADMIN_DASH_TOTP_SECRET` → BetterAuth TOTP plugin)
