@@ -45,6 +45,7 @@ Copy `.env.example` to `.env`. Required variables:
 - `ADMIN_DASH_TOTP_SECRET` — optional Base32 TOTP secret for 2FA
 - `API_BIND_ADDR` / `WEB_BIND_ADDR` — override default ports (8080 / 3000)
 - `REV0AUTH_API_UPSTREAM` — web → API proxy target (default: 127.0.0.1:8080)
+- `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table (created by `initDb()`), displayed on `/japprends/songsurf-activity`.
 
 ## Architecture
 

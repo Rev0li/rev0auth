@@ -113,6 +113,25 @@ export const auditLog = pgTable('web_audit_log', {
     createdAt:   bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
 });
 
+// ─── songsurf_events (SvelteKit-specific, created via init SQL) ──────────────
+// Événements poussés par le NAS (watcher + songsurf) via /japprends/api/songsurf-events.
+// detail = JSON string (convention cases TEXT). Tri/affichage sur receivedAt (horloge VPS).
+
+export const songsurfEvents = pgTable('songsurf_events', {
+    id:         bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    source:     text('source').notNull().default(''),
+    eventType:  text('event_type').notNull(),
+    eventTs:    bigint('event_ts_epoch', { mode: 'number' }).notNull(),
+    pseudo:     text('pseudo').notNull().default(''),
+    role:       text('role').notNull().default(''),
+    artist:     text('artist').notNull().default(''),
+    album:      text('album').notNull().default(''),
+    title:      text('title').notNull().default(''),
+    detail:     text('detail').notNull().default('{}'),
+    ip:         text('ip').notNull().default(''),
+    receivedAt: bigint('received_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
+});
+
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type User       = typeof users.$inferSelect;
@@ -124,3 +143,5 @@ export type WallPost   = typeof wallPosts.$inferSelect;
 export type Invite     = typeof invites.$inferSelect;
 export type TestRun    = typeof testRuns.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
+export type SongsurfEvent    = typeof songsurfEvents.$inferSelect;
+export type NewSongsurfEvent = typeof songsurfEvents.$inferInsert;

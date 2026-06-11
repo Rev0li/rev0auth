@@ -48,6 +48,7 @@
                 SongSurf ↗
             </a>
         {/if}
+        <a class="btn-songsurf" href="/japprends/songsurf-activity">Activité SongSurf</a>
         <span class="dash-pseudo">{data.admin}</span>
         <button class="btn-logout" onclick={logout}>Déconnexion</button>
     </header>
