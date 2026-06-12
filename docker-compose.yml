@@ -37,28 +37,6 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_healthy
-    env_file:
-      - .env
-      - .secrets
-    environment:
-      REV0AUTH_API_UPSTREAM: api:8080
-      WEB_BIND_ADDR: 0.0.0.0:3000
-    ports:
-      - "127.0.0.1:3000:3000"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ > /dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-
   frontend:
     build:
       context: .
@@ -74,7 +52,6 @@ services:
       PORT: "4173"
       # ORIGIN doit correspondre au domaine public — surchargeable depuis .env
       ORIGIN: ${ORIGIN:-https://rev0li.duckdns.org}
-      REV0AUTH_WEB_UPSTREAM: "http://web:3000"
       REV0AUTH_API_UPSTREAM: "api:8080"
     ports:
       - "127.0.0.1:4173:4173"

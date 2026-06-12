@@ -1,120 +1,102 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { onMount } from 'svelte';
 
-    let waiting = $state(true);
-    let result  = $state<{ ok: boolean; msg: string } | null>(null);
+    // Login admin par mot de passe (POST /japprends/login).
+    // Le mode YubiKey (proxy WebAuthn vers crates/web) a été retiré avec le
+    // Rust web — les passkeys reviendront via le plugin BetterAuth.
+    let pseudo    = $state('');
+    let seed      = $state('');
+    let password  = $state('');
+    let otp       = $state('');
+    let challenge = $state('');   // doit valoir 'secure-lock'
+    let trap      = $state('');   // honeypot — doit rester vide
+    let loading   = $state(false);
+    let error     = $state('');
 
-    function b64ToBuffer(b64: string): ArrayBuffer {
-        const pad = (b64 + '===').slice(0, b64.length + (4 - b64.length % 4) % 4)
-            .replace(/-/g, '+').replace(/_/g, '/');
-        const bin = atob(pad);
-        const buf = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-        return buf.buffer;
-    }
-    function bufToB64(buf: ArrayBuffer): string {
-        const bytes = new Uint8Array(buf);
-        let str = '';
-        for (const b of bytes) str += String.fromCharCode(b);
-        return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    }
+    const CHALLENGE_ICONS = [
+        { value: 'master-key',  icon: '🔑' },
+        { value: 'secure-lock', icon: '🔒' },
+        { value: 'iron-shield', icon: '🛡️' },
+    ];
 
-    async function startWebAuthn() {
-        waiting = true;
-        result = null;
+    async function login(e: SubmitEvent) {
+        e.preventDefault();
+        error = '';
+        if (!pseudo.trim() || !seed.trim() || !password) {
+            error = 'Tous les champs sont requis.';
+            return;
+        }
+        if (!challenge) {
+            error = 'Choisis un symbole.';
+            return;
+        }
 
-        let data: Record<string, unknown>;
+        loading = true;
         try {
-            const res = await fetch('/japprends/webauthn/auth/start');
-            data = await res.json() as Record<string, unknown>;
-        } catch {
-            waiting = false;
-            result = { ok: false, msg: 'Erreur réseau. Recharge la page.' };
-            return;
-        }
-
-        if (data.locked) {
-            waiting = false;
-            result = { ok: false, msg: (data.message as string) || 'Trop de tentatives. Réessaie plus tard.' };
-            return;
-        }
-
-        if (!data.webauthn_required) {
-            waiting = false;
-            result = { ok: false, msg: 'WebAuthn non configuré sur ce serveur.' };
-            return;
-        }
-
-        try {
-            const opts = (data.webauthn_challenge as { publicKey: PublicKeyCredentialRequestOptions }).publicKey;
-            opts.challenge = b64ToBuffer(opts.challenge as unknown as string);
-            if (opts.allowCredentials) {
-                opts.allowCredentials = opts.allowCredentials.map(c => ({
-                    ...c,
-                    id: b64ToBuffer(c.id as unknown as string),
-                }));
-            }
-
-            const cred = await navigator.credentials.get({ publicKey: opts }) as PublicKeyCredential;
-            waiting = false;
-
-            const r = cred.response as AuthenticatorAssertionResponse;
-            const payload = {
-                token: data.webauthn_token,
-                credential: {
-                    id: cred.id,
-                    rawId: bufToB64(cred.rawId),
-                    type: cred.type,
-                    response: {
-                        authenticatorData: bufToB64(r.authenticatorData),
-                        clientDataJSON:    bufToB64(r.clientDataJSON),
-                        signature:         bufToB64(r.signature),
-                        userHandle: r.userHandle ? bufToB64(r.userHandle) : null,
-                    },
-                },
-            };
-
-            const finishRes = await fetch('/japprends/webauthn/auth/finish', {
+            const res = await fetch('/japprends/login', {
                 method:  'POST',
                 headers: { 'content-type': 'application/json' },
-                body:    JSON.stringify(payload),
+                body: JSON.stringify({
+                    pseudo: pseudo.trim(),
+                    seed:   seed.trim(),
+                    password,
+                    otp:    otp.trim() || undefined,
+                    challenge_choice: challenge,
+                    trap_value: trap,
+                }),
             });
-            const resp = await finishRes.json() as { ok: boolean; message?: string };
-            result = { ok: resp.ok, msg: resp.message ?? (resp.ok ? 'Connexion réussie.' : 'Échec.') };
-            if (resp.ok) setTimeout(() => goto('/japprends/dashboard'), 350);
-        } catch (err) {
-            waiting = false;
-            result = { ok: false, msg: (err as Error).message ?? 'Erreur WebAuthn.' };
+            const data = await res.json() as { ok: boolean; message?: string };
+            if (!data.ok) {
+                error = data.message ?? 'Connexion refusée.';
+                return;
+            }
+            goto('/japprends/dashboard');
+        } catch {
+            error = 'Erreur réseau.';
+        } finally {
+            loading = false;
         }
     }
-
-    onMount(() => { startWebAuthn(); });
 </script>
 
 <main class="admin-bg">
-    <div class="card">
+    <form class="card" onsubmit={login}>
         <div class="brand">
             <span class="brand-badge">rev0auth admin</span>
         </div>
 
         <h1>Admin Access</h1>
-        <p class="hint-key">Touche ta YubiKey pour te connecter</p>
 
-        {#if waiting && !result}
-            <div class="spinner-row">
-                <span class="spinner"></span>
-                <span class="hint">En attente…</span>
-            </div>
+        <div class="fields">
+            <input class="field" type="text" placeholder="Pseudo" autocomplete="username" bind:value={pseudo} />
+            <input class="field" type="password" placeholder="Seed" autocomplete="off" bind:value={seed} />
+            <input class="field" type="password" placeholder="Mot de passe" autocomplete="current-password" bind:value={password} />
+            <input class="field" type="text" inputmode="numeric" placeholder="Code 2FA (si activé)" autocomplete="one-time-code" bind:value={otp} />
+        </div>
+
+        <!-- Honeypot : invisible pour un humain, rempli par les bots -->
+        <input class="trap" type="text" name="website" tabindex="-1" autocomplete="off" bind:value={trap} />
+
+        <div class="challenge-row" role="radiogroup" aria-label="Vérification">
+            {#each CHALLENGE_ICONS as c (c.value)}
+                <button
+                    type="button"
+                    class="challenge-btn"
+                    class:selected={challenge === c.value}
+                    onclick={() => { challenge = c.value; }}
+                    aria-pressed={challenge === c.value}
+                >{c.icon}</button>
+            {/each}
+        </div>
+
+        {#if error}
+            <p class="result err">{error}</p>
         {/if}
 
-        {#if result}
-            <p class="result" class:ok={result.ok} class:err={!result.ok}>{result.msg}</p>
-            {#if !result.ok}
-                <button class="btn" onclick={startWebAuthn}>Réessayer</button>
-            {/if}
-        {/if}
-    </div>
+        <button class="btn" type="submit" disabled={loading}>
+            {loading ? 'Connexion…' : 'Se connecter'}
+        </button>
+    </form>
 </main>
 
 <style>
@@ -158,28 +140,48 @@
         color: var(--foreground);
     }
 
-    .hint-key {
-        font-size: 0.875rem;
-        color: var(--muted-foreground);
-        margin: 0;
-    }
-
-    .spinner-row {
+    .fields {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
         gap: 0.625rem;
     }
-    .spinner {
-        width: 16px; height: 16px;
-        border: 2px solid var(--border);
-        border-top-color: var(--primary);
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-        flex-shrink: 0;
+
+    .field {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        background: var(--background);
+        color: var(--foreground);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.875rem;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .hint { font-size: 0.875rem; color: var(--muted-foreground); }
+    .field:focus { outline: none; border-color: var(--primary); }
+
+    .trap {
+        position: absolute;
+        left: -9999px;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+    }
+
+    .challenge-row {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .challenge-btn {
+        font-size: 1.25rem;
+        padding: 0.5rem 0.875rem;
+        background: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .challenge-btn:hover    { border-color: var(--primary); }
+    .challenge-btn.selected { border-color: var(--primary); background: var(--background); }
 
     .result {
         font-size: 0.875rem;
@@ -187,19 +189,19 @@
         border-radius: var(--radius-sm);
         margin: 0;
     }
-    .result.ok  { color: hsl(142 71% 45%); background: hsl(142 71% 45% / 0.12); }
-    .result.err { color: hsl(0 72% 51%);   background: hsl(0 72% 51% / 0.1); }
+    .result.err { color: hsl(0 72% 51%); background: hsl(0 72% 51% / 0.1); }
 
     .btn {
         width: 100%;
         padding: 0.6rem 1rem;
-        background: var(--muted);
-        color: var(--foreground);
-        border: 1px solid var(--border);
+        background: var(--primary);
+        color: var(--primary-foreground);
+        border: none;
         border-radius: var(--radius-sm);
         font-size: 0.875rem;
-        font-weight: 500;
+        font-weight: 600;
         cursor: pointer;
     }
-    .btn:hover { border-color: var(--primary); }
+    .btn:hover:not(:disabled) { opacity: 0.9; }
+    .btn:disabled { opacity: 0.6; cursor: default; }
 </style>

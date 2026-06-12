@@ -9,52 +9,54 @@
 ## Dernière tâche réalisée
 
 **Date** : 2026-06-12
-**Tâche** : **Audit et suppression du code mort** (post-bascule BetterAuth + abandons actés du tour d'horizon).
+**Tâche** : **Phase 3 — SvelteKit seul derrière Caddy**, crates/web retiré du déploiement.
 
-### Supprimé
-- **Dashboard TDD** (abandon acté) : `routes/japprends/tdd/`, `routes/japprends/tests/{launch,history}`, table `web_test_runs` (schema + initDb). Redirects/liens `tdd` → `/japprends/dashboard`.
-- **Endpoints parité Rust sans aucun appelant** (état cible post-Phase 3) : `/users`, `/user/ping`, `/japprends/ping`, `/japprends/auth-check`, `/status/all`, `/status/set-{busy,active,inactive}/[pseudo]`.
-- **`session.ts`** : simplifié admin-only (la branche `member` était morte depuis la bascule BetterAuth) — `createSession(pseudo)` / `getSession(token)` sans paramètre `kind`.
-- **Deps npm mortes** : `bits-ui` (aucun import), `happy-dom` (vitest tourne en env node), `@sveltejs/adapter-auto` (le build utilise adapter-node).
-- Faux positif corrigé : `lib/utils.ts` (`cn()`) est **vivant** — utilisé par `lib/components/ui/*` (login page) ; `clsx`/`tailwind-merge` conservés.
-
-### Gardé volontairement (à connaître)
-- `/status` — endpoint ops (checklist deploy, futur dashboard externe), admin-only.
-- `/members/account` DELETE et `/members/donations/crypto-addresses` — endpoints sans UI Svelte pour l'instant (suppression de compte et donations crypto existent en Rust ; UI à porter ou feature à trancher).
-- `/portal` + `/portal/login` — nécessaires Phase 3.
-- `/api/auth/[...all]` — surface BetterAuth (client SDK futur).
-
-### ⚠️ Découverte importante — routage prod
-Le Caddyfile ne route vers SvelteKit que **`/japprends/*` et `/_app/*`**. Tout le reste (membres, login, signup, portal) est encore servi par le **Rust** en prod. La bascule BetterAuth du flow membre ne sera donc **effective qu'au switch Caddy (Phase 3)**. À ce moment-là, ajouter les paths SvelteKit dans le Caddyfile (ou tout basculer sauf les routes Rust restantes).
+### Changements
+- **Caddyfile.template** : tout `WEB_DOMAIN` → frontend `:4173` (plus de matcher `/japprends/*`, plus de `WEB_UPSTREAM`). `caddy.env.example` mis à jour (`FRONTEND_UPSTREAM`).
+- **docker-compose.yml** : service `web` supprimé, `Dockerfile.web` supprimé, `REV0AUTH_WEB_UPSTREAM` retiré.
+- **`/portal`** : redirect 301 → `/` (l'info "invitation uniquement" est déjà sur la page de connexion). Le Watcher SongSurf qui redirige vers `/portal` continue de fonctionner.
+- **Login admin réécrit** (`/japprends/login`) : formulaire pseudo + seed + mot de passe + code 2FA optionnel + challenge 3 icônes (choisir 🔒) + honeypot → `POST /japprends/login`. **Le mode YubiKey est retiré** (le WebAuthn vivait dans crates/web ; la passkey reviendra via le plugin BetterAuth).
+- **Supprimé** : proxys `/japprends/webauthn/auth/{start,finish}`, `/portal/login` (login multi-étapes abandonné), ancien POST `/portal`.
+- **Docs** : `DEPLOY.md`, `auth/CLAUDE.md`, `CLAUDE.md` racine mis à jour (architecture, checklists, dépannage).
+- crates/web reste dans le repo (référence) mais n'est plus ni buildé ni déployé.
 
 ### État : testé en local ✅
 
 | Test | Résultat |
 |---|---|
-| Login admin (challenge + createSession refactoré) → `/japprends/users` 200 | PASS |
-| `GET /` admin → redirect `/japprends/dashboard` (plus tdd) | PASS |
-| Login membre `password-check` | PASS |
-| Routes supprimées → 404 (`/users`, `/user/ping`, `/japprends/ping`, `/japprends/tdd`, `/status/all`) | PASS |
-| `/status` conservé → 200 admin / 401 sans session | PASS |
+| `/portal` → 301 `/` | PASS |
+| Page login admin (SSR, champs Seed/MdP/2FA/challenge) | PASS |
+| `POST /japprends/login` (challenge secure-lock) → session → `/japprends/users` 200 | PASS |
+| Routes webauthn supprimées → 404 | PASS |
+| Login membre (BetterAuth) inchangé | PASS |
 | `npm run check` | 0 erreur / 10 warnings |
-| `npm test` (vitest) | 26/26 |
+| `npm test` | 26/26 |
 
-Compte de test local : `MigrTester` / `MigrTest123!`.
+### ⚠️ À savoir avant le deploy
+1. **L'admin se connecte désormais par mot de passe** (pseudo + seed + mdp + challenge 🔒 + TOTP si `ADMIN_DASH_TOTP_SECRET` est défini). **Vérifier que le TOTP est bien configuré en prod** pour garder un second facteur en attendant le plugin passkey BetterAuth.
+2. Côté VPS, mettre à jour `/etc/caddy/rev0auth-caddy.env` : remplacer `WEB_UPSTREAM` par `FRONTEND_UPSTREAM=127.0.0.1:4173`, puis recharger Caddy.
+3. `docker compose up -d --build` ne lancera plus le service `web` ; faire un `docker compose down` avant pour retirer l'ancien container.
+4. Les sessions membres actives seront invalidées (re-login). Lancer la migration des comptes : `node --env-file=.env scripts/migrate-web-users-to-ba.mjs` (dry-run d'abord).
 
 ---
 
 ## Tests restants pour la prochaine session
 
-### 1. Navigateur
-- [ ] Login admin UI complète (page `/japprends/login` avec challenge) → dashboard, onglets Members/Invitations/Donations/Messages/Wall
-- [ ] Flow membre UI : login → `/home/friend` → profil → changement mdp → logout
+### 1. Navigateur (local)
+- [ ] Login admin via le nouveau formulaire (challenge 🔒) → dashboard, tous les onglets
+- [ ] Flow membre complet : login → `/home/friend` → profil → mdp → logout
 - [ ] Hérités : bouton "Rafraîchir" `/japprends/audit`, grilles d'avatars
 
-### 2. Au prochain deploy VPS
+### 2. Deploy VPS (checklist complète)
 ```bash
-node --env-file=.env scripts/migrate-web-users-to-ba.mjs --dry-run && node --env-file=.env scripts/migrate-web-users-to-ba.mjs
-# DROP TABLE web_test_runs;  -- table morte, à nettoyer manuellement (initDb ne la recrée plus)
-# checklist héritée : healthcheck, /status api_ok, ORIGIN, SONGSURF_JWT_SECRET
+# 1. rsync (DEPLOY.md) puis sur le VPS :
+cd ~/auth && docker compose down && docker compose up -d --build
+docker compose ps        # postgres/api/frontend healthy (plus de web)
+# 2. Caddy : FRONTEND_UPSTREAM=127.0.0.1:4173 dans rev0auth-caddy.env + reload
+# 3. Migration comptes BetterAuth (dry-run d'abord)
+# 4. Tests prod : login admin (challenge), login membre, flow SongSurf complet,
+#    /status api_ok:true, https://rev0li.duckdns.org/portal → 301
+# 5. Hérités : nettoyer SONGSURF_JWT_SECRET des .env/.secrets, vérifier ORIGIN
 ```
 
 ### 3. Validation type-check
@@ -68,4 +70,4 @@ npm test        # attendu : 26/26
 
 ## Prochaine étape
 
-Voir [`migration-svelte-betterauth.md`](migration-svelte-betterauth.md) : revue visuelle des pages membres (shadcn-svelte/MyCss), Phase 3 (porter `/portal` + `/` + switch Caddy), trancher UI suppression de compte & donations crypto.
+Deploy VPS + tests prod, puis revue visuelle des pages membres (shadcn-svelte/MyCss). Ensuite : plugin passkey BetterAuth (restaurer la YubiKey admin), dashboard admin externe, Phase 4 (retrait crates/api).

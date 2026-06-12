@@ -141,19 +141,18 @@ Idem Members : 3 sont **déjà couverts** sous une autre forme par les endpoints
 - [ ] Retirer `lib/server/auth.ts`, `session.ts`, `ratelimit.ts`
 - [ ] Tests bout-en-bout des flows auth
 
-### Phase 3 — Basculer Caddy vers SvelteKit
+### Phase 3 — Basculer Caddy vers SvelteKit ✅ (code fait 2026-06-12, deploy restant)
 **Objectif** : SvelteKit seul derrière Caddy, `crates/web/` retiré du build.
 
-- [ ] Vérifier que toutes les routes `crates/web/` ont un équivalent SvelteKit
-  - ⚠️ connu : page `GET /portal` non migrée (audit 2026-06-10)
-  - ⚠️ connu : assets `static/hero/`, `static/tuto/` à copier dans `frontend/static/`
-- [ ] Retirer service `web` de `docker-compose.yml`
-- [ ] Retirer `Dockerfile.web`
-- [ ] Mettre à jour Caddy : `:3000` → SvelteKit (port node adapter)
-- [ ] Mettre à jour `DEPLOY.md` (root)
-- [ ] Mettre à jour `auth/CLAUDE.md` (retirer crates/web/)
-- [ ] Mettre à jour `CLAUDE.md` racine
-- [ ] Déploiement VPS + tests prod
+- [x] Parité routes vérifiée (audit appelants) :
+  - `/` home Rust = page login Svelte (déjà portée) ; `/portal` → redirect 301 `/` (info invitation intégrée au login) ; `/dashboard` decoy → 404 natif SvelteKit
+  - assets `hero/`/`tuto/` : consommés uniquement par la page friend **Rust** — la version Svelte ne les utilise pas → abandonnés
+  - login admin : réécrit en formulaire (pseudo+seed+mdp+2FA+challenge 🔒) — **YubiKey retirée** (WebAuthn vivait dans crates/web), reviendra via plugin passkey BetterAuth
+  - supprimés : proxys webauthn, `/portal/login` (multi-étapes abandonné)
+- [x] Service `web` retiré de `docker-compose.yml` + `Dockerfile.web` supprimé
+- [x] Caddy : tout → frontend `:4173` (template + env example)
+- [x] `DEPLOY.md`, `auth/CLAUDE.md`, `CLAUDE.md` racine mis à jour
+- [ ] **Déploiement VPS + tests prod** (checklist dans `migration-tests-todo.md` — penser à `FRONTEND_UPSTREAM` dans le caddy env + TOTP admin en prod)
 
 ### Phase 4 — (futur, pas urgent) Retirer `crates/api/`
 **Objectif** : SvelteKit gère aussi l'API JWT pour SongSurf.

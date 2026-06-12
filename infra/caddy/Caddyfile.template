@@ -1,13 +1,14 @@
 # rev0auth — Caddyfile template (VPS production)
 #
 # Services behind Caddy:
-#   auth.example.com/japprends/*  → SvelteKit admin   (Docker :4173)
-#   auth.example.com/*            → Rust SSR portal    (Docker :3000)
-#   api.example.com               → Rust API           (Docker :8080)  [optionnel]
+#   auth.example.com/*  → SvelteKit (Docker :4173) — tout le site
+#   api.example.com     → Rust API  (Docker :8080)  [optionnel]
+#
+# Le Rust SSR (crates/web, :3000) est retiré depuis la Phase 3 — SvelteKit
+# sert l'intégralité du site (portail, membres, admin, signup).
 #
 # Required env vars (in /etc/caddy/rev0auth-caddy.env):
 #   WEB_DOMAIN        e.g. auth.rev0univers.com
-#   WEB_UPSTREAM      e.g. 127.0.0.1:3000       (Rust SSR)
 #   FRONTEND_UPSTREAM e.g. 127.0.0.1:4173       (SvelteKit)
 #   API_DOMAIN        e.g. api.rev0univers.com   (leave empty if API is internal only)
 #   API_UPSTREAM      e.g. 127.0.0.1:8080
@@ -20,7 +21,7 @@
     }
 }
 
-# ── Web portal ────────────────────────────────────────────────────────────────
+# ── Web (SvelteKit) ───────────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
 
@@ -31,15 +32,8 @@
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
     }
 
-    # Admin dashboard (SvelteKit) — login + dashboard + assets SvelteKit
-    @svelte path /japprends/* /_app/*
-    handle @svelte {
-        reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
-    }
-
-    # Reste du site (Rust SSR) — portail membre, signup, home, etc.
     handle {
-        reverse_proxy {$WEB_UPSTREAM:127.0.0.1:3000}
+        reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
     }
 }
 

@@ -1,10 +1,9 @@
-import { json } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 
-// Signup is invite-only — no public submission endpoint.
-export const POST: RequestHandler = async () => {
-    return json(
-        { ok: false, message: 'Inscription sur invitation uniquement.' },
-        { status: 403 }
-    );
+// L'ancienne page /portal (Rust) n'affichait que "inscription sur invitation
+// uniquement" — info désormais intégrée à la page de connexion. Redirect
+// permanent pour les vieux liens.
+export const GET: RequestHandler = async () => {
+    throw redirect(301, '/');
 };

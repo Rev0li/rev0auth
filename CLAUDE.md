@@ -4,32 +4,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-rev0auth is a Rust authentication platform with RBAC, built on Axum + PostgreSQL. It has two crates:
-- `crates/api/` (`rev0auth-api`) — pure auth API: JWT, CSRF, refresh tokens, RBAC, audit logging
-- `crates/web/` (`rev0auth-web`) — server-side rendered member portal and admin dashboard
+rev0auth is an authentication platform with RBAC. Since Phase 3 of the SvelteKit
+migration, the **SvelteKit frontend serves the whole site** (portal, members,
+admin, signup) with BetterAuth member sessions:
+
+- `frontend/` — SvelteKit (adapter-node, port 4173 in prod, 5173 in dev): all
+  pages + API endpoints, Drizzle + PostgreSQL, BetterAuth (`ba_*` tables) for
+  member sessions, custom admin sessions (`web_sessions`)
+- `crates/api/` (`rev0auth-api`) — auth API: JWT, CSRF, refresh tokens, RBAC,
+  audit logging. Scheduled for removal in Phase 4 (only `/health` is consumed)
+- `crates/web/` (`rev0auth-web`) — legacy Rust SSR. **No longer deployed**
+  (removed from docker-compose and Caddy in Phase 3); code kept for reference
+
+Migration docs: `docs/migration-svelte-betterauth.md` (plan + reprise),
+`docs/migration-tests-todo.md` (handoff tests, rewritten each task).
 
 ## Commands
 
 ```bash
-# Build / run
-make launch-all                        # Start API + Web + DB (docker-compose for DB)
-make launch-api                        # API only (background)
-make launch-web                        # Web only (background)
-make stop-all                          # Stop all services
-make status                            # Check running services
+# Frontend (the actual site)
+cd frontend
+npm run dev                            # Dev server (port 5173)
+npm run check                          # svelte-check (expected: 0 errors)
+npm test                               # vitest
+node --env-file=.env scripts/migrate-web-users-to-ba.mjs --dry-run  # BetterAuth account migration
 
-# Alternatively, run directly
+# API (Rust)
 ~/.cargo/bin/cargo run -p rev0auth-api
-~/.cargo/bin/cargo run -p rev0auth-web
-
-# Tests
-make test                              # security-audit.sh + cargo test
 ~/.cargo/bin/cargo test -p rev0auth-api
 ~/.cargo/bin/cargo test -p rev0auth-api -- auth::tests::my_test_name  # single test
 
 # Database
 export DATABASE_URL='postgres://postgres:postgres@localhost:5432/rev0auth'
 ~/.cargo/bin/cargo sqlx migrate run   # Run migrations from crates/api/migrations/
+# SvelteKit-specific tables (web_sessions, web_audit_log, ba_*, songsurf_events)
+# are created by initDb() at frontend startup.
 
 # Admin 2FA
 make admin-2fa-init                    # Initialize TOTP secret
@@ -43,8 +52,9 @@ Copy `.env.example` to `.env`. Required variables:
 - `DATABASE_URL` — PostgreSQL connection string (API falls back to in-memory if unset)
 - `ADMIN_DASH_PASSWORD`, `ADMIN_DASH_PSEUDO`, `ADMIN_DASH_SEED` — admin credentials
 - `ADMIN_DASH_TOTP_SECRET` — optional Base32 TOTP secret for 2FA
-- `API_BIND_ADDR` / `WEB_BIND_ADDR` — override default ports (8080 / 3000)
-- `REV0AUTH_API_UPSTREAM` — web → API proxy target (default: 127.0.0.1:8080)
+- `API_BIND_ADDR` — override API port (default 8080) ; frontend port via `PORT` (4173 prod)
+- `REV0AUTH_API_UPSTREAM` — frontend → API health-check target (default: 127.0.0.1:8080)
+- `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose)
 - `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table (created by `initDb()`), displayed on `/japprends/songsurf-activity`.
 
 ## Architecture
@@ -74,34 +84,51 @@ auth/
 
 **Database schema**: `auth_users`, `auth_refresh_tokens` (with CSRF token column), `auth_audit_logs` — migrations in `crates/api/migrations/`.
 
-### Web crate (`crates/web/src/`)
-
-All rendering is pure Rust SSR — no JS framework, no templates. Each page and UI section is a Rust module that produces HTML strings.
+### Frontend (`frontend/src/`)
 
 ```
-pages/
-  home.rs, portal.rs, admin_login.rs, dashboard.rs, friend.rs, profile.rs, tdd.rs
-  dashboard_*_module.rs   — Admin dashboard tabs (users, donations, messages, queue, status, testing, theme)
-  friend_*_module.rs      — Member zone sections (avatar, chat, status, services, onboarding)
-  profile_*_module.rs     — Profile sections (edit, avatar, password, deletion, donations, messages)
-  frontend_theme.rs       — Theme system (CSS variables, dark/light)
-  *_page_styles.rs        — Per-page CSS
-  *_page_assembly.rs      — Page layout composition
+hooks.server.ts            — resolves locals.adminSession (web_sessions) and
+                             locals.memberSession (BetterAuth ba_sessions)
+lib/server/
+  auth-v2.ts               — BetterAuth instance (ba_* tables, username plugin,
+                             custom Argon2 password hash/verify)
+  ba-sync.ts               — web_users → ba_* sync helpers (any code touching
+                             password_hash/role/user deletion MUST use these)
+  auth.ts                  — Argon2 helpers + TOTP (admin login)
+  session.ts               — custom admin sessions (web_sessions)
+  songsurf.ts              — SongSurf JWT (jose, AUTH_JWT_SECRET)
+  audit.ts / ratelimit.ts / api-health.ts / songsurf-events.ts
+  db/                      — Drizzle schema (web_* tables) + auth-schema (ba_*)
+routes/
+  +page.svelte             — member login (POST /auth/password-check)
+  signup/                  — invite-based signup
+  home/friend/, members/*  — member zone
+  japprends/*              — admin (login, dashboard, audit, songsurf pages, API endpoints)
+  portal/+server.ts        — 301 → / (legacy watcher login URL)
+  api/auth/[...all]/       — BetterAuth handler
+scripts/
+  migrate-web-users-to-ba.mjs — bulk account migration (idempotent, --dry-run)
 ```
 
-**Web state**: In-memory `AppState` (Arc<Mutex<...>>) stores users, sessions, messages, donations, avatars. No PostgreSQL connection from the web crate — all persistence is in-memory for now.
+**Sessions**: members = BetterAuth cookie `better-auth.session_token` (24h);
+admin = custom cookie `rev0auth_admin_session` (8h, password + challenge +
+honeypot + optional TOTP). Admin passkey (YubiKey) was removed with crates/web;
+planned to return via the BetterAuth passkey plugin.
 
-**Admin session**: Cookie-based (8h TTL, HttpOnly, SameSite=Lax). Admin login requires `ADMIN_DASH_PASSWORD` + optional TOTP.
-
-**Web route groups**:
-- Public: `/`, `/portal`, `/japprends/login`
-- Admin-protected: `/dashboard`, `/japprends/*` (user management, signup approval, messages, donations, tests)
-- Member-protected: `/home/friend`, `/members/*` (profile, messages, donations, avatar, account)
+**Route groups**:
+- Public: `/`, `/signup`, `/japprends/login`, `/portal` (redirect)
+- Admin-protected: `/japprends/*`
+- Member-protected: `/home/friend`, `/members/*`
 
 ## Key Design Notes
 
-- The web crate is intentionally standalone (in-memory) during the current development phase; it does not yet talk to the API crate over HTTP.
-- CSRF tokens are stored in the `auth_refresh_tokens` table (added in migration 0003).
-- Role hierarchy: `guest < member < mod < admin`. The `rbac.rs` extractor enforces minimum role per route.
-- `make test` runs `scripts/security-audit.sh` before `cargo test` — the audit script checks for hardcoded secrets and other security issues.
-- The TDD dashboard (`/japprends/tdd`) provides a live test runner UI that calls `POST /japprends/tests/launch`.
+- web_users stays the business source of truth (approved, active, access_*);
+  ba_* holds BetterAuth identity. Join key: `ba_users.username = LOWER(pseudo)`,
+  `ba_users.name` = exact pseudo.
+- New passwords are hashed with Argon2 (not scrypt) so hashes stay readable by
+  crates/api during coexistence.
+- `/auth/password-check` lazy-provisions ba_* rows for accounts that only exist
+  in web_users (robust to deploy ordering).
+- CSRF tokens (API crate) are stored in the `auth_refresh_tokens` table.
+- Role hierarchy: `guest < member < mod < admin`.
+- `make test` runs `scripts/security-audit.sh` before `cargo test`.
