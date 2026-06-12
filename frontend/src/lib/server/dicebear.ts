@@ -1,26 +1,32 @@
-// Avatars DiceBear "initial-face" (https://www.dicebear.com/styles/initial-face/)
-// Le style n'existe que via l'API HTTP 10.x (pas de package npm) : on fetch
-// côté serveur UNIQUEMENT au choix d'avatar / aperçu de grille, avec cache
-// mémoire. Les avatars choisis sont stockés en DB (web_users.avatar_bytes)
-// et servis localement — aucun appel tiers côté visiteur.
+// Avatars DiceBear "adventurer" (https://www.dicebear.com/styles/adventurer/)
+// Style composable (coiffure, yeux, bouche, lunettes… cf $lib/avatar-options).
+// Pas de package npm v10 : on fetch l'API HTTP côté serveur UNIQUEMENT au
+// choix d'avatar / aperçu, avec cache mémoire. Les avatars choisis sont
+// stockés en DB (web_users.avatar_bytes) et servis localement — aucun appel
+// tiers côté visiteur. Licence style : CC BY 4.0 (mention DiceBear à afficher).
 
-const API = 'https://api.dicebear.com/10.x/initial-face/svg';
+const API = 'https://api.dicebear.com/10.x/adventurer/svg';
 
 export const SEED_RE = /^[a-zA-Z0-9_-]{1,48}$/;
 
 const cache = new Map<string, string>();
 const CACHE_MAX = 300;
 
-export async function fetchAvatarSvg(seed: string): Promise<string | null> {
+// `params` : query string déjà validée par buildAvatarParams (whitelist) —
+// l'API DiceBear ignore silencieusement les valeurs inconnues, la validation
+// est donc de notre responsabilité.
+export async function fetchAvatarSvg(seed: string, params?: URLSearchParams): Promise<string | null> {
     if (!SEED_RE.test(seed)) return null;
 
-    const hit = cache.get(seed);
+    const qs = params ? `&${params.toString()}` : '';
+    const key = seed + qs;
+    const hit = cache.get(key);
     if (hit) return hit;
 
     try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 5000);
-        const res = await fetch(`${API}?seed=${encodeURIComponent(seed)}`, { signal: ctrl.signal });
+        const res = await fetch(`${API}?seed=${encodeURIComponent(seed)}${qs}`, { signal: ctrl.signal });
         clearTimeout(timer);
         if (!res.ok) return null;
         const svg = await res.text();
@@ -30,7 +36,7 @@ export async function fetchAvatarSvg(seed: string): Promise<string | null> {
             const first = cache.keys().next().value;
             if (first !== undefined) cache.delete(first);
         }
-        cache.set(seed, svg);
+        cache.set(key, svg);
         return svg;
     } catch {
         return null;

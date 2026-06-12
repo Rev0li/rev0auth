@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { EMOJIS } from '$lib/emojis.js';
+    import EmojiText from '$lib/EmojiText.svelte';
+
     type Msg = { id: number; fromPseudo: string; toPseudo: string; body: string; createdAt: number; isRead: boolean; };
     type Thread = { key: string; other: string; messages: Msg[]; lastAt: number; unread: number; };
 
@@ -7,8 +10,6 @@
     let activeThread = $state<string | null>(null);
     let replyBody = $state('');
     let replying = $state(false);
-
-    const EMOJIS = ['😊','👍','❤️','🎵','🔥','😂','🙏','✨','🎉','😎','💪','🤔'];
 
     function threadKey(a: string, b: string) { return [a, b].sort().join('↔'); }
 
@@ -141,7 +142,7 @@
                         {#each active.messages.toSorted((a, b) => a.createdAt - b.createdAt) as m (m.id)}
                             <div class="msg-bubble" class:from-admin={m.fromPseudo === 'admin'}>
                                 <span class="msg-from">{m.fromPseudo}</span>
-                                <p class="msg-body">{m.body}</p>
+                                <p class="msg-body"><EmojiText text={m.body} /></p>
                                 <span class="msg-date">{fmt(m.createdAt)}</span>
                             </div>
                         {/each}
@@ -149,8 +150,10 @@
 
                     <div class="reply-area">
                         <div class="emoji-bar">
-                            {#each EMOJIS as e}
-                                <button class="emoji-btn" onclick={() => insertEmoji(e)}>{e}</button>
+                            {#each EMOJIS as e (e.char)}
+                                <button class="emoji-btn" onclick={() => insertEmoji(e.char)} title={e.name}>
+                                    <img src={e.src} alt={e.char} />
+                                </button>
                             {/each}
                         </div>
                         <div class="reply-form">
@@ -254,10 +257,11 @@
         background: var(--muted);
     }
     .emoji-btn {
-        background: none; border: none; font-size: 1.1rem; cursor: pointer;
-        padding: 2px 4px; border-radius: var(--radius-sm); line-height: 1;
+        background: none; border: none; cursor: pointer;
+        padding: 2px 3px; border-radius: var(--radius-sm); line-height: 0;
         transition: background 0.1s;
     }
+    .emoji-btn img { width: 22px; height: 22px; }
     .emoji-btn:hover { background: var(--border); }
 
     .reply-form { display: flex; gap: 0.5rem; padding: 0.625rem; }

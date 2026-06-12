@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { EMOJIS } from '$lib/emojis.js';
+    import EmojiText from '$lib/EmojiText.svelte';
+
     type Post = { id: number; pseudo: string; body: string; createdAt: number; };
 
     let posts = $state<Post[]>([]);
@@ -51,6 +54,13 @@
     </div>
 
     <div class="compose">
+        <div class="emoji-bar">
+            {#each EMOJIS as e (e.char)}
+                <button class="emoji-btn" onclick={() => { body += e.char; }} title={e.name}>
+                    <img src={e.src} alt={e.char} />
+                </button>
+            {/each}
+        </div>
         <textarea
             bind:value={body}
             placeholder="Écrire un post (140 car. max)…"
@@ -79,7 +89,7 @@
                         <span class="post-date">{fmt(p.createdAt)}</span>
                         <button class="btn-del" onclick={() => remove(p.id)}>✕</button>
                     </div>
-                    <p class="post-body">{p.body}</p>
+                    <p class="post-body"><EmojiText text={p.body} /></p>
                 </div>
             {/each}
         </div>
@@ -98,6 +108,14 @@
         border: 1px solid var(--border); border-radius: var(--radius-md);
     }
     .compose textarea { resize: vertical; min-height: 60px; }
+    .emoji-bar { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 6px; }
+    .emoji-btn {
+        background: none; border: none; cursor: pointer;
+        padding: 2px 3px; border-radius: var(--radius-sm); line-height: 0;
+        transition: background 0.1s;
+    }
+    .emoji-btn img { width: 22px; height: 22px; }
+    .emoji-btn:hover { background: var(--border); }
     .compose-footer { display: flex; align-items: center; justify-content: space-between; }
     .char-count { font-size: 0.75rem; color: var(--muted-foreground); }
     .char-count.warn { color: var(--destructive); }

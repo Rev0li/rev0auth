@@ -3,6 +3,11 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
+    import {
+        SECTIONS, HAIR_COLORS, SKIN_COLORS,
+        randomOptions, buildAvatarParams,
+        type AvatarOptions,
+    } from '$lib/avatar-options.js';
 
     let { data }: { data: PageData } = $props();
 
@@ -28,26 +33,35 @@
         } finally { saveLoading = false; }
     }
 
-    // ── Avatar (DiceBear initial-face, variantes seedées par le pseudo) ──
-    const avatarSeeds = Array.from({ length: 8 }, (_, i) =>
-        i === 0 ? data.user.pseudo.toLowerCase() : `${data.user.pseudo.toLowerCase()}-${i + 1}`
-    );
-    let selectedAvatar = $state('');
-    let avatarLoading  = $state(false);
-    let avatarMsg      = $state('');
-    let avatarVersion  = $state(0); // force le rechargement de l'img après save
+    // ── Avatar : composeur DiceBear adventurer (sections + couleurs) ──
+    const avatarSeed = data.user.pseudo.toLowerCase();
+    let opts          = $state(randomOptions());
+    let avatarLoading = $state(false);
+    let avatarMsg     = $state('');
+    let avatarVersion = $state(0); // force le rechargement de l'img après save
+
+    let previewUrl = $derived(`/avatars/${avatarSeed}?${buildAvatarParams(opts)?.toString() ?? ''}`);
+
+    function cycle(key: keyof AvatarOptions, values: readonly string[], optional: boolean, dir: 1 | -1) {
+        const list = optional ? ['', ...values] : [...values];
+        const idx = list.indexOf(opts[key]);
+        opts[key] = list[(idx + dir + list.length) % list.length];
+    }
+    function sectionIndex(key: keyof AvatarOptions, values: readonly string[], optional: boolean) {
+        const list = optional ? ['', ...values] : [...values];
+        return list.indexOf(opts[key]);
+    }
 
     async function saveAvatar() {
-        if (!selectedAvatar) return;
         avatarLoading = true; avatarMsg = '';
         try {
             const r = await fetch('/members/avatar', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ seed: selectedAvatar }),
+                body: JSON.stringify({ seed: avatarSeed, options: opts }),
             });
             avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur lors de la mise à jour.';
-            if (r.ok) { selectedAvatar = ''; avatarVersion++; await invalidateAll(); }
+            if (r.ok) { avatarVersion++; await invalidateAll(); }
         } finally { avatarLoading = false; }
     }
 
@@ -158,35 +172,61 @@
             <!-- Avatar -->
             <div class="section-card card">
                 <h2 class="section-title">Avatar</h2>
-                <div class="avatar-area">
-                    <img
-                        src={`/members/avatar/${data.user.pseudo}?v=${avatarVersion}`}
-                        alt="Avatar"
-                        class="profile-avatar"
-                        onerror={(e) => (e.currentTarget as HTMLImageElement).src = ''}
-                    />
-                    <div class="avatar-grid">
-                        {#each avatarSeeds as seed (seed)}
-                            <button
-                                type="button"
-                                class="avatar-btn"
-                                class:selected={selectedAvatar === seed}
-                                onclick={() => { selectedAvatar = selectedAvatar === seed ? '' : seed; }}
-                                title="Variante {seed}"
-                            >
-                                <img src="/avatars/{seed}" alt="Variante" loading="lazy" />
-                            </button>
-                        {/each}
-                    </div>
-                    <div class="avatar-actions">
-                        {#if selectedAvatar}
+                <div class="composer">
+                    <div class="composer-preview">
+                        <img src={previewUrl} alt="Aperçu avatar" class="profile-avatar composer-img" />
+                        <div class="composer-preview-actions">
+                            <button class="btn-secondary" onclick={() => { opts = randomOptions(); }}>🎲 Aléatoire</button>
                             <button class="btn-primary" onclick={saveAvatar} disabled={avatarLoading}>
                                 {avatarLoading ? '…' : 'Sauvegarder'}
                             </button>
-                        {/if}
+                        </div>
+                        {#if avatarMsg}<p class="meta">{avatarMsg}</p>{/if}
                     </div>
-                    {#if avatarMsg}<p class="meta">{avatarMsg}</p>{/if}
+
+                    <div class="composer-sections">
+                        {#each SECTIONS as s (s.key)}
+                            <div class="composer-row">
+                                <span class="composer-label">{s.label}</span>
+                                <button class="composer-arrow" onclick={() => cycle(s.key, s.values, s.optional, -1)} aria-label="{s.label} précédent">◀</button>
+                                <span class="composer-value">
+                                    {#if s.optional && opts[s.key] === ''}Aucun{:else}{sectionIndex(s.key, s.values, s.optional) + (s.optional ? 0 : 1)}/{s.values.length}{/if}
+                                </span>
+                                <button class="composer-arrow" onclick={() => cycle(s.key, s.values, s.optional, 1)} aria-label="{s.label} suivant">▶</button>
+                            </div>
+                        {/each}
+
+                        <div class="composer-row">
+                            <span class="composer-label">Peau</span>
+                            <div class="swatches">
+                                {#each SKIN_COLORS as c (c)}
+                                    <button
+                                        class="swatch"
+                                        class:selected={opts.skinColor === c}
+                                        style="background:#{c}"
+                                        onclick={() => { opts.skinColor = c; }}
+                                        aria-label="Peau #{c}"
+                                    ></button>
+                                {/each}
+                            </div>
+                        </div>
+                        <div class="composer-row">
+                            <span class="composer-label">Cheveux</span>
+                            <div class="swatches">
+                                {#each HAIR_COLORS as c (c)}
+                                    <button
+                                        class="swatch"
+                                        class:selected={opts.hairColor === c}
+                                        style="background:#{c}"
+                                        onclick={() => { opts.hairColor = c; }}
+                                        aria-label="Cheveux #{c}"
+                                    ></button>
+                                {/each}
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                <p class="meta composer-credit">Avatars : <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a> « Adventurer » (CC BY 4.0)</p>
             </div>
 
             <!-- Bio -->
@@ -336,29 +376,45 @@
     .section-heading { font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin: 0.5rem 0 0.75rem; }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-    .avatar-area { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
     .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
-    .avatar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .avatar-grid { display: flex; gap: 0.75rem; flex-wrap: wrap; }
-    .avatar-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        background: none;
-        border: 2px solid var(--border);
-        border-radius: var(--radius);
-        padding: 6px;
-        cursor: pointer;
-        transition: border-color 0.15s, box-shadow 0.15s;
-        width: 72px;
+
+    /* ── Composeur d'avatar ── */
+    .composer { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start; }
+    .composer-preview {
+        display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+        flex-shrink: 0;
     }
-    .avatar-btn img { width: 48px; height: 48px; border-radius: 50%; }
-    .avatar-btn:hover { border-color: var(--ring); }
-    .avatar-btn.selected {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 2px var(--primary);
+    .composer-img { width: 140px; height: 140px; background: var(--muted); }
+    .composer-preview-actions { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+    .composer-sections { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 8px; }
+    .composer-row { display: flex; align-items: center; gap: 8px; }
+    .composer-label {
+        width: 70px; flex-shrink: 0;
+        font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground);
     }
+    .composer-arrow {
+        width: 28px; height: 28px;
+        border: 1px solid var(--border); border-radius: var(--radius-sm);
+        background: var(--muted); cursor: pointer;
+        font-size: 0.6875rem; color: var(--foreground);
+        transition: border-color 0.12s;
+    }
+    .composer-arrow:hover { border-color: var(--primary); }
+    .composer-value {
+        min-width: 56px; text-align: center;
+        font-size: 0.8125rem; color: var(--foreground);
+        font-variant-numeric: tabular-nums;
+    }
+    .swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+    .swatch {
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2px solid var(--border); cursor: pointer;
+        transition: transform 0.12s, border-color 0.12s;
+    }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+    .composer-credit { margin-top: 0.875rem; font-size: 0.75rem; }
+    .composer-credit a { color: var(--muted-foreground); }
 
     .folder-tabs { display: flex; gap: 4px; }
     .folder-btn {
