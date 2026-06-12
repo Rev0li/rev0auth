@@ -209,24 +209,34 @@ Ce fichier sert à un autre Claude (ou à toi-même) pour valider la tâche sans
 
 ## Point de reprise — prochaine session
 
-**État au 2026-06-10 (fin session)** :
+**État au 2026-06-12 (fin session)** :
 
-### Fait dans cette session
-1. **Phase 1 validée** : 34 PASS / 0 FAIL (handoff + smoke), 11/11 sur les fixes — voir `migration-tests-todo.md`
-2. **13 commits** sur `dev/svelte` : 6 blocs Phase 1 + fixes audit (sécurité, parité, compose, CI, env dev)
-3. **Audit complet** : `docs/audit-migration-svelte-2026-06-10.md` — tous les points bloquants traités
-4. **CI en place** : `.github/workflows/ci.yml` (check + vitest + cargo test)
+### Fait dans cette session (2026-06-12)
+1. **Script de migration des comptes** : `frontend/scripts/migrate-web-users-to-ba.mjs`
+   - `web_users` → `ba_users` + `ba_accounts` (provider `credential`), idempotent, `--dry-run`
+   - username = pseudo lowercase, display_username = pseudo d'origine, email synthétique `@local.invalid`
+   - hash vide (mdp retiré) → pas de credential ; hash non-Argon2 → copié + warning
+   - Usage : `node --env-file=.env scripts/migrate-web-users-to-ba.mjs [--dry-run]`
+2. **Argon2 branché dans BetterAuth** (`auth-v2.ts`) : `password.hash`/`password.verify` custom
+   - verify : Argon2 si préfixe `$argon2`, sinon fallback scrypt BetterAuth ; hash corrompu → false (401, pas 500)
+   - hash : les **nouveaux** mots de passe restent en Argon2 → compatibles crates/api et auth.ts pendant la coexistence
+3. **Testé end-to-end en local** : login compte migré 200 + session, mauvais mdp 401, hash corrompu 401, sans credential 401, rate limit sign-in actif (429), sign-up → hash Argon2 en DB — voir `migration-tests-todo.md`
+
+### Sessions précédentes (2026-06-10)
+- Phase 1 validée (34+11 PASS) et commitée en 13 commits ; audit `docs/audit-migration-svelte-2026-06-10.md` traité ; CI `ci.yml` en place ; fondations BetterAuth (tables `ba_*`, plugin username, handler `/api/auth/[...all]`)
 
 ### À faire en premier au démarrage prochain
-1. Lire `docs/migration-tests-todo.md` — section "Tests restants" (navigateur + checklist deploy VPS)
-2. Au prochain deploy : nettoyer `SONGSURF_JWT_SECRET` des `.env`/`.secrets` (VPS + local), vérifier `ORIGIN` et le healthcheck frontend
-3. Continuer **Phase 2 BetterAuth** (fondations posées, voir ci-dessous)
+1. Lire `docs/migration-tests-todo.md` — tests restants (navigateur + checklist deploy VPS)
+2. Au prochain deploy : nettoyer `SONGSURF_JWT_SECRET` des `.env`/`.secrets` (VPS + local), vérifier `ORIGIN` et le healthcheck frontend, **exécuter le script de migration sur la DB VPS** (dry-run d'abord)
+3. Continuer **Phase 2** : mapper le RBAC (lecture `ba_users.role` dans les guards), puis migrer le flow login membre (`/auth/password-check` → BetterAuth sign-in) et la session serveur (`rev0auth_member_session` → `ba_sessions`)
 
-### Phase 2 — point d'entrée
-- Lire la roadmap Phase 2 plus haut dans ce doc
-- Stack confirmé : BetterAuth + Drizzle (déjà en place), pas Prisma
-- Premier sous-objectif : `npm install better-auth` + adapter Drizzle + configurer avec la table `web_users` existante (custom user mapping)
-- Décider : garder le RBAC custom ou utiliser plugins BetterAuth ?
+### Phase 2 — étapes restantes
+- [x] Fondations BetterAuth (tables `ba_*`, plugin username, handler)
+- [x] Script migration comptes + hashes Argon2
+- [ ] RBAC : guards lisant `ba_users.role` (ou plugin admin BetterAuth — à trancher)
+- [ ] Flow login membre sur BetterAuth (remplacer `/auth/password-check` + cookie custom)
+- [ ] Synchronisation `web_users` ↔ `ba_users` pendant la coexistence (signup Rust, set-password admin, delete user)
+- [ ] Passkeys via plugin BetterAuth (remplace le WebAuthn skippé en Phase 1)
 
 ### Décisions verrouillées à ne pas remettre en cause
 - Drizzle reste (pas Prisma)

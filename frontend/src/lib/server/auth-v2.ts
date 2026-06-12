@@ -1,6 +1,8 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { verifyPassword as verifyScrypt } from 'better-auth/crypto';
 import { username } from 'better-auth/plugins';
+import argon2 from 'argon2';
 // Imports relatifs (pas $lib) : le CLI @better-auth/cli charge ce fichier hors Vite
 import { db } from './db/index.js';
 
@@ -20,6 +22,27 @@ export const auth = betterAuth({
     emailAndPassword: {
         enabled: true,
         minPasswordLength: 8,
+        // Les comptes migrés depuis web_users portent des hashes Argon2 (Rust).
+        // On hashe aussi les NOUVEAUX mots de passe en Argon2 pour qu'ils restent
+        // lisibles par crates/api et auth.ts tant que les deux systèmes coexistent.
+        // Le fallback scrypt couvre les comptes créés via BetterAuth avant ce commit.
+        password: {
+            hash: (password) => argon2.hash(password),
+            verify: async ({ hash, password }) => {
+                if (hash.startsWith('$argon2')) {
+                    try {
+                        return await argon2.verify(hash, password);
+                    } catch {
+                        return false; // hash corrompu → 401, pas 500 (cf. S1)
+                    }
+                }
+                try {
+                    return await verifyScrypt({ hash, password });
+                } catch {
+                    return false;
+                }
+            },
+        },
     },
 
     plugins: [username()],
