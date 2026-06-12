@@ -11,7 +11,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     // Admin : session custom (web_sessions) — migration vers BetterAuth reportée
     const adminToken = event.cookies.get(ADMIN_COOKIE);
-    if (adminToken) event.locals.adminSession = await getSession(adminToken, 'admin');
+    if (adminToken) event.locals.adminSession = await getSession(adminToken);
 
     // Membre : session BetterAuth (ba_sessions). user.name = pseudo exact de
     // web_users (convention du script de migration + ba-sync), donc les

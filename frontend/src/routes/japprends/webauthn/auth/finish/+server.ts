@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         }
 
         clearAttempts(ip);
-        const token = await createSession(ADMIN_PSEUDO, 'admin');
+        const token = await createSession(ADMIN_PSEUDO);
         cookies.set(ADMIN_COOKIE, token, ADMIN_COOKIE_OPTS);
 
         return json({ ok: true, message: 'Connexion admin validée.' });

@@ -92,16 +92,6 @@ export const sessions = pgTable('web_sessions', {
     createdAt: bigint('created_at', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
 });
 
-// ─── web_test_runs (SvelteKit-specific, created via init SQL) ────────────────
-
-export const testRuns = pgTable('web_test_runs', {
-    runId:      text('run_id').primaryKey(),
-    executedAt: bigint('executed_at', { mode: 'number' }).notNull(),
-    passed:     bigint('passed', { mode: 'number' }).notNull(),
-    total:      bigint('total', { mode: 'number' }).notNull(),
-    cases:      text('cases').notNull().default('[]'),
-});
-
 // ─── web_audit_log (SvelteKit-specific, created via init SQL) ────────────────
 
 export const auditLog = pgTable('web_audit_log', {
@@ -141,7 +131,6 @@ export type Message    = typeof messages.$inferSelect;
 export type Donation   = typeof donations.$inferSelect;
 export type WallPost   = typeof wallPosts.$inferSelect;
 export type Invite     = typeof invites.$inferSelect;
-export type TestRun    = typeof testRuns.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type SongsurfEvent    = typeof songsurfEvents.$inferSelect;
 export type NewSongsurfEvent = typeof songsurfEvents.$inferInsert;

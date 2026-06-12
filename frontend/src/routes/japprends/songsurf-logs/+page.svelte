@@ -29,7 +29,7 @@
 <main class="songsurf-logs">
     <header>
         <h1>SongSurf — logs de téléchargement</h1>
-        <a href="/japprends/tdd">← Dashboard</a>
+        <a href="/japprends/dashboard">← Dashboard</a>
     </header>
 
     <form onsubmit={(e) => { e.preventDefault(); fetchLogs(); }} class="filters">

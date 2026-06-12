@@ -22,16 +22,6 @@ export async function initDb() {
     `;
 
     await client`
-        CREATE TABLE IF NOT EXISTS web_test_runs (
-            run_id      TEXT PRIMARY KEY,
-            executed_at BIGINT NOT NULL,
-            passed      BIGINT NOT NULL,
-            total       BIGINT NOT NULL,
-            cases       TEXT NOT NULL DEFAULT '[]'
-        )
-    `;
-
-    await client`
         CREATE TABLE IF NOT EXISTS web_audit_log (
             id               BIGSERIAL PRIMARY KEY,
             action           TEXT NOT NULL,

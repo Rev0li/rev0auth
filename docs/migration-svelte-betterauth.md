@@ -236,9 +236,13 @@ Ce fichier sert à un autre Claude (ou à toi-même) pour valider la tâche sans
 - [x] Flow login membre sur BetterAuth (2026-06-12) : `hooks.server.ts` lit `ba_sessions`, `password-check` délègue à `signInUsername` + provisionnement paresseux, logout révoque
 - [x] Synchronisation `web_users` → `ba_*` : helper `lib/server/ba-sync.ts` branché sur tous les chemins credentials/rôle/suppression (signup, mdp membre+onboarding, set/remove-password admin, create/delete user, role PUT, delete account membre)
 - [x] RBAC : `locals.memberSession.role` exposé depuis `ba_users.role` (guards à densifier quand des routes mod/admin membres apparaîtront)
+- [x] Cleanup code mort post-bascule (2026-06-12) : TDD dashboard + `web_test_runs`, endpoints parité sans appelant (`/users`, pings, `auth-check`, `/status/all`, `/status/set-*`), `session.ts` admin-only, deps npm mortes (bits-ui, happy-dom, adapter-auto)
 - [ ] Passkeys via plugin BetterAuth (remplace le WebAuthn skippé en Phase 1)
 - [ ] Auth admin : reportée — le dashboard admin sera externalisé (container dédié Tailscale-only), voir décision 2026-06-12
-- [ ] Cleanup code mort post-bascule : sessions membres `web_sessions` (table partagée avec admin), colonnes avatar legacy, à auditer
+- [ ] UI manquantes côté Svelte à trancher/porter : suppression de compte membre (`/members/account` DELETE existe), donations crypto (`crypto-addresses` existe)
+
+### ⚠️ Phase 3 — le switch Caddy est LA bascule effective
+Le Caddyfile prod ne route vers SvelteKit que `/japprends/*` + `/_app/*`. Le flow membre BetterAuth (et tout le travail Phase 1/2 côté membres) ne sera **live qu'après extension du routage Caddy** vers les paths membres/login/signup. À faire avec le portage de `/portal` et `/`.
 
 ### Décisions verrouillées à ne pas remettre en cause
 - Drizzle reste (pas Prisma)

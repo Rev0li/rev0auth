@@ -32,7 +32,7 @@
         <div class="actions">
             <input type="text" placeholder="Filtrer (action / acteur / cible)" bind:value={filter} />
             <button onclick={refresh}>Rafraîchir</button>
-            <a href="/japprends/tdd">← Dashboard</a>
+            <a href="/japprends/dashboard">← Dashboard</a>
         </div>
     </header>
 
