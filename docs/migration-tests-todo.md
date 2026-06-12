@@ -9,33 +9,50 @@
 ## Dernière tâche réalisée
 
 **Date** : 2026-06-12
-**Tâche** : **Retouches UI friend/profil/admin** (6 demandes user).
+**Tâche** : **Avatars DiceBear initial-face + emojis OpenMoji + notifications quasi temps réel**.
 
-### Changements
-1. **Profil/Avatar** : bouton "Supprimer" retiré (l'endpoint DELETE `/members/avatar` existe toujours, plus d'UI).
-2. **Profil/Compte** : vrai bouton **"Supprimer mon compte"** dans la Zone dangereuse, avec étape de confirmation → `DELETE /members/account` → redirect `/`.
-3. **Emojis** : rangée de 10 emojis (😄 😂 ❤️ 👍 🎉 🔥 💡 🎬 🍿 🎵) dans le composer du **chat** (Chat.svelte) et du **mur** ; clic = insertion dans le texte. Texte d'intro du mur : « Partage tes idées d'amélioration, ou les films et séries que tu aimerais voir ajoutés à Jellyfin 🍿 ».
-4. **Theme toggle dans le header** : `ThemeToggle` a un mode `inline` ; navbar friend = toggle (le bouton Déconnexion y est retiré), navbar profil = toggle + Déconnexion. Le layout n'affiche plus le bouton flottant sur ces deux pages (il reste partout ailleurs : login, signup, admin).
-5. **Fix flash d'onglets profil** : `transition:fade` → `in:fade` (l'ancien onglet ne fait plus d'animation de sortie, donc plus de superposition visible).
-6. **Admin/Membres** : bouton d'accès **GitHub retiré** (restent SongSurf et Jellyfin).
+### Avatars — DiceBear « initial-face »
+- Le style n'existe que via l'**API HTTP 10.x** (pas de package npm) → fetch **côté serveur uniquement** (`lib/server/dicebear.ts`, cache mémoire 300 entrées, timeout 5 s).
+- **Stockage inchangé** : le SVG choisi est écrit dans `web_users.avatar_bytes` → le service des avatars reste 100 % local pour les visiteurs.
+- `GET /avatars/[seed]` (public) : proxy d'aperçu pour les grilles (le navigateur ne parle jamais à api.dicebear.com), cache navigateur 24 h.
+- **Nouveau contrat** : `POST /members/avatar {seed}` (plus `{avatar_id}`) ; signup envoie `avatar_seed`. Seed validé `/^[a-zA-Z0-9_-]{1,48}$/`.
+- **Grilles** : 8 variantes seedées par le pseudo (`pseudo`, `pseudo-2`…`pseudo-8`) — profil + signup (réactive à la frappe du pseudo).
+- **Fallback** : sans avatar choisi, `GET /members/avatar/[pseudo]` sert initial-face seedé par le pseudo (plus de 404).
+- Catalogue `$lib/avatars.ts` (fox/wolf/…) **supprimé**.
+- ⚠️ Dépendance externe **au choix d'avatar seulement** : si api.dicebear.com est down, la sélection échoue (502) mais les avatars déjà stockés restent servis.
 
-### État : validé ✅
-- `npm run check` 0 erreur / 7 warnings · vitest 26/26
-- SSR vérifié : friend (texte mur 🍿, emojis, toggle navbar, plus de Déconnexion), profil (toggle + Déconnexion, plus de bouton Supprimer avatar)
+### Emojis — OpenMoji (CC BY-SA 4.0)
+- 15 SVG auto-hébergés dans `static/openmoji/` : 😀 🤣 😍 🥳 🤔 👍 ❤️ 🔥 🎉 💡 🎬 🍿 🎵 🚀 🦄
+- `$lib/emojis.ts` (catalogue + `splitEmojis`) et `$lib/EmojiText.svelte` (rendu sans `@html`, sûr).
+- Pickers chat + mur = images OpenMoji ; l'insertion reste le **caractère unicode** (DB inchangée) ; bulles de chat, aperçus de conversations et posts du mur rendus en OpenMoji.
+- Licence CC BY-SA 4.0 → prévoir une mention « Emojis : OpenMoji.org » (footer/about) au moment de la revue visuelle.
+
+### Notifications quasi temps réel (demande user en cours de session)
+- Polling 8 s dans `Chat.svelte` : badge non-lus rafraîchi même popup fermée ; fil ouvert rafraîchi (scroll auto + mark-read) ; **pause quand l'onglet est caché** (`document.hidden`).
+- Pas de WebSocket/SSE pour l'instant — à reconsidérer si besoin de vrai push (adapter-node le permettrait).
+
+### État : testé en local ✅
+| Test | Résultat |
+|---|---|
+| `GET /avatars/migrtester` → 200 svg ; seed invalide → 400 | PASS |
+| `POST /members/avatar {seed}` → stocké, servi depuis la DB | PASS |
+| Fallback avatar par pseudo (compte sans avatar) → 200 svg | PASS |
+| `/openmoji/*.svg` servis ; 15 visibles dans le SSR friend | PASS |
+| `npm run check` 0 erreur / 7 warnings · vitest 26/26 | PASS |
 
 ---
 
 ## Tests restants pour la prochaine session
 
 ### 1. Navigateur
-- [ ] Onglet Compte : "Supprimer mon compte" → confirmation → suppression réelle (créer un compte jetable via invitation)
-- [ ] Emojis chat + mur : insertion au clic, envoi correct
-- [ ] Toggle thème dans les deux navbars + bouton flottant toujours présent sur login/signup/admin
-- [ ] Changement d'onglet profil : plus de flash
-- [ ] Hérités : popup chat complète (fil Admin, DM, recherche), demandes services, login admin formulaire
+- [ ] Grille profil : 8 variantes initial-face, sélection → Sauvegarder → l'avatar se met à jour (cache-bust `?v=`)
+- [ ] Signup avec invitation valide : la grille apparaît quand le pseudo est valide et change avec lui
+- [ ] Emojis OpenMoji : pickers chat + mur, rendu dans bulles/posts/aperçus
+- [ ] Temps réel : deux navigateurs, envoyer un message → badge de l'autre se met à jour en ≤ 8 s sans reload
+- [ ] Hérités : suppression de compte, toggle thème navbars, login admin formulaire
 
 ### 2. Deploy VPS
-Checklist Phase 3 inchangée (`migration-svelte-betterauth.md`) : compose down/up, `FRONTEND_UPSTREAM` Caddy, script migration comptes, TOTP admin.
+Checklist Phase 3 inchangée + **le VPS doit pouvoir joindre api.dicebear.com en sortie** (sélection d'avatar).
 
 ### 3. Validation type-check
 ```bash
@@ -48,4 +65,4 @@ npm test        # attendu : 26/26
 
 ## Prochaine étape
 
-Deploy VPS + tests prod, puis revue visuelle complète (shadcn-svelte/MyCss) et profils membres custom.
+Deploy VPS + tests prod, puis revue visuelle (shadcn-svelte/MyCss) avec mention licence OpenMoji, et profils membres custom.

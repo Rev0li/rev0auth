@@ -2,7 +2,6 @@
     import type { PageData } from './$types.js';
     import { goto, invalidateAll } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
-    import { AVATARS } from '$lib/avatars.js';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { data }: { data: PageData } = $props();
@@ -29,10 +28,14 @@
         } finally { saveLoading = false; }
     }
 
-    // ── Avatar ────────────────────────────────────────────────────────
+    // ── Avatar (DiceBear initial-face, variantes seedées par le pseudo) ──
+    const avatarSeeds = Array.from({ length: 8 }, (_, i) =>
+        i === 0 ? data.user.pseudo.toLowerCase() : `${data.user.pseudo.toLowerCase()}-${i + 1}`
+    );
     let selectedAvatar = $state('');
     let avatarLoading  = $state(false);
     let avatarMsg      = $state('');
+    let avatarVersion  = $state(0); // force le rechargement de l'img après save
 
     async function saveAvatar() {
         if (!selectedAvatar) return;
@@ -41,10 +44,10 @@
             const r = await fetch('/members/avatar', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ avatar_id: selectedAvatar }),
+                body: JSON.stringify({ seed: selectedAvatar }),
             });
             avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur lors de la mise à jour.';
-            if (r.ok) { selectedAvatar = ''; await invalidateAll(); }
+            if (r.ok) { selectedAvatar = ''; avatarVersion++; await invalidateAll(); }
         } finally { avatarLoading = false; }
     }
 
@@ -157,23 +160,21 @@
                 <h2 class="section-title">Avatar</h2>
                 <div class="avatar-area">
                     <img
-                        src={`/members/avatar/${data.user.pseudo}`}
+                        src={`/members/avatar/${data.user.pseudo}?v=${avatarVersion}`}
                         alt="Avatar"
                         class="profile-avatar"
                         onerror={(e) => (e.currentTarget as HTMLImageElement).src = ''}
                     />
                     <div class="avatar-grid">
-                        {#each AVATARS as av}
+                        {#each avatarSeeds as seed (seed)}
                             <button
                                 type="button"
                                 class="avatar-btn"
-                                class:selected={selectedAvatar === av.id}
-                                onclick={() => { selectedAvatar = selectedAvatar === av.id ? '' : av.id; }}
-                                title={av.name}
+                                class:selected={selectedAvatar === seed}
+                                onclick={() => { selectedAvatar = selectedAvatar === seed ? '' : seed; }}
+                                title="Variante {seed}"
                             >
-                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                {@html av.svg}
-                                <span>{av.name}</span>
+                                <img src="/avatars/{seed}" alt="Variante" loading="lazy" />
                             </button>
                         {/each}
                     </div>
@@ -352,8 +353,7 @@
         transition: border-color 0.15s, box-shadow 0.15s;
         width: 72px;
     }
-    .avatar-btn :global(svg) { width: 48px; height: 48px; border-radius: 50%; }
-    .avatar-btn span { font-size: 0.7rem; color: var(--muted-foreground); }
+    .avatar-btn img { width: 48px; height: 48px; border-radius: 50%; }
     .avatar-btn:hover { border-color: var(--ring); }
     .avatar-btn.selected {
         border-color: var(--primary);

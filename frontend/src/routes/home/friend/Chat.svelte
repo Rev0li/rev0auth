@@ -1,6 +1,8 @@
 <script lang="ts">
     import { slide } from 'svelte/transition';
-    import { tick } from 'svelte';
+    import { tick, onMount } from 'svelte';
+    import { EMOJIS } from '$lib/emojis.js';
+    import EmojiText from '$lib/EmojiText.svelte';
 
     type Thread  = { peer: string; lastBody: string; lastAt: number; lastFromMe: boolean; unread: number };
     type Message = { id: number; fromPseudo: string; toPseudo: string; body: string; isRead: boolean; createdAt: number };
@@ -25,8 +27,6 @@
 
     const isAdmin = (p: string) => p.toLowerCase() === adminPseudo.toLowerCase();
     const isMine  = (m: Message) => m.fromPseudo.toLowerCase() === myPseudo.toLowerCase();
-
-    const EMOJIS = ['😄', '😂', '❤️', '👍', '🎉', '🔥', '💡', '🎬', '🍿', '🎵'];
 
     // Fil Admin toujours en tête, même vide
     let adminThread = $derived(
@@ -106,6 +106,34 @@
         if (open) { view = 'list'; loadThreads(); }
     }
 
+    // Rafraîchit le fil ouvert si de nouveaux messages sont arrivés
+    async function refreshThread() {
+        const r = await fetch(`/members/messages?with=${encodeURIComponent(activePeer)}`);
+        if (!r.ok) return;
+        const d = await r.json() as { messages: Message[] };
+        if (d.messages.length !== msgs.length) {
+            msgs = d.messages;
+            scrollToBottom();
+            await fetch('/members/messages', {
+                method: 'PATCH',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ with: activePeer }),
+            });
+        }
+    }
+
+    // "Temps réel" léger : polling 8s — badge à jour popup fermée,
+    // fil ouvert rafraîchi ; en pause quand l'onglet est caché.
+    onMount(() => {
+        loadThreads();
+        const timer = setInterval(() => {
+            if (document.hidden) return;
+            if (open && view === 'thread' && activePeer) refreshThread();
+            else loadThreads();
+        }, 8000);
+        return () => clearInterval(timer);
+    });
+
     function timeAgo(epoch: number) {
         const sec = Math.floor(Date.now() / 1000 - epoch);
         if (sec < 60) return 'à l\'instant';
@@ -137,7 +165,7 @@
                     <span class="thread-avatar">🛟</span>
                     <span class="thread-main">
                         <span class="thread-name">Admin <span class="thread-tag">support</span></span>
-                        <span class="thread-preview">{adminThread.lastFromMe ? 'Toi : ' : ''}{adminThread.lastBody}</span>
+                        <span class="thread-preview">{adminThread.lastFromMe ? 'Toi : ' : ''}<EmojiText text={adminThread.lastBody} /></span>
                     </span>
                     {#if adminThread.unread > 0}<span class="thread-unread">{adminThread.unread}</span>{/if}
                 </button>
@@ -149,7 +177,7 @@
                             onerror={(e) => (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'} />
                         <span class="thread-main">
                             <span class="thread-name">{t.peer}</span>
-                            <span class="thread-preview">{t.lastFromMe ? 'Toi : ' : ''}{t.lastBody}</span>
+                            <span class="thread-preview">{t.lastFromMe ? 'Toi : ' : ''}<EmojiText text={t.lastBody} /></span>
                         </span>
                         <span class="thread-time">{timeAgo(t.lastAt)}</span>
                         {#if t.unread > 0}<span class="thread-unread">{t.unread}</span>{/if}
@@ -192,7 +220,7 @@
             <div class="chat-msgs" bind:this={msgsEl}>
                 {#each msgs as m (m.id)}
                     <div class="bubble" class:mine={isMine(m)}>
-                        <p class="bubble-body">{m.body}</p>
+                        <p class="bubble-body"><EmojiText text={m.body} /></p>
                         <span class="bubble-time">{timeAgo(m.createdAt)}</span>
                     </div>
                 {:else}
@@ -203,8 +231,10 @@
             </div>
 
             <div class="chat-emojis">
-                {#each EMOJIS as e (e)}
-                    <button class="emoji-btn" onclick={() => { draft += e; }} aria-label="Ajouter {e}">{e}</button>
+                {#each EMOJIS as e (e.char)}
+                    <button class="emoji-btn" onclick={() => { draft += e.char; }} aria-label="Ajouter {e.name}" title={e.name}>
+                        <img src={e.src} alt={e.char} />
+                    </button>
                 {/each}
             </div>
             <div class="chat-compose">
@@ -349,9 +379,11 @@
     }
     .emoji-btn {
         background: none; border: none; cursor: pointer;
-        font-size: 1rem; padding: 2px 4px; border-radius: var(--radius-sm);
+        padding: 2px 3px; border-radius: var(--radius-sm);
         transition: background 0.12s, transform 0.12s;
+        line-height: 0;
     }
+    .emoji-btn img { width: 22px; height: 22px; }
     .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
 
     .chat-compose {

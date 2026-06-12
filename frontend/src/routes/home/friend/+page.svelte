@@ -6,6 +6,8 @@
     import { slide, fade } from 'svelte/transition';
     import Chat from './Chat.svelte';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
+    import { EMOJIS } from '$lib/emojis.js';
+    import EmojiText from '$lib/EmojiText.svelte';
 
     let { data }: { data: PageData } = $props();
 
@@ -27,8 +29,6 @@
     let linkedinInput = $state('');
     let svcLoading    = $state('');
     let svcError      = $state('');
-
-    const EMOJIS = ['😄', '😂', '❤️', '👍', '🎉', '🔥', '💡', '🎬', '🍿', '🎵'];
 
     async function postWall() {
         wallError = '';
@@ -246,8 +246,10 @@
         <p class="wall-hint">Partage tes idées d'amélioration, ou les films et séries que tu aimerais voir ajoutés à Jellyfin 🍿</p>
 
         <div class="wall-emojis">
-            {#each EMOJIS as e (e)}
-                <button class="emoji-btn" onclick={() => { wallBody += e; }} aria-label="Ajouter {e}">{e}</button>
+            {#each EMOJIS as e (e.char)}
+                <button class="emoji-btn" onclick={() => { wallBody += e.char; }} aria-label="Ajouter {e.name}" title={e.name}>
+                    <img src={e.src} alt={e.char} />
+                </button>
             {/each}
         </div>
         <div class="wall-compose">
@@ -273,7 +275,7 @@
                             <button class="post-delete" onclick={() => deleteWallPost(post.id)} aria-label="Supprimer">×</button>
                         {/if}
                     </div>
-                    <p class="post-body">{post.body}</p>
+                    <p class="post-body"><EmojiText text={post.body} /></p>
                 </div>
             {:else}
                 <p class="meta" style="text-align:center;padding:2rem 0">Aucun post pour l'instant.</p>
@@ -387,9 +389,11 @@
     .wall-emojis { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 6px; }
     .emoji-btn {
         background: none; border: none; cursor: pointer;
-        font-size: 1.05rem; padding: 2px 5px; border-radius: var(--radius-sm);
+        padding: 2px 4px; border-radius: var(--radius-sm);
         transition: background 0.12s, transform 0.12s;
+        line-height: 0;
     }
+    .emoji-btn img { width: 24px; height: 24px; }
     .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
     .wall-compose { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 1.25rem; }
     .wall-input { flex: 1; min-height: 60px; resize: none; }

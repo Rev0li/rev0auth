@@ -1,6 +1,5 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { AVATARS } from '$lib/avatars.js';
     import type { PageData } from './$types.js';
 
     let { data }: { data: PageData } = $props();
@@ -12,6 +11,14 @@
     let confirm   = $state('');
     let loading   = $state(false);
     let error     = $state('');
+
+    // Variantes DiceBear initial-face, seedées par le pseudo en cours de frappe
+    const PSEUDO_OK = /^[a-zA-Z0-9_-]{3,20}$/;
+    let avatarSeeds = $derived.by(() => {
+        const p = pseudo.trim().toLowerCase();
+        if (!PSEUDO_OK.test(p)) return [];
+        return Array.from({ length: 8 }, (_, i) => (i === 0 ? p : `${p}-${i + 1}`));
+    });
 
     async function submit() {
         error = '';
@@ -28,7 +35,7 @@
                     pseudo: pseudo.trim(),
                     password,
                     invite_code: data.inviteCode,
-                    avatar_id:   selectedAvatar || null,
+                    avatar_seed: selectedAvatar || null,
                 }),
             });
             const d = await r.json();
@@ -66,7 +73,7 @@
                     bind:value={pseudo}
                     placeholder="ton_pseudo"
                     autocomplete="username"
-                    oninput={() => { error = ''; }}
+                    oninput={() => { error = ''; selectedAvatar = ''; }}
                 />
             </div>
 
@@ -96,21 +103,23 @@
 
             <div class="avatar-section">
                 <p class="avatar-label">Choisis ton avatar <span class="optional">(optionnel)</span></p>
-                <div class="avatar-grid">
-                    {#each AVATARS as av}
-                        <button
-                            type="button"
-                            class="avatar-btn"
-                            class:selected={selectedAvatar === av.id}
-                            onclick={() => { selectedAvatar = selectedAvatar === av.id ? '' : av.id; }}
-                            title={av.name}
-                        >
-                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                            {@html av.svg}
-                            <span>{av.name}</span>
-                        </button>
-                    {/each}
-                </div>
+                {#if avatarSeeds.length > 0}
+                    <div class="avatar-grid">
+                        {#each avatarSeeds as seed (seed)}
+                            <button
+                                type="button"
+                                class="avatar-btn"
+                                class:selected={selectedAvatar === seed}
+                                onclick={() => { selectedAvatar = selectedAvatar === seed ? '' : seed; }}
+                                title="Variante {seed}"
+                            >
+                                <img src="/avatars/{seed}" alt="Variante" loading="lazy" />
+                            </button>
+                        {/each}
+                    </div>
+                {:else}
+                    <p class="optional">Renseigne d'abord ton pseudo pour voir tes avatars.</p>
+                {/if}
             </div>
 
             {#if error}<p class="chip-error">{error}</p>{/if}
@@ -221,8 +230,7 @@
         transition: border-color 0.15s, box-shadow 0.15s;
         width: 72px;
     }
-    .avatar-btn :global(svg) { width: 48px; height: 48px; border-radius: 50%; }
-    .avatar-btn span { font-size: 0.7rem; color: var(--muted-foreground); }
+    .avatar-btn img { width: 48px; height: 48px; border-radius: 50%; }
     .avatar-btn:hover { border-color: var(--ring); }
     .avatar-btn.selected {
         border-color: var(--primary);

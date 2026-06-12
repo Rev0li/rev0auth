@@ -5,13 +5,13 @@ import { users, invites } from '$lib/server/db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
 import { setBaPassword } from '$lib/server/ba-sync.js';
-import { AVATAR_SVG, isAvatarId } from '$lib/avatars.js';
+import { fetchAvatarSvg, SEED_RE } from '$lib/server/dicebear.js';
 
 const PSEUDO_RE = /^[a-zA-Z0-9_-]{3,20}$/;
 
 
 export const POST: RequestHandler = async ({ request }) => {
-    const { pseudo, password, invite_code, avatar_id } = await request.json();
+    const { pseudo, password, invite_code, avatar_seed } = await request.json();
 
     const cleanPseudo = (pseudo ?? '').trim();
     const cleanCode   = (invite_code ?? '').trim();
@@ -46,17 +46,20 @@ export const POST: RequestHandler = async ({ request }) => {
     await db.insert(users).values({ pseudo: storedPseudo, passwordHash, approved: true, status: 'actif' });
     await setBaPassword(storedPseudo, passwordHash);
 
-    if (isAvatarId(avatar_id)) {
-        const svg = AVATAR_SVG[avatar_id];
-        await db
-            .update(users)
-            .set({
-                avatarBytes:    Buffer.from(svg),
-                avatarMime:     'image/svg+xml',
-                avatarFilename: `${avatar_id}.svg`,
-                avatarSizeBytes: svg.length,
-            })
-            .where(sql`LOWER(${users.pseudo}) = LOWER(${cleanPseudo})`);
+    if (typeof avatar_seed === 'string' && SEED_RE.test(avatar_seed)) {
+        const svg = await fetchAvatarSvg(avatar_seed);
+        if (svg) {
+            await db
+                .update(users)
+                .set({
+                    avatarBytes:    Buffer.from(svg),
+                    avatarMime:     'image/svg+xml',
+                    avatarFilename: `${avatar_seed}.svg`,
+                    avatarSizeBytes: svg.length,
+                })
+                .where(sql`LOWER(${users.pseudo}) = LOWER(${cleanPseudo})`);
+        }
+        // échec DiceBear : pas bloquant, le fallback par pseudo prendra le relais
     }
 
     await db
