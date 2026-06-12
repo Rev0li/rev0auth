@@ -26,6 +26,8 @@
     const isAdmin = (p: string) => p.toLowerCase() === adminPseudo.toLowerCase();
     const isMine  = (m: Message) => m.fromPseudo.toLowerCase() === myPseudo.toLowerCase();
 
+    const EMOJIS = ['😄', '😂', '❤️', '👍', '🎉', '🔥', '💡', '🎬', '🍿', '🎵'];
+
     // Fil Admin toujours en tête, même vide
     let adminThread = $derived(
         threads.find(t => isAdmin(t.peer))
@@ -200,6 +202,11 @@
                 {/each}
             </div>
 
+            <div class="chat-emojis">
+                {#each EMOJIS as e (e)}
+                    <button class="emoji-btn" onclick={() => { draft += e; }} aria-label="Ajouter {e}">{e}</button>
+                {/each}
+            </div>
             <div class="chat-compose">
                 <textarea
                     bind:value={draft}
@@ -335,10 +342,21 @@
     .bubble-body { margin: 0; font-size: 0.875rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
     .bubble-time { display: block; font-size: 0.625rem; color: var(--muted-foreground); margin-top: 2px; text-align: right; }
 
+    .chat-emojis {
+        display: flex; gap: 2px; flex-wrap: nowrap; overflow-x: auto;
+        padding: 6px 10px 0; border-top: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+    .emoji-btn {
+        background: none; border: none; cursor: pointer;
+        font-size: 1rem; padding: 2px 4px; border-radius: var(--radius-sm);
+        transition: background 0.12s, transform 0.12s;
+    }
+    .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
+
     .chat-compose {
         display: flex; gap: 6px; align-items: flex-end;
-        padding: 10px; border-top: 1px solid var(--border);
-        flex-shrink: 0;
+        padding: 10px; flex-shrink: 0;
     }
     .chat-input {
         flex: 1; resize: none;

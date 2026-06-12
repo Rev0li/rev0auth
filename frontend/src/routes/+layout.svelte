@@ -1,8 +1,15 @@
 <script lang="ts">
     import '../app.css';
+    import { page } from '$app/state';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { children } = $props();
+
+    // Ces pages portent le toggle dans leur navbar — pas de bouton flottant
+    let hasNavbarToggle = $derived(
+        page.url.pathname.startsWith('/home/friend') ||
+        page.url.pathname.startsWith('/members/profile')
+    );
 </script>
 
 <svelte:head>
@@ -12,4 +19,6 @@
 
 {@render children()}
 
-<ThemeToggle />
+{#if !hasNavbarToggle}
+    <ThemeToggle />
+{/if}

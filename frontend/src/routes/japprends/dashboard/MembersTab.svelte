@@ -183,13 +183,6 @@
                                 >
                                     Jellyfin {u.accessJellyfin ? '✓' : '—'}
                                 </button>
-                                <button
-                                    class="btn-access {u.accessGithub ? 'granted' : ''}"
-                                    disabled={busy[u.pseudo]}
-                                    onclick={() => patch(u.pseudo, { accessGithub: !u.accessGithub, requestGithub: false })}
-                                >
-                                    GitHub {u.accessGithub ? '✓' : '—'}
-                                </button>
                             </div>
                         </div>
 

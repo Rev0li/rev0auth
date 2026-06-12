@@ -1,6 +1,9 @@
 <script lang="ts">
     import { browser } from '$app/environment';
 
+    // inline : rendu dans le flux (navbar) au lieu du bouton flottant global
+    let { inline = false }: { inline?: boolean } = $props();
+
     let isDark = $state(false);
 
     if (browser) {
@@ -17,6 +20,8 @@
 
 <button
     class="theme-toggle"
+    class:floating={!inline}
+    class:inline
     onclick={toggle}
     title="Basculer le thème"
     aria-label="Basculer clair / sombre"
@@ -26,10 +31,6 @@
 
 <style>
     .theme-toggle {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 9999;
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -45,6 +46,18 @@
         box-shadow: var(--shadow-soft);
         transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
         padding: 0;
+    }
+    .theme-toggle.floating {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 9999;
+    }
+    .theme-toggle.inline {
+        width: 30px;
+        height: 30px;
+        font-size: 0.875rem;
+        box-shadow: none;
     }
     .theme-toggle:hover {
         background: var(--muted);

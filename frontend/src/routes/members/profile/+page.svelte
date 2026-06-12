@@ -3,6 +3,7 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { slide, fade } from 'svelte/transition';
     import { AVATARS } from '$lib/avatars.js';
+    import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { data }: { data: PageData } = $props();
 
@@ -45,12 +46,6 @@
             avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur lors de la mise à jour.';
             if (r.ok) { selectedAvatar = ''; await invalidateAll(); }
         } finally { avatarLoading = false; }
-    }
-
-    async function deleteAvatar() {
-        await fetch('/members/avatar', { method: 'DELETE' });
-        selectedAvatar = '';
-        invalidateAll();
     }
 
     // ── Mot de passe ─────────────────────────────────────────────────
@@ -106,6 +101,21 @@
         goto('/');
     }
 
+    // ── Suppression de compte ────────────────────────────────────────
+    let confirmDelete = $state(false);
+    let deleteLoading = $state(false);
+    let deleteMsg     = $state('');
+
+    async function deleteAccount() {
+        deleteLoading = true; deleteMsg = '';
+        try {
+            const r = await fetch('/members/account', { method: 'DELETE' });
+            const d = await r.json();
+            if (d.ok) { goto('/'); }
+            else deleteMsg = d.message ?? 'Erreur lors de la suppression.';
+        } finally { deleteLoading = false; }
+    }
+
     function timeAgo(date: Date | string | number) {
         const d = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
         const sec = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -120,7 +130,10 @@
 <nav class="navbar">
     <a class="navbar-back" href="/home/friend">← Home</a>
     <span class="navbar-title">{data.user.pseudo}</span>
-    <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
+    <div class="navbar-actions">
+        <ThemeToggle inline />
+        <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
+    </div>
 </nav>
 
 <!-- Tabs -->
@@ -138,7 +151,7 @@
 
     <!-- ── PROFIL ── -->
     {#if tab === 'profil'}
-        <div transition:fade={{ duration: 120 }}>
+        <div in:fade={{ duration: 120 }}>
             <!-- Avatar -->
             <div class="section-card card">
                 <h2 class="section-title">Avatar</h2>
@@ -170,7 +183,6 @@
                                 {avatarLoading ? '…' : 'Sauvegarder'}
                             </button>
                         {/if}
-                        <button class="btn-secondary revoke" onclick={deleteAvatar}>Supprimer</button>
                     </div>
                     {#if avatarMsg}<p class="meta">{avatarMsg}</p>{/if}
                 </div>
@@ -195,7 +207,7 @@
 
     <!-- ── DONATIONS ── -->
     {#if tab === 'donations'}
-        <div transition:fade={{ duration: 120 }}>
+        <div in:fade={{ duration: 120 }}>
             <div class="section-card card">
                 <h2 class="section-title">Soumettre une preuve</h2>
                 <div class="folder-tabs" style="margin-bottom:1rem">
@@ -234,7 +246,7 @@
 
     <!-- ── COMPTE ── -->
     {#if tab === 'compte'}
-        <div transition:fade={{ duration: 120 }}>
+        <div in:fade={{ duration: 120 }}>
             <div class="section-card card">
                 <h2 class="section-title">Changer le mot de passe</h2>
                 <div class="field">
@@ -257,7 +269,19 @@
 
             <div class="section-card card" style="border-color:var(--destructive-border)">
                 <h2 class="section-title" style="color:var(--destructive)">Zone dangereuse</h2>
-                <p class="meta">La suppression du compte est définitive. Contacte un admin si tu veux supprimer ton compte.</p>
+                <p class="meta">La suppression du compte est définitive : messages, donations et profil seront effacés.</p>
+                {#if !confirmDelete}
+                    <button class="btn-danger" onclick={() => confirmDelete = true}>Supprimer mon compte</button>
+                {:else}
+                    <p class="chip-error">Tu es sûr ? Cette action est irréversible.</p>
+                    <div class="danger-actions">
+                        <button class="btn-danger" onclick={deleteAccount} disabled={deleteLoading}>
+                            {deleteLoading ? '…' : 'Oui, supprimer définitivement'}
+                        </button>
+                        <button class="btn-secondary" onclick={() => confirmDelete = false}>Annuler</button>
+                    </div>
+                {/if}
+                {#if deleteMsg}<p class="chip-error">{deleteMsg}</p>{/if}
             </div>
         </div>
     {/if}
@@ -274,6 +298,17 @@
     .navbar-back { text-decoration: none; color: var(--muted-foreground); font-size: 0.875rem; transition: color 0.15s; }
     .navbar-back:hover { color: var(--foreground); }
     .navbar-title { font-weight: 700; }
+    .navbar-actions { display: flex; align-items: center; gap: 8px; }
+    .danger-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 0.5rem; }
+    .btn-danger {
+        height: 34px; padding: 0 16px;
+        background: var(--destructive); color: #fff;
+        border: none; border-radius: var(--radius-md);
+        font: 600 0.8125rem/1 var(--font-sans);
+        cursor: pointer;
+    }
+    .btn-danger:hover:not(:disabled) { opacity: 0.9; }
+    .btn-danger:disabled { opacity: 0.6; cursor: default; }
     .nav-btn {
         height: 30px; padding: 0 12px; border: 1px solid var(--border);
         border-radius: var(--radius-full); background: transparent;

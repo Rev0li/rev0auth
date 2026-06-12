@@ -1,10 +1,11 @@
 <script lang="ts">
     import type { PageData } from './$types.js';
-    import { goto, invalidateAll } from '$app/navigation';
+    import { invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import { slide, fade } from 'svelte/transition';
     import Chat from './Chat.svelte';
+    import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { data }: { data: PageData } = $props();
 
@@ -27,10 +28,7 @@
     let svcLoading    = $state('');
     let svcError      = $state('');
 
-    async function logout() {
-        await fetch('/auth/logout', { method: 'POST' });
-        goto('/');
-    }
+    const EMOJIS = ['😄', '😂', '❤️', '👍', '🎉', '🔥', '💡', '🎬', '🍿', '🎵'];
 
     async function postWall() {
         wallError = '';
@@ -143,7 +141,7 @@
         />
         <span class="nav-pseudo">{data.user.pseudo}</span>
         <a class="nav-btn" href="/members/profile">Profil</a>
-        <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
+        <ThemeToggle inline />
     </div>
 </nav>
 
@@ -245,7 +243,13 @@
 <section class="section section-last">
     <div class="section-inner">
         <h2 class="section-heading">Mur</h2>
+        <p class="wall-hint">Partage tes idées d'amélioration, ou les films et séries que tu aimerais voir ajoutés à Jellyfin 🍿</p>
 
+        <div class="wall-emojis">
+            {#each EMOJIS as e (e)}
+                <button class="emoji-btn" onclick={() => { wallBody += e; }} aria-label="Ajouter {e}">{e}</button>
+            {/each}
+        </div>
         <div class="wall-compose">
             <textarea
                 bind:value={wallBody}
@@ -323,7 +327,6 @@
         transition: background 0.15s;
     }
     .nav-btn:hover { background: var(--muted); }
-    .nav-btn-logout { color: var(--destructive); border-color: var(--destructive-border); }
 
     /* ── Hero ── */
     .hero { background: var(--card); border-bottom: 1px solid var(--border); }
@@ -380,6 +383,14 @@
     .member-pseudo { font-weight: 500; }
 
     /* ── Wall ── */
+    .wall-hint { font-size: 0.875rem; color: var(--muted-foreground); margin: -0.5rem 0 0.75rem; }
+    .wall-emojis { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 6px; }
+    .emoji-btn {
+        background: none; border: none; cursor: pointer;
+        font-size: 1.05rem; padding: 2px 5px; border-radius: var(--radius-sm);
+        transition: background 0.12s, transform 0.12s;
+    }
+    .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
     .wall-compose { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 1.25rem; }
     .wall-input { flex: 1; min-height: 60px; resize: none; }
     .wall-posts { display: flex; flex-direction: column; gap: 10px; }
