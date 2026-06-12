@@ -4,7 +4,7 @@
     import { slide, fade } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
     import {
-        SECTIONS, HAIR_COLORS, SKIN_COLORS,
+        SECTIONS, BG_COLORS,
         randomOptions, buildAvatarParams,
         type AvatarOptions,
     } from '$lib/avatar-options.js';
@@ -40,7 +40,13 @@
     let avatarMsg     = $state('');
     let avatarVersion = $state(0); // force le rechargement de l'img après save
 
-    let previewUrl = $derived(`/avatars/${avatarSeed}?${buildAvatarParams(opts)?.toString() ?? ''}`);
+    // Spread : force la lecture de chaque champ de `opts` pendant l'évaluation
+    // du derived → tout changement (steppers, nuancier, 🎲) régénère l'URL
+    let previewUrl = $derived.by(() => {
+        const params = buildAvatarParams({ ...opts });
+        return `/avatars/${avatarSeed}?${params?.toString() ?? ''}`;
+    });
+    let previewError = $state(false);
 
     function cycle(key: keyof AvatarOptions, values: readonly string[], optional: boolean, dir: 1 | -1) {
         const list = optional ? ['', ...values] : [...values];
@@ -174,7 +180,14 @@
                 <h2 class="section-title">Avatar</h2>
                 <div class="composer">
                     <div class="composer-preview">
-                        <img src={previewUrl} alt="Aperçu avatar" class="profile-avatar composer-img" />
+                        <img
+                            src={previewUrl}
+                            alt="Aperçu avatar"
+                            class="profile-avatar composer-img"
+                            onload={() => { previewError = false; }}
+                            onerror={() => { previewError = true; }}
+                        />
+                        {#if previewError}<p class="chip-error">Aperçu indisponible (génération DiceBear) — réessaie.</p>{/if}
                         <div class="composer-preview-actions">
                             <button class="btn-secondary" onclick={() => { opts = randomOptions(); }}>🎲 Aléatoire</button>
                             <button class="btn-primary" onclick={saveAvatar} disabled={avatarLoading}>
@@ -197,36 +210,21 @@
                         {/each}
 
                         <div class="composer-row">
-                            <span class="composer-label">Peau</span>
+                            <span class="composer-label">Fond</span>
                             <div class="swatches">
-                                {#each SKIN_COLORS as c (c)}
+                                {#each BG_COLORS as c (c)}
                                     <button
                                         class="swatch"
-                                        class:selected={opts.skinColor === c}
+                                        class:selected={opts.backgroundColor === c}
                                         style="background:#{c}"
-                                        onclick={() => { opts.skinColor = c; }}
-                                        aria-label="Peau #{c}"
-                                    ></button>
-                                {/each}
-                            </div>
-                        </div>
-                        <div class="composer-row">
-                            <span class="composer-label">Cheveux</span>
-                            <div class="swatches">
-                                {#each HAIR_COLORS as c (c)}
-                                    <button
-                                        class="swatch"
-                                        class:selected={opts.hairColor === c}
-                                        style="background:#{c}"
-                                        onclick={() => { opts.hairColor = c; }}
-                                        aria-label="Cheveux #{c}"
+                                        onclick={() => { opts.backgroundColor = c; }}
+                                        aria-label="Fond #{c}"
                                     ></button>
                                 {/each}
                             </div>
                         </div>
                     </div>
                 </div>
-                <p class="meta composer-credit">Avatars : <a href="https://www.dicebear.com" target="_blank" rel="noopener">DiceBear</a> « Adventurer » (CC BY 4.0)</p>
             </div>
 
             <!-- Bio -->

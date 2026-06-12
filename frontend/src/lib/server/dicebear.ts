@@ -1,11 +1,11 @@
-// Avatars DiceBear "adventurer" (https://www.dicebear.com/styles/adventurer/)
-// Style composable (coiffure, yeux, bouche, lunettes… cf $lib/avatar-options).
-// Pas de package npm v10 : on fetch l'API HTTP côté serveur UNIQUEMENT au
-// choix d'avatar / aperçu, avec cache mémoire. Les avatars choisis sont
-// stockés en DB (web_users.avatar_bytes) et servis localement — aucun appel
-// tiers côté visiteur. Licence style : CC BY 4.0 (mention DiceBear à afficher).
+// Avatars DiceBear "initial-face" (https://www.dicebear.com/styles/initial-face/)
+// Visage dérivé de l'initiale du seed ; composable : yeux, tête, couleur de
+// fond (cf $lib/avatar-options). Pas de package npm v10 : on fetch l'API HTTP
+// côté serveur UNIQUEMENT au choix d'avatar / aperçu, avec cache mémoire.
+// Les avatars choisis sont stockés en DB (web_users.avatar_bytes) et servis
+// localement — aucun appel tiers côté visiteur. Licence style : CC0.
 
-const API = 'https://api.dicebear.com/10.x/adventurer/svg';
+const API = 'https://api.dicebear.com/10.x/initial-face/svg';
 
 export const SEED_RE = /^[a-zA-Z0-9_-]{1,48}$/;
 
