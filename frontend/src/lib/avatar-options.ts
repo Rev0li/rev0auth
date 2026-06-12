@@ -1,49 +1,39 @@
-// Catalogue du style DiceBear « initial-face » (API 10.x) — généré depuis la
-// définition officielle @dicebear/styles. Partagé client (composeur du profil)
-// et serveur (validation whitelist : l'API ignore silencieusement les valeurs
-// inconnues, on refuse donc tout ce qui n'est pas listé ici).
-// Le visage reste dérivé de l'initiale du seed (pseudo). Licence : CC0.
+// Options du style DiceBear « initial-face » (API 10.x).
+// Constat vérifié : l'API n'applique QUE backgroundColor — les variantes
+// eyes/head listées dans la définition sont ignorées (MD5 identiques).
+// Le visage (initiale, yeux, tête) est entièrement dérivé du seed.
+// → Le composeur fait donc varier le SEED (visages déterministes par pseudo)
+//   et la couleur de fond. Licence : CC0.
 
-export const EYES = ['variant01', 'variant02', 'variant03', 'variant04', 'variant05', 'variant06', 'variant07', 'variant08'];
-export const HEAD = ['default', 'alt'];
 export const BG_COLORS = ['ffa3b5', 'ffb382', 'ffe08a', 'e2f299', 'a8f0b0', '86eadf', '7fd4f5', '9cbeff', 'cfbeff'];
 
-export type AvatarOptions = {
-    eyes: string;
-    head: string;
-    backgroundColor: string;
-};
+// Nombre de visages proposés par pseudo (seed = pseudo, pseudo-2, …)
+export const FACE_COUNT = 12;
 
-export const SECTIONS = [
-    { key: 'eyes', label: 'Yeux', values: EYES, optional: false },
-    { key: 'head', label: 'Tête', values: HEAD, optional: false },
-] as const;
-
-export function defaultOptions(): AvatarOptions {
-    return { eyes: EYES[0], head: HEAD[0], backgroundColor: BG_COLORS[0] };
+export function faceSeeds(pseudo: string): string[] {
+    const p = pseudo.toLowerCase();
+    return Array.from({ length: FACE_COUNT }, (_, i) => (i === 0 ? p : `${p}-${i + 1}`));
 }
 
-export function randomOptions(): AvatarOptions {
-    const pick = <T,>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)];
-    return { eyes: pick(EYES), head: pick(HEAD), backgroundColor: pick(BG_COLORS) };
-}
+export type AvatarOptions = { backgroundColor: string };
 
-// Construit la query string validée ; null si une valeur n'est pas au catalogue
+// Construit la query string validée ; null si la couleur n'est pas au catalogue
 export function buildAvatarParams(opts: unknown): URLSearchParams | null {
     if (typeof opts !== 'object' || opts === null) return null;
-    const o = opts as Record<string, unknown>;
+    const v = (opts as Record<string, unknown>).backgroundColor;
+    if (typeof v !== 'string' || !BG_COLORS.includes(v)) return null;
     const params = new URLSearchParams();
-
-    const fields: [string, readonly string[]][] = [
-        ['eyes', EYES],
-        ['head', HEAD],
-        ['backgroundColor', BG_COLORS],
-    ];
-    for (const [key, allowed] of fields) {
-        const v = o[key];
-        if (typeof v !== 'string' || !allowed.includes(v)) return null;
-        params.set(key, v);
-    }
-
+    params.set('backgroundColor', v);
     return params;
+}
+
+// Persistance du choix dans web_users.avatar_filename : "<seed>--<bg>.svg"
+export function encodeAvatarFilename(seed: string, bg: string): string {
+    return `${seed}--${bg}.svg`;
+}
+
+export function decodeAvatarFilename(filename: string | null | undefined): { seed: string; backgroundColor: string } | null {
+    const m = filename?.match(/^([a-zA-Z0-9_-]{1,48})--([0-9a-f]{6})\.svg$/);
+    if (!m || !BG_COLORS.includes(m[2])) return null;
+    return { seed: m[1], backgroundColor: m[2] };
 }

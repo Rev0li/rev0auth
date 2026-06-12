@@ -4,9 +4,8 @@
     import { slide, fade } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
     import {
-        SECTIONS, BG_COLORS,
-        randomOptions, buildAvatarParams,
-        type AvatarOptions,
+        BG_COLORS, FACE_COUNT,
+        faceSeeds, decodeAvatarFilename,
     } from '$lib/avatar-options.js';
 
     let { data }: { data: PageData } = $props();
@@ -33,29 +32,24 @@
         } finally { saveLoading = false; }
     }
 
-    // ── Avatar : composeur DiceBear adventurer (sections + couleurs) ──
-    const avatarSeed = data.user.pseudo.toLowerCase();
-    let opts          = $state(randomOptions());
+    // ── Avatar : composeur DiceBear initial-face ──────────────────────
+    // Le visage est dérivé du seed (l'API n'applique que backgroundColor) :
+    // le stepper « Visage » fait varier le seed parmi FACE_COUNT variantes
+    // déterministes du pseudo. L'état sauvegardé est restauré au chargement
+    // (encodé dans avatar_filename) — pas d'aléatoire au refresh.
+    const seeds = faceSeeds(data.user.pseudo);
+    const saved = decodeAvatarFilename(data.user.avatarFilename);
+
+    let faceIdx       = $state(Math.max(0, saved ? seeds.indexOf(saved.seed) : 0));
+    let bgColor       = $state(saved?.backgroundColor ?? BG_COLORS[0]);
     let avatarLoading = $state(false);
     let avatarMsg     = $state('');
-    let avatarVersion = $state(0); // force le rechargement de l'img après save
+    let previewError  = $state(false);
 
-    // Spread : force la lecture de chaque champ de `opts` pendant l'évaluation
-    // du derived → tout changement (steppers, nuancier, 🎲) régénère l'URL
-    let previewUrl = $derived.by(() => {
-        const params = buildAvatarParams({ ...opts });
-        return `/avatars/${avatarSeed}?${params?.toString() ?? ''}`;
-    });
-    let previewError = $state(false);
+    let previewUrl = $derived(`/avatars/${seeds[faceIdx]}?backgroundColor=${bgColor}`);
 
-    function cycle(key: keyof AvatarOptions, values: readonly string[], optional: boolean, dir: 1 | -1) {
-        const list = optional ? ['', ...values] : [...values];
-        const idx = list.indexOf(opts[key]);
-        opts[key] = list[(idx + dir + list.length) % list.length];
-    }
-    function sectionIndex(key: keyof AvatarOptions, values: readonly string[], optional: boolean) {
-        const list = optional ? ['', ...values] : [...values];
-        return list.indexOf(opts[key]);
+    function cycleFace(dir: 1 | -1) {
+        faceIdx = (faceIdx + dir + FACE_COUNT) % FACE_COUNT;
     }
 
     async function saveAvatar() {
@@ -64,10 +58,10 @@
             const r = await fetch('/members/avatar', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ seed: avatarSeed, options: opts }),
+                body: JSON.stringify({ seed: seeds[faceIdx], options: { backgroundColor: bgColor } }),
             });
             avatarMsg = r.ok ? 'Avatar mis à jour.' : 'Erreur lors de la mise à jour.';
-            if (r.ok) { avatarVersion++; await invalidateAll(); }
+            if (r.ok) await invalidateAll();
         } finally { avatarLoading = false; }
     }
 
@@ -189,7 +183,6 @@
                         />
                         {#if previewError}<p class="chip-error">Aperçu indisponible (génération DiceBear) — réessaie.</p>{/if}
                         <div class="composer-preview-actions">
-                            <button class="btn-secondary" onclick={() => { opts = randomOptions(); }}>🎲 Aléatoire</button>
                             <button class="btn-primary" onclick={saveAvatar} disabled={avatarLoading}>
                                 {avatarLoading ? '…' : 'Sauvegarder'}
                             </button>
@@ -198,16 +191,12 @@
                     </div>
 
                     <div class="composer-sections">
-                        {#each SECTIONS as s (s.key)}
-                            <div class="composer-row">
-                                <span class="composer-label">{s.label}</span>
-                                <button class="composer-arrow" onclick={() => cycle(s.key, s.values, s.optional, -1)} aria-label="{s.label} précédent">◀</button>
-                                <span class="composer-value">
-                                    {#if s.optional && opts[s.key] === ''}Aucun{:else}{sectionIndex(s.key, s.values, s.optional) + (s.optional ? 0 : 1)}/{s.values.length}{/if}
-                                </span>
-                                <button class="composer-arrow" onclick={() => cycle(s.key, s.values, s.optional, 1)} aria-label="{s.label} suivant">▶</button>
-                            </div>
-                        {/each}
+                        <div class="composer-row">
+                            <span class="composer-label">Visage</span>
+                            <button class="composer-arrow" onclick={() => cycleFace(-1)} aria-label="Visage précédent">◀</button>
+                            <span class="composer-value">{faceIdx + 1}/{FACE_COUNT}</span>
+                            <button class="composer-arrow" onclick={() => cycleFace(1)} aria-label="Visage suivant">▶</button>
+                        </div>
 
                         <div class="composer-row">
                             <span class="composer-label">Fond</span>
@@ -215,9 +204,9 @@
                                 {#each BG_COLORS as c (c)}
                                     <button
                                         class="swatch"
-                                        class:selected={opts.backgroundColor === c}
+                                        class:selected={bgColor === c}
                                         style="background:#{c}"
-                                        onclick={() => { opts.backgroundColor = c; }}
+                                        onclick={() => { bgColor = c; }}
                                         aria-label="Fond #{c}"
                                     ></button>
                                 {/each}
@@ -372,7 +361,6 @@
     .section-card { padding: 1.5rem; }
     .section-title { margin: 0 0 1rem; font-size: 1rem; font-weight: 700; }
     .section-heading { font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin: 0.5rem 0 0.75rem; }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
     .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
 
@@ -411,8 +399,6 @@
     }
     .swatch:hover { transform: scale(1.15); }
     .swatch.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
-    .composer-credit { margin-top: 0.875rem; font-size: 0.75rem; }
-    .composer-credit a { color: var(--muted-foreground); }
 
     .folder-tabs { display: flex; gap: 4px; }
     .folder-btn {
