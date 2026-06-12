@@ -4,14 +4,9 @@
     import { page } from '$app/stores';
     import { onMount } from 'svelte';
     import { slide, fade } from 'svelte/transition';
+    import Chat from './Chat.svelte';
 
     let { data }: { data: PageData } = $props();
-
-    const STATUS_OPTS = [
-        { id: 'actif',    label: 'Actif',   color: '#65B48A' },
-        { id: 'occupe',   label: 'Occupé',  color: '#D9A84C' },
-        { id: 'inactif',  label: 'Inactif', color: '#8A8A8A' },
-    ] as const;
 
     // Onboarding
     let showOnboarding = $state($page.url.searchParams.get('onboarding') === '1');
@@ -20,42 +15,21 @@
     let onbError   = $state('');
     let onbLoading = $state(false);
 
-    // Status
-    let currentStatus = $state<string>(data.user.status);
-    let statusLoading = $state(false);
-
     // Wall
     let wallPosts  = $state([...data.wall]);
     let wallBody   = $state('');
     let wallLoading = $state(false);
     let wallError  = $state('');
 
-    // Chat
-    let chatOpen = $state(false);
-    let unread   = $state(data.unreadCount);
-
-    function statusColor(s: string) {
-        return STATUS_OPTS.find(o => o.id === s)?.color ?? '#8A8A8A';
-    }
+    // Demandes d'accès services (conditions : star GitHub / reco LinkedIn)
+    let githubInput   = $state('');
+    let linkedinInput = $state('');
+    let svcLoading    = $state('');
+    let svcError      = $state('');
 
     async function logout() {
         await fetch('/auth/logout', { method: 'POST' });
         goto('/');
-    }
-
-    async function updateStatus(s: typeof STATUS_OPTS[number]['id']) {
-        if (statusLoading || s === currentStatus) return;
-        statusLoading = true;
-        const prev = currentStatus;
-        currentStatus = s;
-        try {
-            const r = await fetch('/members/status', {
-                method: 'PUT',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ status: s }),
-            });
-            if (!r.ok) currentStatus = prev;
-        } finally { statusLoading = false; }
     }
 
     async function postWall() {
@@ -83,13 +57,25 @@
         await fetch(`/members/wall?id=${id}`, { method: 'DELETE' });
     }
 
-    async function requestService(service: string) {
-        await fetch('/members/access/request', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ service }),
-        });
-        invalidateAll();
+    async function requestService(service: 'songsurf' | 'jellyfin') {
+        svcError = '';
+        const payload = service === 'songsurf'
+            ? { service, github_username: githubInput.trim() }
+            : { service, linkedin_name: linkedinInput.trim() };
+        svcLoading = service;
+        try {
+            const r = await fetch('/members/access/request', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+                const d = await r.json();
+                svcError = d.message ?? 'Erreur.';
+                return;
+            }
+            invalidateAll();
+        } finally { svcLoading = ''; }
     }
 
     async function submitOnboarding() {
@@ -156,7 +142,6 @@
             onerror={(e) => (e.currentTarget as HTMLImageElement).style.display = 'none'}
         />
         <span class="nav-pseudo">{data.user.pseudo}</span>
-        <span class="status-dot" style="background:{statusColor(currentStatus)}" title={currentStatus}></span>
         <a class="nav-btn" href="/members/profile">Profil</a>
         <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
     </div>
@@ -165,38 +150,8 @@
 <!-- ── Hero ── -->
 <section class="hero">
     <div class="hero-inner">
-        <h1 class="hero-title">Bienvenue, <span class="hero-name">{data.user.pseudo}</span> 👋</h1>
+        <h1 class="hero-title">Bienvenue, <span class="hero-name">{data.user.pseudo}</span></h1>
         <p class="hero-sub">Ton espace privé — hébergé chez nous, sans publicité, sans tracking, sans tiers. Tu accèdes à des services sélectionnés, partages avec la communauté et gardes le contrôle.</p>
-
-        <div class="hero-steps">
-            <a class="hero-step" href="https://github.com/Rev0li" target="_blank" rel="noopener">
-                <span class="step-icon">🐙</span>
-                <span class="step-label">GitHub</span>
-            </a>
-            <span class="step-arrow">→</span>
-            <a class="hero-step" href="https://github.com/Rev0li/rev0auth" target="_blank" rel="noopener">
-                <span class="step-icon">⭐</span>
-                <span class="step-label">Star le repo</span>
-            </a>
-        </div>
-    </div>
-</section>
-
-<!-- ── Status ── -->
-<section class="section">
-    <div class="section-inner">
-        <h2 class="section-heading">Ton statut</h2>
-        <div class="status-pills">
-            {#each STATUS_OPTS as s}
-                <button
-                    class="status-pill"
-                    class:active={currentStatus === s.id}
-                    style="--pill-color:{s.color}"
-                    onclick={() => updateStatus(s.id)}
-                    disabled={statusLoading}
-                >{s.label}</button>
-            {/each}
-        </div>
     </div>
 </section>
 
@@ -219,8 +174,18 @@
                     {:else if data.user.requestSongsurf}
                         <p class="meta">Demande en attente…</p>
                     {:else}
-                        <p class="svc-desc">Accès via GitHub. Demande et un admin t'accordera l'accès.</p>
-                        <button class="btn-secondary" onclick={() => requestService('songsurf')}>Demander l'accès</button>
+                        <ol class="svc-steps">
+                            <li>Mets une étoile au repo
+                                <a href="https://github.com/Rev0li/SongSurf" target="_blank" rel="noopener">⭐ SongSurf</a>
+                            </li>
+                            <li>Renseigne ton pseudo GitHub :</li>
+                        </ol>
+                        <input class="svc-input" bind:value={githubInput} placeholder="ton_pseudo_github" />
+                        <button
+                            class="btn-secondary"
+                            onclick={() => requestService('songsurf')}
+                            disabled={svcLoading === 'songsurf' || !githubInput.trim()}
+                        >{svcLoading === 'songsurf' ? '…' : 'Envoyer la demande'}</button>
                     {/if}
                 </div>
             </div>
@@ -235,13 +200,24 @@
                     {:else if data.user.requestJellyfin}
                         <p class="meta">Demande en attente…</p>
                     {:else}
-                        <p class="svc-desc">Accès sur invitation. Demande et un admin vérifiera ton profil.</p>
-                        <button class="btn-secondary" onclick={() => requestService('jellyfin')}>Demander l'accès</button>
+                        <ol class="svc-steps">
+                            <li>Laisse une recommandation sur
+                                <a href="https://linkedin.com/in/oliver-kientzler" target="_blank" rel="noopener">LinkedIn</a>
+                            </li>
+                            <li>Renseigne ton nom LinkedIn :</li>
+                        </ol>
+                        <input class="svc-input" bind:value={linkedinInput} placeholder="ton_profil_linkedin" />
+                        <button
+                            class="btn-secondary"
+                            onclick={() => requestService('jellyfin')}
+                            disabled={svcLoading === 'jellyfin' || !linkedinInput.trim()}
+                        >{svcLoading === 'jellyfin' ? '…' : 'Envoyer la demande'}</button>
                     {/if}
                 </div>
             </div>
 
         </div>
+        {#if svcError}<p class="chip-error" style="margin-top:0.75rem">{svcError}</p>{/if}
     </div>
 </section>
 
@@ -258,7 +234,6 @@
                         class="member-avatar"
                         onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display='none'; }}
                     />
-                    <span class="member-dot" style="background:{statusColor(m.status)}"></span>
                     <span class="member-pseudo">{m.pseudo}</span>
                 </div>
             {/each}
@@ -303,27 +278,13 @@
     </div>
 </section>
 
-<!-- ── Chat FAB ── -->
-<button class="chat-fab" onclick={() => chatOpen = !chatOpen} aria-label="Messagerie">
-    💬
-    {#if unread > 0}
-        <span class="chat-badge">{unread}</span>
-    {/if}
-</button>
-
-{#if chatOpen}
-    <div class="chat-panel card" transition:slide={{ axis: 'y', duration: 250 }}>
-        <div class="chat-header">
-            <span>Messages</span>
-            <button class="chat-close" onclick={() => chatOpen = false}>×</button>
-        </div>
-        <div class="chat-body">
-            <p class="meta" style="text-align:center;padding:1rem">
-                Va sur ton <a href="/members/profile">profil</a> pour gérer tes messages.
-            </p>
-        </div>
-    </div>
-{/if}
+<!-- ── Messagerie ── -->
+<Chat
+    myPseudo={data.user.pseudo}
+    adminPseudo={data.adminPseudo}
+    members={data.members}
+    initialUnread={data.unreadCount}
+/>
 
 <style>
     /* ── Navbar ── */
@@ -349,7 +310,6 @@
         border: 1px solid var(--border);
     }
     .nav-pseudo { font-size: 0.875rem; font-weight: 600; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .nav-btn {
         height: 30px; padding: 0 12px;
         border: 1px solid var(--border);
@@ -370,20 +330,7 @@
     .hero-inner { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 2.5rem; }
     .hero-title { font-size: clamp(1.5rem, 4vw, 2.25rem); font-weight: 700; margin: 0 0 0.75rem; }
     .hero-name { color: var(--primary-hover); }
-    .hero-sub { color: var(--muted-foreground); max-width: 560px; margin: 0 0 1.5rem; line-height: 1.6; }
-    .hero-steps { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .hero-step {
-        display: flex; flex-direction: column; align-items: center; gap: 4px;
-        text-decoration: none; color: var(--foreground);
-        background: var(--muted); border: 1px solid var(--border);
-        border-radius: var(--radius-lg); padding: 10px 16px;
-        font-size: 0.8125rem; font-weight: 500;
-        transition: box-shadow 0.15s, transform 0.12s;
-    }
-    .hero-step:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
-    .step-icon { font-size: 1.25rem; }
-    .step-label { font-weight: 600; }
-    .step-arrow { color: var(--muted-foreground); font-size: 1rem; }
+    .hero-sub { color: var(--muted-foreground); max-width: 560px; margin: 0; line-height: 1.6; }
 
     /* ── Sections ── */
     .section { padding: 2rem 0; border-bottom: 1px solid var(--border); }
@@ -393,25 +340,6 @@
         font-size: 0.8125rem; font-weight: 700;
         text-transform: uppercase; letter-spacing: 0.06em;
         color: var(--muted-foreground); margin: 0 0 1rem;
-    }
-
-    /* ── Status pills ── */
-    .status-pills { display: flex; gap: 8px; flex-wrap: wrap; }
-    .status-pill {
-        height: 32px; padding: 0 16px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-full);
-        background: var(--muted);
-        font: 500 0.875rem/1 var(--font-sans);
-        cursor: pointer;
-        transition: border-color 0.15s, background 0.15s;
-        color: var(--foreground);
-    }
-    .status-pill.active {
-        border-color: var(--pill-color);
-        background: color-mix(in srgb, var(--pill-color) 12%, transparent);
-        color: var(--pill-color);
-        font-weight: 600;
     }
 
     /* ── Services ── */
@@ -425,7 +353,20 @@
     .svc-songsurf { background: linear-gradient(135deg, #E8B7C4, #DCA2B5); }
     .svc-jellyfin  { background: linear-gradient(135deg, #6EDAD3, #4EC9C1); }
     .svc-body { padding: 1rem; }
-    .svc-desc { font-size: 0.875rem; color: var(--muted-foreground); margin: 0 0 0.75rem; }
+    .svc-steps {
+        font-size: 0.8125rem; color: var(--muted-foreground);
+        margin: 0 0 0.75rem; padding-left: 1.1rem;
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .svc-steps a { color: var(--primary-hover); font-weight: 600; text-decoration: none; }
+    .svc-steps a:hover { text-decoration: underline; }
+    .svc-input {
+        width: 100%; margin-bottom: 0.625rem;
+        padding: 7px 10px; font-size: 0.8125rem;
+        border: 1px solid var(--border); border-radius: var(--radius-md);
+        background: var(--background); color: var(--foreground);
+    }
+    .svc-input:focus { outline: none; border-color: var(--primary); }
 
     /* ── Members ── */
     .members-row { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -436,7 +377,6 @@
         font-size: 0.8125rem;
     }
     .member-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
-    .member-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
     .member-pseudo { font-weight: 500; }
 
     /* ── Wall ── */
@@ -454,44 +394,6 @@
     }
     .post-delete:hover { color: var(--destructive); }
     .post-body { margin: 0; font-size: 0.9375rem; line-height: 1.5; white-space: pre-wrap; }
-
-    /* ── Chat FAB ── */
-    .chat-fab {
-        position: fixed; bottom: 24px; right: 24px; z-index: 200;
-        width: 52px; height: 52px; border-radius: 50%;
-        border: 1px solid var(--border);
-        background: var(--primary);
-        font-size: 1.25rem;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: var(--shadow-hover);
-        transition: transform 0.15s;
-    }
-    .chat-fab:hover { transform: scale(1.08); }
-    .chat-badge {
-        position: absolute; top: -4px; right: -4px;
-        background: var(--destructive);
-        color: #fff; font-size: 0.6875rem; font-weight: 700;
-        border-radius: 99px; padding: 1px 5px;
-        min-width: 18px; text-align: center;
-    }
-    .chat-panel {
-        position: fixed; bottom: 88px; right: 24px; z-index: 199;
-        width: 320px; max-height: 60vh;
-        display: flex; flex-direction: column;
-        overflow: hidden;
-    }
-    .chat-header {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 12px 16px; border-bottom: 1px solid var(--border);
-        font-weight: 600; font-size: 0.9375rem;
-    }
-    .chat-close {
-        background: none; border: none; cursor: pointer;
-        font-size: 1.25rem; color: var(--muted-foreground);
-        line-height: 1; padding: 0;
-    }
-    .chat-body { overflow-y: auto; flex: 1; }
 
     /* ── Onboarding modal ── */
     .modal-bg {

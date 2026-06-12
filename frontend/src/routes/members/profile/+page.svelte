@@ -6,14 +6,11 @@
 
     let { data }: { data: PageData } = $props();
 
-    type Tab = 'profil' | 'messages' | 'donations' | 'compte';
+    type Tab = 'profil' | 'donations' | 'compte';
     let tab = $state<Tab>('profil');
 
     // ── Profil ────────────────────────────────────────────────────────
     let bio         = $state(data.user.bio ?? '');
-    let commentary  = $state(data.user.commentary ?? '');
-    let github      = $state(data.user.githubUsername ?? '');
-    let linkedin    = $state(data.user.linkedinName ?? '');
     let saveLoading = $state(false);
     let saveMsg     = $state('');
     let saveOk      = $state(false);
@@ -24,7 +21,7 @@
             const r = await fetch('/members/profile/data', {
                 method: 'PUT',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ bio, commentary, githubUsername: github, linkedinName: linkedin }),
+                body: JSON.stringify({ bio }),
             });
             saveOk = r.ok;
             saveMsg = r.ok ? 'Profil mis à jour.' : 'Erreur lors de la sauvegarde.';
@@ -82,28 +79,6 @@
         } finally { pwdLoading = false; }
     }
 
-    // ── Messages ─────────────────────────────────────────────────────
-    let msgFolder  = $state<'inbox' | 'sent'>('inbox');
-    let replyTo    = $state('');
-    let replyBody  = $state('');
-    let replyLoading = $state(false);
-    let replyMsg   = $state('');
-
-    let activeMsgs = $derived(msgFolder === 'inbox' ? data.inbox : data.sent);
-
-    async function sendMessage() {
-        if (!replyTo || !replyBody.trim()) return;
-        replyLoading = true; replyMsg = '';
-        try {
-            const r = await fetch('/members/messages', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ to: replyTo, body: replyBody }),
-            });
-            if (r.ok) { replyBody = ''; replyMsg = 'Message envoyé.'; }
-        } finally { replyLoading = false; }
-    }
-
     // ── Donations ────────────────────────────────────────────────────
     let donaMethod  = $state<'pcs' | 'crypto'>('pcs');
     let donaCode    = $state('');
@@ -151,10 +126,9 @@
 <!-- Tabs -->
 <div class="tabbar">
     {#each [
-        { id: 'profil',    label: 'Profil'      },
-        { id: 'messages',  label: `Messages ${data.inbox.filter(m => !m.isRead).length > 0 ? `(${data.inbox.filter(m => !m.isRead).length})` : ''}` },
-        { id: 'donations', label: 'Donations'   },
-        { id: 'compte',    label: 'Compte'      },
+        { id: 'profil',    label: 'Profil'    },
+        { id: 'donations', label: 'Donations' },
+        { id: 'compte',    label: 'Compte'    },
     ] as t}
         <button class="tabbar-btn" class:active={tab === t.id} onclick={() => tab = t.id as Tab}>{t.label}</button>
     {/each}
@@ -209,72 +183,12 @@
                     <label for="bio">Bio</label>
                     <textarea id="bio" bind:value={bio} placeholder="Quelques mots sur toi…" rows={3}></textarea>
                 </div>
-                <div class="field">
-                    <label for="commentary">Commentaire</label>
-                    <input id="commentary" bind:value={commentary} placeholder="Tagline ou humeur du jour" />
-                </div>
-                <div class="two-col">
-                    <div class="field">
-                        <label for="github">GitHub</label>
-                        <input id="github" bind:value={github} placeholder="ton_pseudo_github" />
-                    </div>
-                    <div class="field">
-                        <label for="linkedin">LinkedIn</label>
-                        <input id="linkedin" bind:value={linkedin} placeholder="ton_profil_linkedin" />
-                    </div>
-                </div>
                 {#if saveMsg}
                     <p class={saveOk ? 'chip-ok' : 'chip-error'}>{saveMsg}</p>
                 {/if}
                 <button class="btn-primary" onclick={saveProfile} disabled={saveLoading}>
                     {saveLoading ? '…' : 'Sauvegarder'}
                 </button>
-            </div>
-        </div>
-    {/if}
-
-    <!-- ── MESSAGES ── -->
-    {#if tab === 'messages'}
-        <div transition:fade={{ duration: 120 }}>
-            <!-- Compose -->
-            <div class="section-card card">
-                <h2 class="section-title">Nouveau message</h2>
-                <div class="field">
-                    <label for="msg-to">Destinataire</label>
-                    <input id="msg-to" bind:value={replyTo} placeholder="pseudo" />
-                </div>
-                <div class="field">
-                    <label for="msg-body">Message</label>
-                    <textarea id="msg-body" bind:value={replyBody} placeholder="…" rows={3}></textarea>
-                </div>
-                {#if replyMsg}<p class="chip-ok">{replyMsg}</p>{/if}
-                <button class="btn-primary" onclick={sendMessage} disabled={replyLoading || !replyTo || !replyBody.trim()}>
-                    {replyLoading ? '…' : 'Envoyer'}
-                </button>
-            </div>
-
-            <!-- Folder toggle -->
-            <div class="folder-tabs">
-                <button class="folder-btn" class:active={msgFolder === 'inbox'} onclick={() => msgFolder = 'inbox'}>
-                    Reçus ({data.inbox.length})
-                </button>
-                <button class="folder-btn" class:active={msgFolder === 'sent'} onclick={() => msgFolder = 'sent'}>
-                    Envoyés ({data.sent.length})
-                </button>
-            </div>
-
-            <div class="msg-list">
-                {#each activeMsgs as m (m.id)}
-                    <div class="msg-row card" class:unread={!m.isRead && msgFolder === 'inbox'}>
-                        <div class="msg-meta">
-                            <strong>{msgFolder === 'inbox' ? m.fromPseudo : m.toPseudo}</strong>
-                            <span class="meta">{timeAgo(m.createdAt)}</span>
-                        </div>
-                        <p class="msg-body">{m.body}</p>
-                    </div>
-                {:else}
-                    <p class="empty-state">Aucun message.</p>
-                {/each}
             </div>
         </div>
     {/if}
@@ -419,12 +333,6 @@
         transition: background 0.12s, color 0.12s;
     }
     .folder-btn.active { background: var(--card); color: var(--foreground); border-color: var(--primary); }
-
-    .msg-list { display: flex; flex-direction: column; gap: 8px; }
-    .msg-row { padding: 12px 14px; }
-    .msg-row.unread { border-color: var(--primary); }
-    .msg-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .msg-body { margin: 0; font-size: 0.9375rem; line-height: 1.5; }
 
     .dona-row {
         display: flex; align-items: center; gap: 12px; flex-wrap: wrap;

@@ -9,60 +9,59 @@
 ## Dernière tâche réalisée
 
 **Date** : 2026-06-12
-**Tâche** : **Phase 3 — SvelteKit seul derrière Caddy**, crates/web retiré du déploiement.
+**Tâche** : **Polish du côté friend/membre** (5 demandes user).
 
 ### Changements
-- **Caddyfile.template** : tout `WEB_DOMAIN` → frontend `:4173` (plus de matcher `/japprends/*`, plus de `WEB_UPSTREAM`). `caddy.env.example` mis à jour (`FRONTEND_UPSTREAM`).
-- **docker-compose.yml** : service `web` supprimé, `Dockerfile.web` supprimé, `REV0AUTH_WEB_UPSTREAM` retiré.
-- **`/portal`** : redirect 301 → `/` (l'info "invitation uniquement" est déjà sur la page de connexion). Le Watcher SongSurf qui redirige vers `/portal` continue de fonctionner.
-- **Login admin réécrit** (`/japprends/login`) : formulaire pseudo + seed + mot de passe + code 2FA optionnel + challenge 3 icônes (choisir 🔒) + honeypot → `POST /japprends/login`. **Le mode YubiKey est retiré** (le WebAuthn vivait dans crates/web ; la passkey reviendra via le plugin BetterAuth).
-- **Supprimé** : proxys `/japprends/webauthn/auth/{start,finish}`, `/portal/login` (login multi-étapes abandonné), ancien POST `/portal`.
-- **Docs** : `DEPLOY.md`, `auth/CLAUDE.md`, `CLAUDE.md` racine mis à jour (architecture, checklists, dépannage).
-- crates/web reste dans le repo (référence) mais n'est plus ni buildé ni déployé.
+1. **Hero** : steps GitHub/star supprimés, emoji 👋 supprimé.
+2. **"Ton statut" supprimé** (UI + endpoint `/members/status` + pastilles navbar/membres). La colonne `web_users.status` reste en DB (signup y écrit encore, l'admin la voit éventuellement).
+3. **Messagerie refondue en popup** (`routes/home/friend/Chat.svelte`, FAB 💬 sur /home/friend) :
+   - Fil **Admin permanent** épinglé en tête (badge "support"), même sans messages
+   - Conversations privées membre↔membre + **recherche de membre** pour en démarrer une
+   - API `/members/messages` réécrite : GET = threads groupés (unread par fil), GET `?with=` = fil chronologique, POST valide le destinataire (admin ou membre actif), PATCH `{with}` = marque le fil lu
+   - **Onglet Messages supprimé de /members/profile** (load allégé)
+   - **Confidentialité** : `/japprends/messages` (admin) filtré sur les conversations impliquant l'admin — les DM membres sont privés
+4. **GitHub/LinkedIn retirés du profil** → conditions des demandes de service sur /home/friend :
+   - SongSurf : ⭐ star `github.com/Rev0li/SongSurf` + pseudo GitHub requis
+   - Jellyfin : recommandation `linkedin.com/in/oliver-kientzler` + nom LinkedIn requis
+   - `/members/access/request` exige et stocke le pseudo (validation regex GitHub)
+5. **Profil** : Bio conservée (futurs profils custom), **Commentaire supprimé** ; PUT `/members/profile/data` n'accepte plus que `{bio}`.
 
-### État : testé en local ✅
+### État : testé en local ✅ (13 cas API + rendu HTML)
 
 | Test | Résultat |
 |---|---|
-| `/portal` → 301 `/` | PASS |
-| Page login admin (SSR, champs Seed/MdP/2FA/challenge) | PASS |
-| `POST /japprends/login` (challenge secure-lock) → session → `/japprends/users` 200 | PASS |
-| Routes webauthn supprimées → 404 | PASS |
-| Login membre (BetterAuth) inchangé | PASS |
-| `npm run check` | 0 erreur / 10 warnings |
+| Threads vides / envoi à admin / envoi à membre / destinataire inconnu 404 | PASS |
+| Threads groupés avec unread, mark-read par fil, fil chronologique | PASS |
+| Admin ne voit QUE ses conversations (DM membre↔membre invisibles) | PASS |
+| Reply admin → apparaît dans le fil Admin du membre | PASS |
+| Demande SongSurf avec pseudo GitHub stocké ; sans pseudo → 400 | PASS |
+| PUT profil : bio seule (commentary envoyé = ignoré) | PASS |
+| `/members/status` → 404 | PASS |
+| HTML friend : plus de statut/hero-steps/👋, nouveaux flows services présents | PASS |
+| HTML profil : plus de Messages/Commentaire/GitHub/LinkedIn | PASS |
+| `npm run check` | 0 erreur / 7 warnings |
 | `npm test` | 26/26 |
 
-### ⚠️ À savoir avant le deploy
-1. **L'admin se connecte désormais par mot de passe** (pseudo + seed + mdp + challenge 🔒 + TOTP si `ADMIN_DASH_TOTP_SECRET` est défini). **Vérifier que le TOTP est bien configuré en prod** pour garder un second facteur en attendant le plugin passkey BetterAuth.
-2. Côté VPS, mettre à jour `/etc/caddy/rev0auth-caddy.env` : remplacer `WEB_UPSTREAM` par `FRONTEND_UPSTREAM=127.0.0.1:4173`, puis recharger Caddy.
-3. `docker compose up -d --build` ne lancera plus le service `web` ; faire un `docker compose down` avant pour retirer l'ancien container.
-4. Les sessions membres actives seront invalidées (re-login). Lancer la migration des comptes : `node --env-file=.env scripts/migrate-web-users-to-ba.mjs` (dry-run d'abord).
+Comptes de test locaux : `MigrTester`/`MigrTest123!` ; `bob` (mdp retiré après test).
 
 ---
 
 ## Tests restants pour la prochaine session
 
-### 1. Navigateur (local)
-- [ ] Login admin via le nouveau formulaire (challenge 🔒) → dashboard, tous les onglets
-- [ ] Flow membre complet : login → `/home/friend` → profil → mdp → logout
-- [ ] Hérités : bouton "Rafraîchir" `/japprends/audit`, grilles d'avatars
+### 1. Navigateur (la popup chat est client-side, non testable en curl)
+- [ ] FAB 💬 : ouvrir, fil Admin épinglé, envoyer un message à l'admin
+- [ ] Recherche de membre → démarrer un DM → bulles, scroll auto, badge unread qui se met à jour
+- [ ] Demande SongSurf/Jellyfin depuis les cartes services (input + bouton désactivé si vide)
+- [ ] Onboarding première connexion toujours OK (modal)
+- [ ] Hérités : login admin formulaire (challenge 🔒), audit refresh, grilles avatars
 
-### 2. Deploy VPS (checklist complète)
-```bash
-# 1. rsync (DEPLOY.md) puis sur le VPS :
-cd ~/auth && docker compose down && docker compose up -d --build
-docker compose ps        # postgres/api/frontend healthy (plus de web)
-# 2. Caddy : FRONTEND_UPSTREAM=127.0.0.1:4173 dans rev0auth-caddy.env + reload
-# 3. Migration comptes BetterAuth (dry-run d'abord)
-# 4. Tests prod : login admin (challenge), login membre, flow SongSurf complet,
-#    /status api_ok:true, https://rev0li.duckdns.org/portal → 301
-# 5. Hérités : nettoyer SONGSURF_JWT_SECRET des .env/.secrets, vérifier ORIGIN
-```
+### 2. Deploy VPS
+Checklist Phase 3 inchangée (voir version précédente de ce fichier dans git ou `migration-svelte-betterauth.md`) : compose down/up, `FRONTEND_UPSTREAM` Caddy, script migration comptes, TOTP admin.
 
 ### 3. Validation type-check
 ```bash
 cd /home/revoli/dev/rev0Univers/auth/frontend
-npm run check   # attendu : 0 ERRORS / 10 WARNINGS
+npm run check   # attendu : 0 ERRORS / 7 WARNINGS
 npm test        # attendu : 26/26
 ```
 
@@ -70,4 +69,4 @@ npm test        # attendu : 26/26
 
 ## Prochaine étape
 
-Deploy VPS + tests prod, puis revue visuelle des pages membres (shadcn-svelte/MyCss). Ensuite : plugin passkey BetterAuth (restaurer la YubiKey admin), dashboard admin externe, Phase 4 (retrait crates/api).
+Deploy VPS + tests prod (tout le travail du 2026-06-12 n'est visible qu'après le switch Caddy). Ensuite : revue visuelle complète (shadcn-svelte/MyCss), vrais profils membres "custom" (la bio est gardée pour ça), plugin passkey BetterAuth, dashboard admin externe.
