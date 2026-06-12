@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
+import { setBaPassword } from '$lib/server/ba-sync.js';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
@@ -17,6 +18,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     await db.update(users)
         .set({ passwordHash: hash })
         .where(eq(users.pseudo, locals.memberSession.pseudo));
+    await setBaPassword(locals.memberSession.pseudo, hash, locals.memberSession.role);
 
     return json({ ok: true });
 };

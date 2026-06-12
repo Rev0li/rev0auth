@@ -4,9 +4,9 @@ import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { verifyPassword, hashPassword } from '$lib/server/auth.js';
-import { createSession, MEMBER_COOKIE, MEMBER_COOKIE_OPTS } from '$lib/server/session.js';
+import { setBaPassword } from '$lib/server/ba-sync.js';
 
-export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
+export const PUT: RequestHandler = async ({ request, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
     const { currentPassword, newPassword } = await request.json();
     if (!currentPassword || !newPassword) return json({ ok: false, message: 'Champs requis.' }, { status: 400 });
@@ -21,10 +21,8 @@ export const PUT: RequestHandler = async ({ request, locals, cookies }) => {
 
     const hash = await hashPassword(newPassword);
     await db.update(users).set({ passwordHash: hash }).where(eq(users.pseudo, user.pseudo));
+    await setBaPassword(user.pseudo, hash, user.role);
 
-    // Re-issue session with updated state
-    const token = await createSession(user.pseudo, 'member');
-    cookies.set(MEMBER_COOKIE, token, MEMBER_COOKIE_OPTS);
-
+    // La session BetterAuth en cours reste valide, pas de cookie à ré-émettre
     return json({ ok: true, message: 'Mot de passe mis à jour.' });
 };

@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/index.js';
 import { users, invites } from '$lib/server/db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
+import { setBaPassword } from '$lib/server/ba-sync.js';
 import { AVATAR_SVG, isAvatarId } from '$lib/avatars.js';
 
 const PSEUDO_RE = /^[a-zA-Z0-9_-]{3,20}$/;
@@ -43,6 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const storedPseudo = cleanPseudo.toLowerCase();
     const passwordHash = await hashPassword(password);
     await db.insert(users).values({ pseudo: storedPseudo, passwordHash, approved: true, status: 'actif' });
+    await setBaPassword(storedPseudo, passwordHash);
 
     if (isAvatarId(avatar_id)) {
         const svg = AVATAR_SVG[avatar_id];

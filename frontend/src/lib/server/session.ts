@@ -8,6 +8,9 @@ const MEMBER_TTL_S = 24 * 60 * 60;
 const ADMIN_TTL_S  =  8 * 60 * 60;
 
 export const ADMIN_COOKIE  = 'rev0auth_admin_session';
+// Legacy : les sessions membres sont passées sur BetterAuth (ba_sessions).
+// Ce cookie n'est plus émis — il ne sert qu'au nettoyage des sessions
+// d'avant la bascule (logout, suppression de compte).
 export const MEMBER_COOKIE = 'rev0auth_member_session';
 
 export async function createSession(pseudo: string, kind: 'admin' | 'member'): Promise<string> {
@@ -38,13 +41,5 @@ export const ADMIN_COOKIE_OPTS = {
     sameSite: 'lax' as const,
     path: '/',
     maxAge: ADMIN_TTL_S,
-    secure: process.env.NODE_ENV === 'production',
-};
-
-export const MEMBER_COOKIE_OPTS = {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    path: '/',
-    maxAge: MEMBER_TTL_S,
     secure: process.env.NODE_ENV === 'production',
 };

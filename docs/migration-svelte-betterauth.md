@@ -233,10 +233,12 @@ Ce fichier sert à un autre Claude (ou à toi-même) pour valider la tâche sans
 ### Phase 2 — étapes restantes
 - [x] Fondations BetterAuth (tables `ba_*`, plugin username, handler)
 - [x] Script migration comptes + hashes Argon2
-- [ ] RBAC : guards lisant `ba_users.role` (ou plugin admin BetterAuth — à trancher)
-- [ ] Flow login membre sur BetterAuth (remplacer `/auth/password-check` + cookie custom)
-- [ ] Synchronisation `web_users` ↔ `ba_users` pendant la coexistence (signup Rust, set-password admin, delete user)
+- [x] Flow login membre sur BetterAuth (2026-06-12) : `hooks.server.ts` lit `ba_sessions`, `password-check` délègue à `signInUsername` + provisionnement paresseux, logout révoque
+- [x] Synchronisation `web_users` → `ba_*` : helper `lib/server/ba-sync.ts` branché sur tous les chemins credentials/rôle/suppression (signup, mdp membre+onboarding, set/remove-password admin, create/delete user, role PUT, delete account membre)
+- [x] RBAC : `locals.memberSession.role` exposé depuis `ba_users.role` (guards à densifier quand des routes mod/admin membres apparaîtront)
 - [ ] Passkeys via plugin BetterAuth (remplace le WebAuthn skippé en Phase 1)
+- [ ] Auth admin : reportée — le dashboard admin sera externalisé (container dédié Tailscale-only), voir décision 2026-06-12
+- [ ] Cleanup code mort post-bascule : sessions membres `web_sessions` (table partagée avec admin), colonnes avatar legacy, à auditer
 
 ### Décisions verrouillées à ne pas remettre en cause
 - Drizzle reste (pas Prisma)

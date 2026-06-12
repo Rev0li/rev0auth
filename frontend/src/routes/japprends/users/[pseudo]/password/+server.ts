@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { sql } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
+import { setBaPassword, removeBaPassword } from '$lib/server/ba-sync.js';
 import { writeAudit } from '$lib/server/audit.js';
 
 export const POST: RequestHandler = async ({ request, locals, params }) => {
@@ -15,12 +16,13 @@ export const POST: RequestHandler = async ({ request, locals, params }) => {
     const updated = await db.update(users)
         .set({ passwordHash: hash })
         .where(sql`LOWER(${users.pseudo}) = LOWER(${params.pseudo})`)
-        .returning({ pseudo: users.pseudo });
+        .returning({ pseudo: users.pseudo, role: users.role });
 
     if (updated.length === 0) {
         return json({ ok: false, message: 'Utilisateur introuvable.' });
     }
 
+    await setBaPassword(updated[0].pseudo, hash, updated[0].role);
     await writeAudit('set_password', locals.adminSession.pseudo, updated[0].pseudo, 'password replaced');
     return json({ ok: true });
 };
@@ -44,6 +46,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     await db.update(users)
         .set({ passwordHash: '' })
         .where(sql`LOWER(${users.pseudo}) = LOWER(${pseudo})`);
+    await removeBaPassword(pseudo);
 
     await writeAudit('remove_password', locals.adminSession.pseudo, pseudo, 'password cleared');
     return json({ ok: true, message: 'Mot de passe supprime.' });

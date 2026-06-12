@@ -4,6 +4,7 @@ import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { eq, asc } from 'drizzle-orm';
 import { hashPassword } from '$lib/server/auth.js';
+import { setBaPassword } from '$lib/server/ba-sync.js';
 
 function requireAdmin({ locals }: { locals: App.Locals }) {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
@@ -30,6 +31,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         passwordHash: hash,
         createdAt: now,
     });
+    await setBaPassword(key, hash, role ?? 'member');
 
     return json({ ok: true, pseudo: key });
 };

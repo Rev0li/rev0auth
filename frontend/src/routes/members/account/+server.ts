@@ -2,8 +2,9 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users, messages, donations } from '$lib/server/db/schema.js';
-import { eq, or, sql } from 'drizzle-orm';
+import { or, sql } from 'drizzle-orm';
 import { deleteSession, MEMBER_COOKIE } from '$lib/server/session.js';
+import { deleteBaUser } from '$lib/server/ba-sync.js';
 
 export const DELETE: RequestHandler = async ({ cookies, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
@@ -24,6 +25,7 @@ export const DELETE: RequestHandler = async ({ cookies, locals }) => {
         ),
     );
     await db.delete(donations).where(sql`LOWER(${donations.pseudo}) = LOWER(${pseudo})`);
+    await deleteBaUser(pseudo); // révoque aussi les ba_sessions (cascade SQL)
 
     const token = cookies.get(MEMBER_COOKIE);
     if (token) await deleteSession(token);

@@ -3,10 +3,15 @@ import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users } from '$lib/server/db/schema.js';
 import { sql } from 'drizzle-orm';
+import { auth } from '$lib/server/auth-v2.js';
+import { setBaPassword } from '$lib/server/ba-sync.js';
 import { verifyPassword } from '$lib/server/auth.js';
-import { createSession, MEMBER_COOKIE, MEMBER_COOKIE_OPTS } from '$lib/server/session.js';
 import { checkRateLimit, recordFailure, clearAttempts, getIp } from '$lib/server/ratelimit.js';
 import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
+
+// Login membre — même contrat JSON qu'avant (ok/message/pseudo/songsurf_url),
+// mais la session est désormais BetterAuth (cookie better-auth.session_token,
+// table ba_sessions) au lieu du cookie custom rev0auth_member_session.
 
 async function buildSongsurfUrl(pseudo: string, role: string): Promise<string | null> {
     if (!songsurfConfigured()) return null;
@@ -14,7 +19,18 @@ async function buildSongsurfUrl(pseudo: string, role: string): Promise<string | 
     return `${songsurfBaseUrl()}?token=${token}`;
 }
 
-export const POST: RequestHandler = async ({ request, cookies }) => {
+async function baSignIn(username: string, password: string) {
+    try {
+        return await auth.api.signInUsername({
+            body: { username, password },
+            returnHeaders: true,
+        });
+    } catch {
+        return null;
+    }
+}
+
+export const POST: RequestHandler = async ({ request }) => {
     const ip = getIp(request);
     if (checkRateLimit(ip).blocked) {
         return json({ ok: false, state: 'invalid', message: 'Trop de tentatives, réessaie dans 15 minutes.' }, { status: 429 });
@@ -38,25 +54,35 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         return json({ ok: false, state: 'invalid', message: 'Mot de passe incorrect.' });
     }
 
-    const valid = await verifyPassword(password, user.passwordHash);
-    if (!valid) {
+    let result = await baSignIn(key, password);
+    if (!result && (await verifyPassword(password, user.passwordHash))) {
+        // Compte valide côté web_users mais inconnu/désynchronisé côté ba_*
+        // (créé ou mot de passe changé hors SvelteKit) : provisionnement
+        // paresseux, puis nouvelle tentative.
+        await setBaPassword(user.pseudo, user.passwordHash, user.role);
+        result = await baSignIn(key, password);
+    }
+    if (!result) {
         recordFailure(ip);
         return json({ ok: false, state: 'invalid', message: 'Mot de passe incorrect.' });
     }
 
     clearAttempts(ip);
-    const token = await createSession(user.pseudo, 'member');
-    cookies.set(MEMBER_COOKIE, token, MEMBER_COOKIE_OPTS);
 
     const songsurfUrl = user.accessSongsurf
         ? await buildSongsurfUrl(user.pseudo, user.role)
         : null;
 
-    return json({
+    const response = json({
         ok: true,
         state: 'ok',
         message: 'Connexion autorisée.',
         pseudo: user.pseudo,
         songsurf_url: songsurfUrl,
     });
+    // Forward du cookie de session BetterAuth vers le navigateur
+    for (const cookie of result.headers.getSetCookie()) {
+        response.headers.append('set-cookie', cookie);
+    }
+    return response;
 };

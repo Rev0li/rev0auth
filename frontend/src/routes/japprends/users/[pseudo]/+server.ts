@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
 import { users, sessions, messages, donations, wallPosts } from '$lib/server/db/schema.js';
 import { eq, or, sql } from 'drizzle-orm';
+import { deleteBaUser, syncBaRole } from '$lib/server/ba-sync.js';
 import { writeAudit } from '$lib/server/audit.js';
 
 function requireAdmin({ locals }: { locals: App.Locals }) {
@@ -18,6 +19,7 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
     delete updates.avatarBytes;
 
     await db.update(users).set(updates).where(eq(users.pseudo, params.pseudo));
+    if (typeof updates.role === 'string') await syncBaRole(params.pseudo, updates.role);
 
     return json({ ok: true });
 };
@@ -43,6 +45,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     );
     await db.delete(donations).where(sql`LOWER(${donations.pseudo}) = LOWER(${pseudo})`);
     await db.delete(wallPosts).where(sql`LOWER(${wallPosts.pseudo}) = LOWER(${pseudo})`);
+    await deleteBaUser(pseudo); // ba_sessions + ba_accounts en cascade SQL
 
     await writeAudit('delete_user', locals.adminSession!.pseudo, deleted[0].pseudo, 'user and all data deleted');
     return json({ ok: true });
