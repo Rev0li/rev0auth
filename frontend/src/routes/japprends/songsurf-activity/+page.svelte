@@ -19,6 +19,49 @@
     let downloads = $derived(data.events.filter(e => DOWNLOAD_TYPES.has(e.eventType)));
     let others    = $derived(data.events.filter(e => !DOWNLOAD_TYPES.has(e.eventType)));
 
+    // Regroupement en cascade Membre → Artiste → Album → titres : les libellés
+    // répétés (pseudo/artiste/album) sont factorisés, chaque niveau est repliable.
+    type Track    = { title: string; receivedAt: number; eventType: string; detail: string };
+    type AlbumGrp = { album: string; tracks: Track[]; last: number };
+    type ArtistGrp = { artist: string; albums: AlbumGrp[]; count: number; last: number };
+    type MemberGrp = { pseudo: string; artists: ArtistGrp[]; count: number; last: number };
+
+    function groupDownloads(list: typeof downloads): MemberGrp[] {
+        const members = new Map<string, Map<string, Map<string, Track[]>>>();
+        for (const e of list) {
+            const p = e.pseudo || '—', ar = e.artist || '—', al = e.album || '—';
+            if (!members.has(p)) members.set(p, new Map());
+            const arts = members.get(p)!;
+            if (!arts.has(ar)) arts.set(ar, new Map());
+            const albs = arts.get(ar)!;
+            if (!albs.has(al)) albs.set(al, []);
+            albs.get(al)!.push({ title: e.title || '—', receivedAt: e.receivedAt, eventType: e.eventType, detail: e.detail });
+        }
+        const out: MemberGrp[] = [];
+        for (const [pseudo, arts] of members) {
+            const artists: ArtistGrp[] = [];
+            let mCount = 0, mLast = 0;
+            for (const [artist, albs] of arts) {
+                const albums: AlbumGrp[] = [];
+                let aCount = 0, aLast = 0;
+                for (const [album, tracks] of albs) {
+                    tracks.sort((x, y) => y.receivedAt - x.receivedAt);
+                    const last = tracks[0]?.receivedAt ?? 0;
+                    albums.push({ album, tracks, last });
+                    aCount += tracks.length; aLast = Math.max(aLast, last);
+                }
+                albums.sort((x, y) => y.last - x.last);
+                artists.push({ artist, albums, count: aCount, last: aLast });
+                mCount += aCount; mLast = Math.max(mLast, aLast);
+            }
+            artists.sort((x, y) => y.last - x.last);
+            out.push({ pseudo, artists, count: mCount, last: mLast });
+        }
+        return out.sort((x, y) => y.last - x.last);
+    }
+
+    let grouped = $derived(groupDownloads(downloads));
+
     function fmt(epoch: number) {
         return new Date(epoch * 1000).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
     }
@@ -120,33 +163,53 @@
 
     <section>
         <h2>Téléchargements & exports</h2>
-        {#if downloads.length === 0}
+        {#if grouped.length === 0}
             <p class="empty">Aucun événement.</p>
         {:else}
-            <table>
-                <thead>
-                    <tr><th>Date</th><th>Membre</th><th>Type</th><th>Artiste</th><th>Album</th><th>Titre</th><th>Détail</th></tr>
-                </thead>
-                <tbody>
-                    {#each downloads as e (e.id)}
-                        <tr>
-                            <td class="ts">{fmt(e.receivedAt)}</td>
-                            <td>{e.pseudo || '—'}</td>
-                            <td>
-                                <span class="badge" class:ok={e.eventType === 'download_success'}
-                                      class:ko={e.eventType === 'download_failed'}
-                                      class:zip={e.eventType === 'zip_export'}>
-                                    {TYPE_LABELS[e.eventType] ?? e.eventType}
-                                </span>
-                            </td>
-                            <td>{e.artist || '—'}</td>
-                            <td>{e.album || '—'}</td>
-                            <td>{e.title || '—'}</td>
-                            <td class="detail">{detailText(e) || '—'}</td>
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
+            <div class="tree">
+                {#each grouped as m (m.pseudo)}
+                    <details class="grp grp-member" open>
+                        <summary>
+                            <span class="chevron" aria-hidden="true">▸</span>
+                            <span class="grp-name">{m.pseudo}</span>
+                            <span class="count-pill">{m.count} téléchargement{m.count > 1 ? 's' : ''}</span>
+                        </summary>
+                        {#each m.artists as a (a.artist)}
+                            <details class="grp grp-artist" open>
+                                <summary>
+                                    <span class="chevron" aria-hidden="true">▸</span>
+                                    <span class="grp-name">{a.artist}</span>
+                                    <span class="count-pill subtle">{a.count}</span>
+                                </summary>
+                                {#each a.albums as al (al.album)}
+                                    <details class="grp grp-album">
+                                        <summary>
+                                            <span class="chevron" aria-hidden="true">▸</span>
+                                            <span class="grp-name">{al.album}</span>
+                                            <span class="count-pill subtle">{al.tracks.length} titre{al.tracks.length > 1 ? 's' : ''}</span>
+                                            <span class="grp-last">{fmt(al.last)}</span>
+                                        </summary>
+                                        <ul class="track-list">
+                                            {#each al.tracks as t, i (i)}
+                                                <li>
+                                                    {#if t.eventType !== 'download_success'}
+                                                        <span class="badge" class:ko={t.eventType === 'download_failed'} class:zip={t.eventType === 'zip_export'}>
+                                                            {TYPE_LABELS[t.eventType] ?? t.eventType}
+                                                        </span>
+                                                    {/if}
+                                                    <span class="t-title">{t.title}</span>
+                                                    {#if detailText(t)}<span class="detail">{detailText(t)}</span>{/if}
+                                                    <span class="t-date ts">{fmt(t.receivedAt)}</span>
+                                                </li>
+                                            {/each}
+                                        </ul>
+                                    </details>
+                                {/each}
+                            </details>
+                        {/each}
+                    </details>
+                {/each}
+            </div>
         {/if}
     </section>
 
@@ -236,6 +299,46 @@
     .badge.zip { background: rgba(217,150,70,.14); border-color: rgba(217,150,70,.35); color: #c8862f; }
 
     .empty { color: var(--muted-foreground); padding: 1.75rem; text-align: center; }
+
+    /* ── Cascade Membre → Artiste → Album → titres ── */
+    .tree { display: flex; flex-direction: column; gap: .35rem; padding: .5rem 0; }
+    .grp > summary {
+        display: flex; align-items: center; gap: .5rem;
+        padding: .45rem .55rem; cursor: pointer; list-style: none;
+        border-radius: var(--radius-sm); user-select: none;
+    }
+    .grp > summary::-webkit-details-marker { display: none; }
+    .grp > summary:hover { background: var(--muted); }
+    .chevron {
+        font-size: .7rem; color: var(--muted-foreground); flex-shrink: 0;
+        transition: transform .15s;
+    }
+    .grp[open] > summary > .chevron { transform: rotate(90deg); }
+    .grp-name { font-weight: 600; }
+    .grp-member > summary > .grp-name { font-size: .95rem; }
+    .grp-artist > summary > .grp-name { font-weight: 500; }
+    .grp-album  > summary > .grp-name { font-weight: 400; color: var(--muted-foreground); }
+
+    .count-pill {
+        font-size: .7rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px;
+        background: var(--muted); color: var(--muted-foreground); border: 1px solid var(--border);
+    }
+    .count-pill.subtle { background: none; border: none; padding: 0; }
+    .grp-last { margin-left: auto; font-size: .75rem; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+    /* indentation par niveau */
+    .grp-member > :not(summary) { margin-left: 1rem; border-left: 1px solid var(--border); padding-left: .4rem; }
+    .grp-artist > :not(summary) { margin-left: 1rem; border-left: 1px solid var(--border); padding-left: .4rem; }
+
+    .track-list { list-style: none; margin: 0; padding: .2rem 0 .4rem 1.5rem; display: flex; flex-direction: column; gap: 1px; }
+    .track-list li {
+        display: flex; align-items: baseline; gap: .6rem;
+        padding: .3rem .5rem; border-radius: var(--radius-sm); font-size: .85rem;
+    }
+    .track-list li:hover { background: var(--muted); }
+    .t-title { font-weight: 500; }
+    .t-date { margin-left: auto; }
+
     .more { text-align: center; margin: 1.5rem 0; }
     .more button {
         padding: .5rem 1rem; cursor: pointer;
