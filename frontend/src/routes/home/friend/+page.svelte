@@ -169,6 +169,9 @@
                         {#if data.user.githubUsername}
                             <p class="meta">@{data.user.githubUsername}</p>
                         {/if}
+                        <a class="btn-primary svc-launch" href="/members/songsurf/launch" target="_blank" rel="noopener">
+                            Ouvrir SongSurf →
+                        </a>
                     {:else if data.user.requestSongsurf}
                         <p class="meta">Demande en attente…</p>
                     {:else}
@@ -372,6 +375,10 @@
         background: var(--background); color: var(--foreground);
     }
     .svc-input:focus { outline: none; border-color: var(--primary); }
+    .svc-launch {
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-top: 0.625rem; text-decoration: none;
+    }
 
     /* ── Members ── */
     .members-row { display: flex; flex-wrap: wrap; gap: 10px; }

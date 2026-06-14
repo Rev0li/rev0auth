@@ -27,12 +27,8 @@
             if (!data.ok) { error = data.message; return; }
 
             localStorage.setItem('logged_pseudo', data.pseudo ?? key);
-            if (data.songsurf_url) {
-                sessionStorage.setItem('songsurf_launch_url', data.songsurf_url);
-            } else {
-                sessionStorage.removeItem('songsurf_launch_url');
-            }
-
+            // Le lancement SongSurf se fait via /members/songsurf/launch (token
+            // frais re-signé à chaque clic), plus besoin de transporter l'URL ici.
             goto('/home/friend');
         } catch { error = 'Erreur réseau.'; }
         finally { loading = false; }
