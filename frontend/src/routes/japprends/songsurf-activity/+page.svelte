@@ -182,24 +182,66 @@
 </main>
 
 <style>
-    .activity-page { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    h1 { margin: 0; font-size: 1.4rem; }
-    h2 { font-size: 1.05rem; margin: 1.5rem 0 .6rem; }
+    .activity-page {
+        max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem;
+        color: var(--foreground);
+    }
+    header {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+        padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+    }
+    h1 { margin: 0; font-size: 1.4rem; font-weight: 700; }
+    h2 { font-size: 1.05rem; font-weight: 600; margin: 1.75rem 0 .6rem; }
+
     .actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-    .actions select { padding: .4rem .6rem; border: 1px solid #ccc; border-radius: 4px; }
-    .actions a { font-size: .9rem; }
-    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #eee; }
-    th { background: #f7f7f7; font-weight: 600; }
-    .ts { white-space: nowrap; color: #666; font-variant-numeric: tabular-nums; }
-    .ip { font-family: monospace; color: #666; }
-    .detail { color: #666; font-size: .85rem; }
-    .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem; background: #eef; color: #336; }
-    .badge.ok { background: #e6f6e6; color: #1a7f1a; }
-    .badge.ko { background: #fdeaea; color: #b02a2a; }
-    .badge.zip { background: #fff3e0; color: #a05a00; }
-    .empty { color: #888; padding: 1.5rem; text-align: center; }
+    .actions select {
+        padding: .45rem .6rem; min-width: 180px;
+        border: 1px solid var(--border); border-radius: var(--radius-md);
+        background: var(--background); color: var(--foreground);
+        font: 500 0.8125rem/1 var(--font-sans); cursor: pointer;
+    }
+    .actions select:focus { outline: none; border-color: var(--primary); }
+    .actions a {
+        font-size: .8125rem; color: var(--primary-hover);
+        text-decoration: none; font-weight: 500; padding: .3rem .2rem;
+    }
+    .actions a:hover { text-decoration: underline; }
+
+    section {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--radius-md); padding: .25rem 1rem 1rem;
+        margin-top: 1rem; overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--border); }
+    th {
+        font-weight: 600; color: var(--muted-foreground);
+        text-transform: uppercase; font-size: .6875rem; letter-spacing: .04em;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--muted); }
+    .ts { white-space: nowrap; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+    .ip { font-family: var(--font-mono, monospace); color: var(--muted-foreground); }
+    .detail { color: var(--muted-foreground); font-size: .8125rem; }
+
+    .badge {
+        display: inline-block; padding: .12rem .55rem; border-radius: 999px;
+        font-size: .72rem; font-weight: 600;
+        background: var(--muted); color: var(--muted-foreground);
+        border: 1px solid var(--border);
+    }
+    .badge.ok { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
+    .badge.ko { background: var(--destructive-bg); border-color: var(--destructive-border); color: var(--destructive); }
+    .badge.zip { background: rgba(217,150,70,.14); border-color: rgba(217,150,70,.35); color: #c8862f; }
+
+    .empty { color: var(--muted-foreground); padding: 1.75rem; text-align: center; }
     .more { text-align: center; margin: 1.5rem 0; }
-    .more button { padding: .4rem .9rem; cursor: pointer; }
+    .more button {
+        padding: .5rem 1rem; cursor: pointer;
+        background: var(--muted); color: var(--foreground);
+        border: 1px solid var(--border); border-radius: var(--radius-md);
+        font: 500 0.8125rem/1 var(--font-sans);
+    }
+    .more button:hover { border-color: var(--primary); }
 </style>
