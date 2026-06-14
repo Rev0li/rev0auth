@@ -11,6 +11,80 @@ const client = postgres(url);
 export const db = drizzle(client, { schema: { ...schema, ...authSchema } });
 
 export async function initDb() {
+    // ── Tables métier (web_*) ────────────────────────────────────────────────
+    // Historiquement créées par les migrations Rust sqlx (0004/0005/0006), désormais
+    // retirées. Portées ici pour que SvelteKit soit autonome (DB fraîche / DR / dev).
+    // Idempotent : no-op sur une DB existante. Schéma = miroir exact de schema.ts.
+    await client`
+        CREATE TABLE IF NOT EXISTS web_users (
+            pseudo              TEXT PRIMARY KEY,
+            role                TEXT NOT NULL DEFAULT 'member',
+            active              BOOLEAN NOT NULL DEFAULT true,
+            status              TEXT NOT NULL DEFAULT 'offline',
+            bio                 TEXT NOT NULL DEFAULT '',
+            access_jellyfin     BOOLEAN NOT NULL DEFAULT false,
+            access_songsurf     BOOLEAN NOT NULL DEFAULT false,
+            request_jellyfin    BOOLEAN NOT NULL DEFAULT false,
+            request_songsurf    BOOLEAN NOT NULL DEFAULT false,
+            github_username     TEXT,
+            linkedin_name       TEXT,
+            avatar_filename     TEXT,
+            avatar_size_bytes   BIGINT,
+            avatar_mime_type    TEXT,
+            avatar_bytes        BYTEA,
+            password_hash       TEXT NOT NULL DEFAULT '',
+            created_at_epoch    BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+            approved            BOOLEAN NOT NULL DEFAULT false
+        )
+    `;
+    // Colonnes mortes retirées (github jamais request/access ; commentary inutilisé).
+    // DROP IF EXISTS : nettoie les DB de prod existantes, no-op sur une DB fraîche.
+    await client`ALTER TABLE web_users DROP COLUMN IF EXISTS commentary`;
+    await client`ALTER TABLE web_users DROP COLUMN IF EXISTS access_github`;
+    await client`ALTER TABLE web_users DROP COLUMN IF EXISTS request_github`;
+    await client`ALTER TABLE web_users DROP COLUMN IF EXISTS github_star_claimed`;
+
+    await client`
+        CREATE TABLE IF NOT EXISTS web_messages (
+            id               BIGSERIAL PRIMARY KEY,
+            from_pseudo      TEXT NOT NULL,
+            to_pseudo        TEXT NOT NULL,
+            body             TEXT NOT NULL,
+            is_read          BOOLEAN NOT NULL DEFAULT false,
+            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+        )
+    `;
+    await client`
+        CREATE TABLE IF NOT EXISTS web_donations (
+            id               BIGSERIAL PRIMARY KEY,
+            pseudo           TEXT NOT NULL,
+            method           TEXT NOT NULL,
+            code             TEXT NOT NULL DEFAULT '',
+            reviewed         BOOLEAN NOT NULL DEFAULT false,
+            approved         BOOLEAN NOT NULL DEFAULT false,
+            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+        )
+    `;
+    await client`
+        CREATE TABLE IF NOT EXISTS web_wall_posts (
+            id               BIGSERIAL PRIMARY KEY,
+            pseudo           TEXT NOT NULL,
+            body             TEXT NOT NULL,
+            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+        )
+    `;
+    await client`
+        CREATE TABLE IF NOT EXISTS web_invites (
+            id               BIGSERIAL PRIMARY KEY,
+            code             TEXT NOT NULL UNIQUE,
+            note             TEXT NOT NULL DEFAULT '',
+            created_at_epoch BIGINT NOT NULL,
+            expires_at_epoch BIGINT NOT NULL,
+            used_by          TEXT,
+            used_at_epoch    BIGINT
+        )
+    `;
+
     await client`
         CREATE TABLE IF NOT EXISTS web_sessions (
             token       TEXT PRIMARY KEY,

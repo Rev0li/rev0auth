@@ -2,8 +2,8 @@
     type User = {
         pseudo: string; role: string; active: boolean; approved: boolean;
         status: string; createdAt: number;
-        accessGithub: boolean; accessJellyfin: boolean; accessSongsurf: boolean;
-        requestGithub: boolean; requestJellyfin: boolean; requestSongsurf: boolean;
+        accessJellyfin: boolean; accessSongsurf: boolean;
+        requestJellyfin: boolean; requestSongsurf: boolean;
     };
 
     let { users: initial }: { users: User[] } = $props();
@@ -109,15 +109,15 @@
             members = [...members, {
                 pseudo: key, role: 'member', active: true, approved: false,
                 status: 'offline', createdAt: Math.floor(Date.now() / 1000),
-                accessGithub: false, accessJellyfin: false, accessSongsurf: false,
-                requestGithub: false, requestJellyfin: false, requestSongsurf: false,
+                accessJellyfin: false, accessSongsurf: false,
+                requestJellyfin: false, requestSongsurf: false,
             }];
             newPseudo = ''; newPassword = ''; createOpen = false;
         } finally { createLoading = false; }
     }
 
     const pendingRequests = $derived(members.filter(u =>
-        u.requestGithub || u.requestJellyfin || u.requestSongsurf
+        u.requestJellyfin || u.requestSongsurf
     ));
 </script>
 
@@ -153,7 +153,7 @@
                 <button class="member-row" onclick={() => toggle(u.pseudo)}>
                     <div class="member-identity">
                         <span class="pseudo">{u.pseudo}</span>
-                        {#if u.requestGithub || u.requestJellyfin || u.requestSongsurf}
+                        {#if u.requestJellyfin || u.requestSongsurf}
                             <span class="chip-request">demande accès</span>
                         {/if}
                     </div>

@@ -14,10 +14,8 @@ export const load: PageServerLoad = async ({ locals }) => {
         approved:         users.approved,
         status:           users.status,
         createdAt:        users.createdAt,
-        accessGithub:     users.accessGithub,
         accessJellyfin:   users.accessJellyfin,
         accessSongsurf:   users.accessSongsurf,
-        requestGithub:    users.requestGithub,
         requestJellyfin:  users.requestJellyfin,
         requestSongsurf:  users.requestSongsurf,
     }).from(users).orderBy(asc(users.createdAt));
