@@ -5,6 +5,7 @@
     import MessagesTab    from './MessagesTab.svelte';
     import DonationsTab   from './DonationsTab.svelte';
     import InvitationsTab from './InvitationsTab.svelte';
+    import ThemeToggle    from '$lib/ThemeToggle.svelte';
 
     const TABS = ['members', 'wall', 'messages', 'donations', 'invitations'] as const;
     type Tab = typeof TABS[number];
@@ -51,6 +52,7 @@
         <a class="btn-songsurf" href="/japprends/songsurf-activity">Activité SongSurf</a>
         <span class="dash-pseudo">{data.admin}</span>
         <button class="btn-logout" onclick={logout}>Déconnexion</button>
+        <ThemeToggle inline />
     </header>
 
     <nav class="tabs-nav">
