@@ -165,7 +165,6 @@
                 </div>
                 <div class="svc-body">
                     {#if data.user.accessSongsurf}
-                        <p class="chip-ok">✓ Accès accordé</p>
                         {#if data.user.githubUsername}
                             <p class="meta">@{data.user.githubUsername}</p>
                         {/if}
@@ -197,7 +196,9 @@
                 </div>
                 <div class="svc-body">
                     {#if data.user.accessJellyfin}
-                        <p class="chip-ok">✓ Accès accordé</p>
+                        <a class="btn-primary svc-launch" href="https://revoli-jellyfin.duckdns.org" target="_blank" rel="noopener">
+                            Ouvrir Jellyfin →
+                        </a>
                     {:else if data.user.requestJellyfin}
                         <p class="meta">Demande en attente…</p>
                     {:else}
