@@ -23,3 +23,31 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+
+  deploy:
+    name: Deploy to VPS
+    needs: frontend                       # ne part que si le CI frontend passe
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd ~/app/auth
+            git pull origin main
+
+            # Backup DB — best-effort, n'arrête pas le deploy si ça échoue
+            mkdir -p ~/backups
+            docker exec auth-postgres-1 pg_dump -U postgres rev0auth \
+              > ~/backups/rev0auth_$(date +%Y%m%d_%H%M%S).sql \
+              && echo "Backup OK" \
+              || echo "Backup skipped (non bloquant)"
+            ls -t ~/backups/rev0auth_*.sql 2>/dev/null | tail -n +11 | xargs -r rm
+
+            # --remove-orphans nettoie l'ancien conteneur `api` (Rust retiré)
+            docker compose up -d --build --force-recreate --remove-orphans frontend

@@ -83,7 +83,7 @@ EOF"
   run "systemctl enable caddy"
   run "systemctl restart caddy"
 
-  log "Done. Verify with: curl -f https://\$(grep ^API_DOMAIN= '$TARGET_ENV' | cut -d= -f2)/health"
+  log "Done. Verify with: curl -fI https://\$(grep ^WEB_DOMAIN= '$TARGET_ENV' | cut -d= -f2)/japprends/login"
 }
 
 main "$@"
