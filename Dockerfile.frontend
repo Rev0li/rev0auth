@@ -17,6 +17,11 @@ COPY frontend/ ./
 # réévalué au démarrage du conteneur (process.env lu au runtime, jamais baké).
 RUN BETTER_AUTH_SECRET="build-time-placeholder-not-used-at-runtime" npm run build
 
+# Élague les devDependencies SANS réinstaller (prune ne lance aucun script).
+# Évite de re-déclencher le postinstall cassé de @esbuild-kit/core-utils
+# (drizzle-kit, peerDep de better-auth) tout en gardant argon2 déjà compilé.
+RUN npm prune --omit=dev
+
 # ── Runtime ────────────────────────────────────────────────────────────────────
 FROM node:22-slim
 RUN apt-get update \
@@ -25,16 +30,8 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=builder /build/build ./build
+COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
-COPY --from=builder /build/package-lock.json ./
-
-# Reinstall only prod deps (includes native argon2 for this arch)
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 make g++ \
- && npm ci --omit=dev \
- && apt-get purge -y python3 make g++ \
- && apt-get autoremove -y \
- && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 EXPOSE 4173
