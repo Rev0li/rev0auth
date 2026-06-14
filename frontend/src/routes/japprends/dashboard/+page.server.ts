@@ -18,6 +18,8 @@ export const load: PageServerLoad = async ({ locals }) => {
         accessSongsurf:   users.accessSongsurf,
         requestJellyfin:  users.requestJellyfin,
         requestSongsurf:  users.requestSongsurf,
+        githubUsername:   users.githubUsername,
+        linkedinName:     users.linkedinName,
     }).from(users).orderBy(asc(users.createdAt));
 
     return {

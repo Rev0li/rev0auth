@@ -4,6 +4,7 @@
         status: string; createdAt: number;
         accessJellyfin: boolean; accessSongsurf: boolean;
         requestJellyfin: boolean; requestSongsurf: boolean;
+        githubUsername: string | null; linkedinName: string | null;
     };
 
     let { users: initial }: { users: User[] } = $props();
@@ -111,6 +112,7 @@
                 status: 'offline', createdAt: Math.floor(Date.now() / 1000),
                 accessJellyfin: false, accessSongsurf: false,
                 requestJellyfin: false, requestSongsurf: false,
+                githubUsername: null, linkedinName: null,
             }];
             newPseudo = ''; newPassword = ''; createOpen = false;
         } finally { createLoading = false; }
@@ -153,8 +155,11 @@
                 <button class="member-row" onclick={() => toggle(u.pseudo)}>
                     <div class="member-identity">
                         <span class="pseudo">{u.pseudo}</span>
-                        {#if u.requestJellyfin || u.requestSongsurf}
-                            <span class="chip-request">demande accès</span>
+                        {#if u.requestSongsurf}
+                            <span class="chip-request">demande SongSurf</span>
+                        {/if}
+                        {#if u.requestJellyfin}
+                            <span class="chip-request">demande Jellyfin</span>
                         {/if}
                     </div>
                     <span class="meta-date">{fmt(u.createdAt)}</span>
@@ -164,6 +169,35 @@
                 <!-- ── Détail expandable ── -->
                 {#if isExpanded}
                     <div class="member-detail">
+
+                        <!-- Demandes en attente -->
+                        {#if u.requestSongsurf || u.requestJellyfin}
+                            <div class="detail-section pending-box">
+                                <span class="detail-label">Demande(s) en attente</span>
+                                {#if u.requestSongsurf}
+                                    <div class="pending-row">
+                                        <strong>SongSurf</strong>
+                                        {#if u.githubUsername}
+                                            <span class="meta">GitHub :
+                                                <a href="https://github.com/{u.githubUsername}" target="_blank" rel="noopener">@{u.githubUsername}</a>
+                                            </span>
+                                        {:else}
+                                            <span class="meta">— pseudo GitHub non renseigné</span>
+                                        {/if}
+                                    </div>
+                                {/if}
+                                {#if u.requestJellyfin}
+                                    <div class="pending-row">
+                                        <strong>Jellyfin</strong>
+                                        {#if u.linkedinName}
+                                            <span class="meta">LinkedIn : {u.linkedinName}</span>
+                                        {:else}
+                                            <span class="meta">— nom LinkedIn non renseigné</span>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            </div>
+                        {/if}
 
                         <!-- Accès services -->
                         <div class="detail-section">
@@ -311,6 +345,16 @@
         letter-spacing: 0.05em; color: var(--muted-foreground); }
 
     .access-grid { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    .pending-box {
+        background: var(--destructive-bg); border: 1px solid var(--destructive-border);
+        border-radius: var(--radius-md); padding: 0.75rem;
+    }
+    .pending-row { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8125rem; }
+    .pending-row strong { font-size: 0.8125rem; }
+    .pending-row .meta { color: var(--muted-foreground); }
+    .pending-row a { color: var(--primary-hover); font-weight: 600; text-decoration: none; }
+    .pending-row a:hover { text-decoration: underline; }
 
     .btn-access {
         font: 500 0.8125rem/1 var(--font-sans);
