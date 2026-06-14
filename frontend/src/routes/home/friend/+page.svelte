@@ -165,9 +165,6 @@
                 </div>
                 <div class="svc-body">
                     {#if data.user.accessSongsurf}
-                        {#if data.user.githubUsername}
-                            <p class="meta">@{data.user.githubUsername}</p>
-                        {/if}
                         <a class="btn-primary svc-launch" href="/members/songsurf/launch" target="_blank" rel="noopener">
                             Ouvrir SongSurf →
                         </a>
