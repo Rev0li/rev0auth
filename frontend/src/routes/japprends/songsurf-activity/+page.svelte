@@ -20,7 +20,7 @@
     let others    = $derived(data.events.filter(e => !DOWNLOAD_TYPES.has(e.eventType)));
 
     function fmt(epoch: number) {
-        return new Date(epoch * 1000).toLocaleString('fr-FR');
+        return new Date(epoch * 1000).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
     }
 
     function parseDetail(raw: string): Record<string, unknown> {
