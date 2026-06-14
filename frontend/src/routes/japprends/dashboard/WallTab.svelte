@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { EMOJIS } from '$lib/emojis.js';
     import EmojiText from '$lib/EmojiText.svelte';
+    import EmojiPicker from '$lib/EmojiPicker.svelte';
 
     type Post = { id: number; pseudo: string; body: string; createdAt: number; };
 
@@ -54,13 +54,6 @@
     </div>
 
     <div class="compose">
-        <div class="emoji-bar">
-            {#each EMOJIS as e (e.char)}
-                <button class="emoji-btn" onclick={() => { body += e.char; }} title={e.name}>
-                    <img src={e.src} alt={e.char} />
-                </button>
-            {/each}
-        </div>
         <textarea
             bind:value={body}
             placeholder="Écrire un post (140 car. max)…"
@@ -69,6 +62,7 @@
             onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); post(); } }}
         ></textarea>
         <div class="compose-footer">
+            <EmojiPicker onpick={(c) => { body += c; }} />
             <span class="char-count" class:warn={body.length > 120}>{body.length}/140</span>
             <button class="btn-post" onclick={post} disabled={posting || !body.trim()}>
                 {posting ? '…' : 'Poster'}
@@ -108,16 +102,8 @@
         border: 1px solid var(--border); border-radius: var(--radius-md);
     }
     .compose textarea { resize: vertical; min-height: 60px; }
-    .emoji-bar { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 6px; }
-    .emoji-btn {
-        background: none; border: none; cursor: pointer;
-        padding: 2px 3px; border-radius: var(--radius-sm); line-height: 0;
-        transition: background 0.1s;
-    }
-    .emoji-btn img { width: 22px; height: 22px; }
-    .emoji-btn:hover { background: var(--border); }
-    .compose-footer { display: flex; align-items: center; justify-content: space-between; }
-    .char-count { font-size: 0.75rem; color: var(--muted-foreground); }
+    .compose-footer { display: flex; align-items: center; gap: 0.75rem; }
+    .char-count { font-size: 0.75rem; color: var(--muted-foreground); margin-left: auto; }
     .char-count.warn { color: var(--destructive); }
     .btn-post {
         background: var(--primary); color: var(--primary-foreground);

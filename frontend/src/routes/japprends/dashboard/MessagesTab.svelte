@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { EMOJIS } from '$lib/emojis.js';
     import EmojiText from '$lib/EmojiText.svelte';
+    import EmojiPicker from '$lib/EmojiPicker.svelte';
 
     type Msg = { id: number; fromPseudo: string; toPseudo: string; body: string; createdAt: number; isRead: boolean; };
     type Thread = { key: string; other: string; messages: Msg[]; lastAt: number; unread: number; };
@@ -149,14 +149,8 @@
                     </div>
 
                     <div class="reply-area">
-                        <div class="emoji-bar">
-                            {#each EMOJIS as e (e.char)}
-                                <button class="emoji-btn" onclick={() => insertEmoji(e.char)} title={e.name}>
-                                    <img src={e.src} alt={e.char} />
-                                </button>
-                            {/each}
-                        </div>
                         <div class="reply-form">
+                            <EmojiPicker onpick={insertEmoji} />
                             <textarea
                                 bind:value={replyBody}
                                 placeholder="Répondre à {active.other}…"
@@ -251,20 +245,7 @@
     .msg-date { font-size: 0.625rem; opacity: 0.6; align-self: flex-end; }
 
     .reply-area { border-top: 1px solid var(--border); }
-    .emoji-bar {
-        display: flex; flex-wrap: wrap; gap: 2px;
-        padding: 0.375rem 0.625rem; border-bottom: 1px solid var(--border);
-        background: var(--muted);
-    }
-    .emoji-btn {
-        background: none; border: none; cursor: pointer;
-        padding: 2px 3px; border-radius: var(--radius-sm); line-height: 0;
-        transition: background 0.1s;
-    }
-    .emoji-btn img { width: 22px; height: 22px; }
-    .emoji-btn:hover { background: var(--border); }
-
-    .reply-form { display: flex; gap: 0.5rem; padding: 0.625rem; }
+    .reply-form { display: flex; gap: 0.5rem; padding: 0.625rem; align-items: flex-end; }
     .reply-form textarea { flex: 1; resize: none; }
     .btn-send {
         background: var(--primary); color: var(--primary-foreground);

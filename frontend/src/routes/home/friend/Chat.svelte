@@ -1,8 +1,8 @@
 <script lang="ts">
     import { slide } from 'svelte/transition';
     import { tick, onMount } from 'svelte';
-    import { EMOJIS } from '$lib/emojis.js';
     import EmojiText from '$lib/EmojiText.svelte';
+    import EmojiPicker from '$lib/EmojiPicker.svelte';
 
     type Thread  = { peer: string; lastBody: string; lastAt: number; lastFromMe: boolean; unread: number };
     type Message = { id: number; fromPseudo: string; toPseudo: string; body: string; isRead: boolean; createdAt: number };
@@ -230,14 +230,8 @@
                 {/each}
             </div>
 
-            <div class="chat-emojis">
-                {#each EMOJIS as e (e.char)}
-                    <button class="emoji-btn" onclick={() => { draft += e.char; }} aria-label="Ajouter {e.name}" title={e.name}>
-                        <img src={e.src} alt={e.char} />
-                    </button>
-                {/each}
-            </div>
             <div class="chat-compose">
+                <EmojiPicker onpick={(c) => { draft += c; }} />
                 <textarea
                     bind:value={draft}
                     placeholder="Ton message…"
@@ -372,23 +366,9 @@
     .bubble-body { margin: 0; font-size: 0.875rem; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
     .bubble-time { display: block; font-size: 0.625rem; color: var(--muted-foreground); margin-top: 2px; text-align: right; }
 
-    .chat-emojis {
-        display: flex; gap: 2px; flex-wrap: nowrap; overflow-x: auto;
-        padding: 6px 10px 0; border-top: 1px solid var(--border);
-        flex-shrink: 0;
-    }
-    .emoji-btn {
-        background: none; border: none; cursor: pointer;
-        padding: 2px 3px; border-radius: var(--radius-sm);
-        transition: background 0.12s, transform 0.12s;
-        line-height: 0;
-    }
-    .emoji-btn img { width: 22px; height: 22px; }
-    .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
-
     .chat-compose {
         display: flex; gap: 6px; align-items: flex-end;
-        padding: 10px; flex-shrink: 0;
+        padding: 10px; flex-shrink: 0; border-top: 1px solid var(--border);
     }
     .chat-input {
         flex: 1; resize: none;

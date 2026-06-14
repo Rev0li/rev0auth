@@ -6,8 +6,8 @@
     import { slide, fade } from 'svelte/transition';
     import Chat from './Chat.svelte';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
-    import { EMOJIS } from '$lib/emojis.js';
     import EmojiText from '$lib/EmojiText.svelte';
+    import EmojiPicker from '$lib/EmojiPicker.svelte';
 
     let { data }: { data: PageData } = $props();
 
@@ -249,14 +249,8 @@
         <h2 class="section-heading">Mur</h2>
         <p class="wall-hint">Partage tes idées d'amélioration, ou les films et séries que tu aimerais voir ajoutés à Jellyfin 🍿</p>
 
-        <div class="wall-emojis">
-            {#each EMOJIS as e (e.char)}
-                <button class="emoji-btn" onclick={() => { wallBody += e.char; }} aria-label="Ajouter {e.name}" title={e.name}>
-                    <img src={e.src} alt={e.char} />
-                </button>
-            {/each}
-        </div>
         <div class="wall-compose">
+            <EmojiPicker onpick={(c) => { wallBody += c; }} />
             <textarea
                 bind:value={wallBody}
                 placeholder="Écris quelque chose…"
@@ -394,15 +388,6 @@
 
     /* ── Wall ── */
     .wall-hint { font-size: 0.875rem; color: var(--muted-foreground); margin: -0.5rem 0 0.75rem; }
-    .wall-emojis { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 6px; }
-    .emoji-btn {
-        background: none; border: none; cursor: pointer;
-        padding: 2px 4px; border-radius: var(--radius-sm);
-        transition: background 0.12s, transform 0.12s;
-        line-height: 0;
-    }
-    .emoji-btn img { width: 24px; height: 24px; }
-    .emoji-btn:hover { background: var(--muted); transform: scale(1.2); }
     .wall-compose { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 1.25rem; }
     .wall-input { flex: 1; min-height: 60px; resize: none; }
     .wall-posts { display: flex; flex-direction: column; gap: 10px; }
