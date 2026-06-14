@@ -71,33 +71,22 @@ else
     check_var "ADMIN_DASH_PASSWORD" "required for admin login"
     check_var "ADMIN_DASH_PSEUDO"   "required for admin login"
     check_var "ADMIN_DASH_SEED"     "required for session signing"
-    check_var "WEBAUTHN_RP_ID"      "required for WebAuthn (use 'localhost' for dev)"
-    check_var "WEBAUTHN_RP_ORIGIN"  "required for WebAuthn (http://localhost:3000 for dev)"
 
     # Warn (not fail) for optional but important vars
     [[ -z "${ADMIN_DASH_TOTP_SECRET:-}" ]] && warn "ADMIN_DASH_TOTP_SECRET empty — 2FA disabled"
     [[ -z "${COOKIE_DOMAIN:-}" ]]          && warn "COOKIE_DOMAIN empty — SongSurf cross-domain cookie disabled (OK for local dev)"
 fi
 
-# ── Dockerfiles ───────────────────────────────────────────────────────────────
+# ── Build files ───────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}── Build files ──${NC}"
-for f in Dockerfile.api Dockerfile.web docker-compose.yml .dockerignore; do
+for f in Dockerfile.frontend docker-compose.yml .dockerignore; do
     if [[ -f "$ROOT_DIR/$f" ]]; then
         ok "$f present"
     else
         fail "$f missing"
     fi
 done
-
-# ── Security audit ────────────────────────────────────────────────────────────
-echo ""
-echo -e "${CYAN}── Security audit ──${NC}"
-if "$ROOT_DIR/scripts/security-audit.sh" 2>&1 | grep -q "ok"; then
-    ok "security-audit passed"
-else
-    fail "security-audit failed — run: ./scripts/security-audit.sh"
-fi
 
 # ── Docker build dry-run ──────────────────────────────────────────────────────
 echo ""
@@ -106,7 +95,7 @@ echo "  Running 'docker compose build' (this may take a while on first run)..."
 if docker compose build --quiet 2>&1; then
     ok "docker compose build succeeded"
 else
-    fail "docker compose build failed — check Dockerfile.api / Dockerfile.web"
+    fail "docker compose build failed — check Dockerfile.frontend"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────

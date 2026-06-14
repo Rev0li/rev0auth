@@ -154,13 +154,17 @@ Idem Members : 3 sont **déjà couverts** sous une autre forme par les endpoints
 - [x] `DEPLOY.md`, `auth/CLAUDE.md`, `CLAUDE.md` racine mis à jour
 - [ ] **Déploiement VPS + tests prod** (checklist dans `migration-tests-todo.md` — penser à `FRONTEND_UPSTREAM` dans le caddy env + TOTP admin en prod)
 
-### Phase 4 — (futur, pas urgent) Retirer `crates/api/`
-**Objectif** : SvelteKit gère aussi l'API JWT pour SongSurf.
+### Phase 4 — Retirer tout le Rust ✅ (2026-06-14)
+**Objectif** : SvelteKit gère aussi l'API JWT pour SongSurf, plus aucun Rust.
 
-- [ ] Implémenter endpoint JWT handoff en SvelteKit (compatible `AUTH_JWT_SECRET` partagé)
-- [ ] Vérifier que SongSurf Watcher accepte le JWT SvelteKit
-- [ ] Retirer `crates/api/`
-- [ ] Retirer `Dockerfile.api`
+- [x] JWT handoff déjà en SvelteKit (`lib/server/songsurf.ts`, HS256 `AUTH_JWT_SECRET`) : login membre, accès admin, logs admin
+- [x] Retirer `crates/` (api + web), `Cargo.toml`, `Cargo.lock`, `Dockerfile.api`
+- [x] Retirer le service `api` de `docker-compose.yml` + bloc API du Caddyfile + job `api` du CI + `web` du deploy.yml
+- [x] Retirer `api-health.ts` + champ `api_ok` de `/status` (orphelin, aucun consommateur UI)
+- [x] Nettoyer scripts (devtools/stop/launch/preflight/snapshot/gen_secret), Makefile, `.env.example`, docs (CLAUDE.md, README)
+- [x] `npm run check` 0 erreur · vitest 26/26
+
+> Note 2026-06-14 : le SongSurf Watcher valide déjà le JWT SvelteKit (même secret/algorithme que l'ancien Rust) — aucun changement côté NAS requis. Le code Rust reste consultable dans l'historique git.
 
 ---
 

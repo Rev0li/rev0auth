@@ -10,4 +10,4 @@ docker compose up -d --build
 
 echo ""
 echo "Services launched. Use 'docker compose ps' or 'make status' to inspect."
-echo "Logs: docker compose logs -f [api|web|postgres]"
+echo "Logs: docker compose logs -f [frontend|postgres]"

@@ -28,4 +28,5 @@ jobs:
               || echo "Backup skipped (non bloquant)"
             ls -t ~/backups/rev0auth_*.sql 2>/dev/null | tail -n +11 | xargs -r rm
 
-            docker compose up -d --no-deps --build --force-recreate api web frontend
+            # --remove-orphans nettoie l'ancien conteneur `api` (Rust retiré)
+            docker compose up -d --build --force-recreate --remove-orphans frontend

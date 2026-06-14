@@ -124,27 +124,6 @@ prompt_value "ADMIN_DASH_TOTP_SECRET" \
     "Base32 TOTP secret (empty = 2FA disabled)" \
     "" "gen_b32"
 
-# ── WebAuthn / YubiKey ────────────────────────────────────────────────────────
-sep
-echo -e "  ${CYAN}── WebAuthn / YubiKey ──${NC}"
-echo    "  Set domain details now. To enroll your key after first launch:"
-echo    "    1. Start the server (make launch-all)"
-echo    "    2. Log in → Dashboard → Security tab → register key"
-echo    "    3. Run: ./scripts/enroll-yubikey.sh"
-echo ""
-prompt_value "WEBAUTHN_RP_ID" \
-    "WebAuthn relying-party domain (localhost for dev, auth.example.com for prod)" \
-    "localhost" ""
-prompt_value "WEBAUTHN_RP_ORIGIN" \
-    "Full origin URL (http://localhost:3000 for dev, https://auth.example.com for prod)" \
-    "http://localhost:3000" ""
-
-# Preserve existing credential silently
-_existing_cred=$(current_val "ADMIN_WEBAUTHN_CREDENTIAL")
-echo "ADMIN_WEBAUTHN_CREDENTIAL='${_existing_cred}'" >> "$TMP_ENV"
-[[ -n "$_existing_cred" ]] && ok "Preserved existing YubiKey credential." \
-                            || ok "YubiKey credential: empty (enroll later with ./scripts/enroll-yubikey.sh)."
-
 # ── Cookie domain (cross-domain SongSurf) ─────────────────────────────────────
 sep
 echo -e "  ${CYAN}── Cookie domain (SongSurf cross-domain) ──${NC}"
@@ -189,9 +168,7 @@ echo ""
 ok "Written to ${ENV_FILE} (chmod 600)"
 echo ""
 echo -e "  ${CYAN}Next steps:${NC}"
-echo    "  1. make launch-all                  — build Docker images + start all services"
-echo    "  2. Open http://localhost:3000/portal — verify admin login + TOTP"
-echo    "  3. Dashboard → Security tab         — enroll your YubiKey"
-echo    "  4. ./scripts/enroll-yubikey.sh      — persist the YubiKey credential to .env"
-echo    "  5. Copy AUTH_JWT_SECRET to SongSurf .secrets (must be identical)"
+echo    "  1. make launch-all                  — build Docker image + start all services"
+echo    "  2. Open http://localhost:4173/japprends/login — verify admin login + TOTP"
+echo    "  3. Copy AUTH_JWT_SECRET to SongSurf .secrets (must be identical)"
 echo ""

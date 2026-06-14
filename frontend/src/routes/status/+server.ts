@@ -1,14 +1,11 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { checkApiUp } from '$lib/server/api-health.js';
 
 export const GET: RequestHandler = async ({ locals }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
-    const api_ok = await checkApiUp();
     return json({
         admin_ok: true,
         user_ok: true,
-        api_ok,
         checked_at_epoch: Math.floor(Date.now() / 1000),
     });
 };

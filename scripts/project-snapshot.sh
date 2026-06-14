@@ -16,10 +16,10 @@ tar \
   --exclude='.run' \
   -czf "$OUT_FILE" \
   -C "$ROOT_DIR" \
-  Cargo.toml Cargo.lock Makefile \
+  Makefile \
   .env.example .dockerignore \
-  Dockerfile.api Dockerfile.web \
+  Dockerfile.frontend \
   docker-compose.yml \
-  crates docs scripts infra static
+  frontend docs scripts infra static
 
 echo "Snapshot: $OUT_FILE"
