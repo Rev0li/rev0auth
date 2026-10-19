@@ -34,38 +34,6 @@ export const users = pgTable('web_users', {
     approved:          boolean('approved').notNull().default(false),
 });
 
-// ─── web_messages (shared with Rust web crate) ───────────────────────────────
-
-export const messages = pgTable('web_messages', {
-    id:         bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    fromPseudo: text('from_pseudo').notNull(),
-    toPseudo:   text('to_pseudo').notNull(),
-    body:       text('body').notNull(),
-    isRead:     boolean('is_read').notNull().default(false),
-    createdAt:  bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
-
-// ─── web_donations (shared with Rust web crate) ──────────────────────────────
-
-export const donations = pgTable('web_donations', {
-    id:        bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    pseudo:    text('pseudo').notNull(),
-    method:    text('method').notNull(),
-    code:      text('code').notNull().default(''),
-    reviewed:  boolean('reviewed').notNull().default(false),
-    approved:  boolean('approved').notNull().default(false),
-    createdAt: bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
-
-// ─── web_wall_posts (shared with Rust web crate) ─────────────────────────────
-
-export const wallPosts = pgTable('web_wall_posts', {
-    id:        bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
-    pseudo:    text('pseudo').notNull(),
-    body:      text('body').notNull(),
-    createdAt: bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
-
 // ─── web_invites (shared with Rust web crate) ────────────────────────────────
 
 export const invites = pgTable('web_invites', {
@@ -123,9 +91,6 @@ export const songsurfEvents = pgTable('songsurf_events', {
 export type User       = typeof users.$inferSelect;
 export type NewUser    = typeof users.$inferInsert;
 export type Session    = typeof sessions.$inferSelect;
-export type Message    = typeof messages.$inferSelect;
-export type Donation   = typeof donations.$inferSelect;
-export type WallPost   = typeof wallPosts.$inferSelect;
 export type Invite     = typeof invites.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type SongsurfEvent    = typeof songsurfEvents.$inferSelect;

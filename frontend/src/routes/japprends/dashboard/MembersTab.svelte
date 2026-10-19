@@ -27,10 +27,6 @@
     let resetMsg = $state('');
 
     // Send message (per member)
-    let msgPseudo = $state<string | null>(null);
-    let msgBody = $state('');
-    let msgLoading = $state(false);
-    let msgResult = $state('');
 
     function fmt(epoch: number) {
         return new Date(epoch * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -39,7 +35,6 @@
     function toggle(pseudo: string) {
         expanded = expanded === pseudo ? null : pseudo;
         resetPseudo = null; resetMsg = ''; newPwd = '';
-        msgPseudo = null; msgBody = ''; msgResult = '';
     }
 
     async function patch(pseudo: string, updates: Record<string, unknown>) {
@@ -77,21 +72,6 @@
             resetMsg = d.ok ? '✓ Mot de passe modifié' : (d.message ?? 'Erreur');
             if (d.ok) { newPwd = ''; resetPseudo = null; }
         } finally { resetLoading = false; }
-    }
-
-    async function sendMessage() {
-        if (!msgPseudo || !msgBody.trim()) return;
-        msgLoading = true; msgResult = '';
-        try {
-            const r = await fetch('/japprends/messages/reply', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ to: msgPseudo, body: msgBody.trim() }),
-            });
-            const d = await r.json();
-            msgResult = d.ok ? '✓ Message envoyé' : 'Erreur';
-            if (d.ok) { msgBody = ''; msgPseudo = null; }
-        } finally { msgLoading = false; }
     }
 
     async function createMember() {
@@ -239,25 +219,6 @@
                             {/if}
                         </div>
 
-                        <!-- Envoyer un message -->
-                        <div class="detail-section">
-                            <span class="detail-label">Message</span>
-                            {#if msgPseudo === u.pseudo}
-                                <div class="inline-form">
-                                    <textarea bind:value={msgBody} placeholder="Ton message…" rows="2"></textarea>
-                                    <button class="btn-action grant" onclick={sendMessage} disabled={msgLoading || !msgBody.trim()}>
-                                        {msgLoading ? '…' : 'Envoyer'}
-                                    </button>
-                                    <button class="btn-action" onclick={() => { msgPseudo = null; msgBody = ''; }}>Annuler</button>
-                                </div>
-                                {#if msgResult}<span class="feedback">{msgResult}</span>{/if}
-                            {:else}
-                                <button class="btn-action" onclick={() => { msgPseudo = u.pseudo; msgResult = ''; }}>
-                                    Envoyer un message
-                                </button>
-                            {/if}
-                        </div>
-
                         <!-- Danger zone -->
                         <div class="detail-section danger-zone">
                             <button
@@ -366,7 +327,7 @@
     .btn-access.granted { background: var(--success-bg); border-color: var(--success-border); color: #3a9e6a; }
 
     .inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
-    .inline-form input, .inline-form textarea { flex: 1; min-width: 180px; }
+    .inline-form input { flex: 1; min-width: 180px; }
 
     .btn-action {
         font: 500 0.8125rem/1 var(--font-sans); border: 1px solid var(--border);

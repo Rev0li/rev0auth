@@ -1,20 +1,14 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import MembersTab     from './MembersTab.svelte';
-    import WallTab        from './WallTab.svelte';
-    import MessagesTab    from './MessagesTab.svelte';
-    import DonationsTab   from './DonationsTab.svelte';
     import InvitationsTab from './InvitationsTab.svelte';
     import ThemeToggle    from '$lib/ThemeToggle.svelte';
 
-    const TABS = ['members', 'wall', 'messages', 'donations', 'invitations'] as const;
+    const TABS = ['members', 'invitations'] as const;
     type Tab = typeof TABS[number];
 
     const TAB_LABELS: Record<Tab, string> = {
         members:     'Membres',
-        wall:        'Mur',
-        messages:    'Messages',
-        donations:   'Donations',
         invitations: 'Invitations',
     };
 
@@ -70,12 +64,6 @@
     <main class="dash-content">
         {#if active === 'members'}
             <MembersTab users={data.users} />
-        {:else if active === 'wall'}
-            <WallTab />
-        {:else if active === 'messages'}
-            <MessagesTab />
-        {:else if active === 'donations'}
-            <DonationsTab />
         {:else if active === 'invitations'}
             <InvitationsTab />
         {/if}
