@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, bigint, bigserial, timestamp, customType, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, bigint, bigserial, timestamp, customType, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { ba_users } from './auth-schema.js';
 
@@ -14,29 +14,6 @@ const bytea = customType<{ data: Buffer; driverData: unknown }>({
         if (typeof val === 'string') return Buffer.from(val.replace(/^\\x/, ''), 'hex');
         return Buffer.from(val as ArrayBuffer);
     },
-});
-
-// ─── web_users (shared with Rust web crate) ───────────────────────────────────
-
-export const users = pgTable('web_users', {
-    pseudo:            text('pseudo').primaryKey(),
-    role:              text('role').notNull().default('member'),
-    active:            boolean('active').notNull().default(true),
-    status:            text('status').notNull().default('offline'),
-    bio:               text('bio').notNull().default(''),
-    accessJellyfin:    boolean('access_jellyfin').notNull().default(false),
-    accessSongsurf:    boolean('access_songsurf').notNull().default(false),
-    requestJellyfin:   boolean('request_jellyfin').notNull().default(false),
-    requestSongsurf:   boolean('request_songsurf').notNull().default(false),
-    githubUsername:    text('github_username'),
-    linkedinName:      text('linkedin_name'),
-    avatarFilename:    text('avatar_filename'),
-    avatarSizeBytes:   bigint('avatar_size_bytes', { mode: 'number' }),
-    avatarMime:        text('avatar_mime_type'),
-    avatarBytes:       bytea('avatar_bytes'),
-    passwordHash:      text('password_hash').notNull().default(''),
-    createdAt:         bigint('created_at_epoch', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
-    approved:          boolean('approved').notNull().default(false),
 });
 
 // ─── web_invites (shared with Rust web crate) ────────────────────────────────
@@ -85,6 +62,19 @@ export const songsurfEvents = pgTable('songsurf_events', {
     index('songsurf_events_type_idx').on(t.eventType, t.receivedAt.desc()),
 ]);
 
+// ─── user_avatars ────────────────────────────────────────────────────────────
+// Avatar SVG (DiceBear) généré côté serveur, à part de ba_users pour ne pas
+// charger l'image à chaque lecture de session. filename = choix du composeur.
+
+export const userAvatars = pgTable('user_avatars', {
+    userId:    text('user_id').primaryKey().references(() => ba_users.id, { onDelete: 'cascade' }),
+    bytes:     bytea('bytes').notNull(),
+    mimeType:  text('mime_type').notNull(),
+    filename:  text('filename'),
+    sizeBytes: bigint('size_bytes', { mode: 'number' }),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // ─── admin_passkeys ──────────────────────────────────────────────────────────
 // Clés de sécurité (WebAuthn) exigées pour entrer dans la console admin,
 // rattachées à l'identité BetterAuth. publicKey = clé COSE en base64url.
@@ -103,8 +93,6 @@ export const adminPasskeys = pgTable('admin_passkeys', {
 
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
-export type User       = typeof users.$inferSelect;
-export type NewUser    = typeof users.$inferInsert;
 export type Invite     = typeof invites.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
 export type AdminPasskey = typeof adminPasskeys.$inferSelect;

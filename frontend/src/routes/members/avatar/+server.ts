@@ -1,15 +1,13 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { db } from '$lib/server/db/index.js';
-import { users } from '$lib/server/db/schema.js';
-import { eq } from 'drizzle-orm';
+import { setAvatar, deleteAvatar } from '$lib/server/users.js';
 import { fetchAvatarSvg, SEED_RE } from '$lib/server/dicebear.js';
 import { buildAvatarParams, encodeAvatarFilename } from '$lib/avatar-options.js';
 
 // Le client n'envoie jamais de fichier : un seed DiceBear (= le visage) +
 // la couleur de fond (whitelist $lib/avatar-options). Le SVG est généré
-// côté serveur (initial-face) et stocké en DB ; le choix est encodé dans
-// avatar_filename pour restaurer le composeur au chargement du profil.
+// côté serveur (initial-face) et stocké en DB (user_avatars) ; le choix est
+// encodé dans filename pour restaurer le composeur au chargement du profil.
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
 
@@ -24,22 +22,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const svg = await fetchAvatarSvg(seed, params);
     if (!svg) return json({ ok: false, message: 'Génération indisponible, réessaie.' }, { status: 502 });
 
-    await db.update(users)
-        .set({
-            avatarBytes:     Buffer.from(svg),
-            avatarMime:      'image/svg+xml',
-            avatarFilename:  encodeAvatarFilename(seed, params.get('backgroundColor')!),
-            avatarSizeBytes: svg.length,
-        })
-        .where(eq(users.pseudo, locals.memberSession.pseudo));
+    await setAvatar(locals.memberSession.userId, {
+        svg,
+        filename: encodeAvatarFilename(seed, params.get('backgroundColor')!),
+    });
 
     return json({ ok: true });
 };
 
 export const DELETE: RequestHandler = async ({ locals }) => {
     if (!locals.memberSession) throw error(401, 'Non autorisé.');
-    await db.update(users)
-        .set({ avatarBytes: null, avatarMime: null, avatarFilename: null, avatarSizeBytes: null })
-        .where(eq(users.pseudo, locals.memberSession.pseudo));
+    await deleteAvatar(locals.memberSession.userId);
     return json({ ok: true });
 };

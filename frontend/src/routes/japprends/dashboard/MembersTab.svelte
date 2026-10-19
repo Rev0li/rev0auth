@@ -1,7 +1,7 @@
 <script lang="ts">
     type User = {
         pseudo: string; role: string; active: boolean; approved: boolean;
-        status: string; createdAt: number;
+        createdAt: number;
         accessJellyfin: boolean; accessSongsurf: boolean;
         requestJellyfin: boolean; requestSongsurf: boolean;
         githubUsername: string | null; linkedinName: string | null;
@@ -25,8 +25,6 @@
     let newPwd = $state('');
     let resetLoading = $state(false);
     let resetMsg = $state('');
-
-    // Send message (per member)
 
     function fmt(epoch: number) {
         return new Date(epoch * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -89,7 +87,7 @@
             if (!data.ok) { createErr = data.message ?? 'Erreur.'; return; }
             members = [...members, {
                 pseudo: key, role: 'member', active: true, approved: false,
-                status: 'offline', createdAt: Math.floor(Date.now() / 1000),
+                createdAt: Math.floor(Date.now() / 1000),
                 accessJellyfin: false, accessSongsurf: false,
                 requestJellyfin: false, requestSongsurf: false,
                 githubUsername: null, linkedinName: null,

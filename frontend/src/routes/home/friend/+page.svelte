@@ -1,18 +1,9 @@
 <script lang="ts">
     import type { PageData } from './$types.js';
     import { invalidateAll } from '$app/navigation';
-    import { page } from '$app/stores';
-    import { fade } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { data }: { data: PageData } = $props();
-
-    // Onboarding
-    let showOnboarding = $state($page.url.searchParams.get('onboarding') === '1');
-    let newPwd     = $state('');
-    let confirmPwd = $state('');
-    let onbError   = $state('');
-    let onbLoading = $state(false);
 
     // Demandes d'accès services (conditions : star GitHub / reco LinkedIn)
     let githubInput   = $state('');
@@ -40,45 +31,7 @@
             invalidateAll();
         } finally { svcLoading = ''; }
     }
-
-    async function submitOnboarding() {
-        onbError = '';
-        if (!newPwd || newPwd !== confirmPwd) { onbError = 'Les mots de passe ne correspondent pas.'; return; }
-        if (newPwd.length < 8) { onbError = 'Minimum 8 caractères.'; return; }
-        onbLoading = true;
-        try {
-            const r = await fetch('/members/password/onboarding', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ newPassword: newPwd }),
-            });
-            if (r.ok) { showOnboarding = false; invalidateAll(); }
-            else { const d = await r.json(); onbError = d.message; }
-        } finally { onbLoading = false; }
-    }
 </script>
-
-<!-- ── Onboarding modal ── -->
-{#if showOnboarding}
-    <div class="modal-bg" transition:fade={{ duration: 200 }}>
-        <div class="card onboarding-card">
-            <h2>Première connexion</h2>
-            <p class="meta">Choisis ton mot de passe avant de continuer.</p>
-            <div class="field" style="margin-top:1rem">
-                <label for="ob-pwd">Nouveau mot de passe</label>
-                <input id="ob-pwd" type="password" bind:value={newPwd} placeholder="••••••••" />
-            </div>
-            <div class="field">
-                <label for="ob-confirm">Confirmer</label>
-                <input id="ob-confirm" type="password" bind:value={confirmPwd} placeholder="••••••••" />
-            </div>
-            {#if onbError}<p class="chip-error">{onbError}</p>{/if}
-            <button class="btn-primary btn-full" onclick={submitOnboarding} disabled={onbLoading}>
-                {onbLoading ? '…' : 'Valider et continuer'}
-            </button>
-        </div>
-    </div>
-{/if}
 
 <!-- ── Navbar ── -->
 <nav class="navbar">
@@ -289,18 +242,4 @@
     }
     .member-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
     .member-pseudo { font-weight: 500; }
-
-    /* ── Onboarding modal ── */
-    .modal-bg {
-        position: fixed; inset: 0; z-index: 500;
-        background: rgba(0,0,0,0.5);
-        display: flex; align-items: center; justify-content: center;
-        padding: 1rem;
-    }
-    .onboarding-card {
-        width: 100%; max-width: 400px;
-        padding: 2rem;
-        background: var(--card);
-    }
-    .onboarding-card h2 { margin: 0 0 0.5rem; }
 </style>

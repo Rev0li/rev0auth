@@ -6,12 +6,10 @@ import argon2 from 'argon2';
 // Imports relatifs (pas $lib) : le CLI @better-auth/cli charge ce fichier hors Vite
 import { db } from './db/index.js';
 
-// Instance BetterAuth : identité membre (login pseudo + mot de passe).
-// Tables préfixées ba_* : aucune collision avec les tables web_*.
-//
-// Décision login : le plugin username permet pseudo + mot de passe comme
-// aujourd'hui ; l'email reste requis par le core → synthétisé en
-// `<pseudo>@local.invalid` à la migration des comptes (pas d'envoi d'email).
+// Instance BetterAuth : le seul modèle utilisateur (ba_users = identité +
+// champs métier). Connexion pseudo + mot de passe via le plugin username ;
+// l'email reste requis par le core → `<pseudo>@local.invalid` (pas d'envoi).
+// Comptes créés uniquement côté serveur : voir users.ts.
 export const auth = betterAuth({
     database: drizzleAdapter(db, { provider: 'pg' }),
     secret: process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_JWT_SECRET,
@@ -23,9 +21,9 @@ export const auth = betterAuth({
         // d'inscription directe par BetterAuth.
         disableSignUp: true,
         minPasswordLength: 8,
-        // Hash Argon2 (cohérent avec les comptes migrés depuis web_users et
-        // avec auth.ts pour le login admin). Le fallback scrypt couvre les
-        // comptes créés via BetterAuth avant ce commit.
+        // Hash Argon2, comme hashPassword (auth.ts) utilisé à la création des
+        // comptes côté serveur. Le fallback scrypt couvre les plus anciens
+        // comptes BetterAuth.
         password: {
             hash: (password) => argon2.hash(password),
             verify: async ({ hash, password }) => {
@@ -49,9 +47,20 @@ export const auth = betterAuth({
 
     user: {
         modelName: 'ba_users',
+        // Champs métier (ex-web_users) : renvoyés avec la session, jamais
+        // modifiables par le client (input: false).
         additionalFields: {
-            // RBAC existant : guest / member / mod / admin
-            role: { type: 'string', defaultValue: 'member', input: false },
+            // RBAC : guest / member / mod / admin
+            role:            { type: 'string',  defaultValue: 'member', input: false },
+            active:          { type: 'boolean', defaultValue: true,     input: false },
+            approved:        { type: 'boolean', defaultValue: false,    input: false },
+            bio:             { type: 'string',  defaultValue: '',       input: false },
+            accessJellyfin:  { type: 'boolean', defaultValue: false,    input: false },
+            accessSongsurf:  { type: 'boolean', defaultValue: false,    input: false },
+            requestJellyfin: { type: 'boolean', defaultValue: false,    input: false },
+            requestSongsurf: { type: 'boolean', defaultValue: false,    input: false },
+            githubUsername:  { type: 'string',  required: false,        input: false },
+            linkedinName:    { type: 'string',  required: false,        input: false },
         },
     },
     session: {

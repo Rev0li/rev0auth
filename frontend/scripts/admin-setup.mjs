@@ -32,9 +32,9 @@ const sql = postgres(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@l
 try {
     let tempPassword = null;
 
-    const [member] = await sql`SELECT pseudo, active, password_hash FROM web_users WHERE LOWER(pseudo) = ${username}`;
+    const [member] = await sql`SELECT id, name, active FROM ba_users WHERE username = ${username}`;
     if (member && !member.active) {
-        console.error(`Le compte « ${member.pseudo} » est désactivé : réactive-le d'abord.`);
+        console.error(`Le compte « ${member.name} » est désactivé : réactive-le d'abord.`);
         process.exit(1);
     }
 
@@ -42,40 +42,26 @@ try {
     const codeHash = createHash('sha256').update(code).digest('hex');
 
     await sql.begin(async (tx) => {
-        let exactPseudo = member?.pseudo;
-        let passwordHash = member?.password_hash ?? '';
-
-        if (!member || !passwordHash) {
-            tempPassword = randomString(20);
-            passwordHash = await argon2.hash(tempPassword);
-        }
-        if (!member) {
-            exactPseudo = username;
+        let userId = member?.id;
+        if (!userId) {
+            // Installation neuve : compte créé (mêmes conventions que users.ts)
+            userId = randomUUID();
             await tx`
-                INSERT INTO web_users (pseudo, role, active, approved, password_hash)
-                VALUES (${exactPseudo}, 'admin', true, true, ${passwordHash})`;
+                INSERT INTO ba_users (id, name, email, username, display_username, role, active, approved)
+                VALUES (${userId}, ${username}, ${username + '@local.invalid'}, ${username}, ${username}, 'admin', true, true)`;
         } else {
-            await tx`UPDATE web_users SET role = 'admin', password_hash = ${passwordHash} WHERE pseudo = ${exactPseudo}`;
+            await tx`UPDATE ba_users SET role = 'admin', updated_at = now() WHERE id = ${userId}`;
         }
 
-        // Identité BetterAuth : mêmes conventions que ba-sync.ts
-        let [baUser] = await tx`SELECT id FROM ba_users WHERE username = ${username}`;
-        if (!baUser) {
-            [baUser] = await tx`
-                INSERT INTO ba_users (id, name, email, username, display_username, role)
-                VALUES (${randomUUID()}, ${exactPseudo}, ${username + '@local.invalid'}, ${username}, ${exactPseudo}, 'admin')
-                RETURNING id`;
-        } else {
-            await tx`UPDATE ba_users SET role = 'admin', updated_at = now() WHERE id = ${baUser.id}`;
-        }
+        // Sans mot de passe, impossible de se connecter : on en pose un temporaire
         const [credential] = await tx`
-            SELECT id FROM ba_accounts WHERE user_id = ${baUser.id} AND provider_id = 'credential'`;
+            SELECT id FROM ba_accounts WHERE user_id = ${userId} AND provider_id = 'credential' AND password IS NOT NULL`;
         if (!credential) {
+            tempPassword = randomString(20);
+            await tx`DELETE FROM ba_accounts WHERE user_id = ${userId} AND provider_id = 'credential'`;
             await tx`
                 INSERT INTO ba_accounts (id, account_id, provider_id, user_id, password)
-                VALUES (${randomUUID()}, ${baUser.id}, 'credential', ${baUser.id}, ${passwordHash})`;
-        } else if (tempPassword) {
-            await tx`UPDATE ba_accounts SET password = ${passwordHash}, updated_at = now() WHERE id = ${credential.id}`;
+                VALUES (${randomUUID()}, ${userId}, 'credential', ${userId}, ${await argon2.hash(tempPassword)})`;
         }
 
         await tx`DELETE FROM ba_verifications WHERE identifier = ${'admin-setup:' + username}`;
@@ -86,10 +72,10 @@ try {
 
         await tx`
             INSERT INTO web_audit_log (action, actor_pseudo, target, detail)
-            VALUES ('admin_setup_code', 'cli', ${exactPseudo}, ${'role admin + code ' + SETUP_CODE_TTL_MIN + ' min'})`;
+            VALUES ('admin_setup_code', 'cli', ${member?.name ?? username}, ${'role admin + code ' + SETUP_CODE_TTL_MIN + ' min'})`;
     });
 
-    console.log(`\nCompte « ${member?.pseudo ?? username} » : rôle admin.`);
+    console.log(`\nCompte « ${member?.name ?? username} » : rôle admin.`);
     if (tempPassword) console.log(`Mot de passe temporaire : ${tempPassword}   (à changer dans ton profil)`);
     console.log(`Code d'installation   : ${code.match(/.{4}/g).join('-')}   (valable ${SETUP_CODE_TTL_MIN} min, usage unique)`);
     console.log('\n1. Connecte-toi normalement avec ton pseudo et ton mot de passe.');
