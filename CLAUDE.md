@@ -84,7 +84,6 @@ routes/
   home/friend/, members/*  — member zone
   japprends/*              — admin (login, dashboard, audit, songsurf pages, API endpoints)
   portal/+server.ts        — 301 → / (legacy watcher login URL)
-  api/auth/[...all]/       — BetterAuth handler
 scripts/
   migrate-web-users-to-ba.mjs — bulk account migration (idempotent, --dry-run)
 ```
@@ -108,6 +107,12 @@ crates; planned to return via the BetterAuth passkey plugin.
   `auth-v2.ts`; scrypt fallback for legacy hashes).
 - `/auth/password-check` lazy-provisions ba_* rows for accounts that only exist
   in web_users (robust to deploy ordering).
+- BetterAuth is only called server-side (`auth.api.*`): there is no public
+  `/api/auth/*` route and direct sign-up is disabled — accounts are created
+  server-side only (invite signup, admin).
+- Member identity = BetterAuth `user.username` (unique, set server-side), never
+  `user.name`; `hooks.server.ts` reloads pseudo/role from web_users and only an
+  active account gets a member session.
 - Role hierarchy: `guest < member < mod < admin`.
 - `make test` runs `npm run check` + `vitest`.
 - Migrations: never edit an applied migration; `0000_baseline` is idempotent so
