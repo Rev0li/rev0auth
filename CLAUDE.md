@@ -31,8 +31,10 @@ node --env-file=.env scripts/migrate-web-users-to-ba.mjs --dry-run  # BetterAuth
 
 # Database
 export DATABASE_URL='postgres://postgres:postgres@localhost:5432/rev0auth'
-# All tables (web_*, ba_*, songsurf_events) are created by initDb() at frontend
-# startup — no separate migration step. PostgreSQL via `docker compose up -d postgres`.
+# Schema = Drizzle migrations in frontend/drizzle/, applied at startup by
+# migrateDb() (hooks.server.ts). PostgreSQL via `docker compose up -d postgres`.
+npm run db:generate -- --name <change>  # new migration after editing db/*schema.ts
+npx drizzle-kit generate --custom --name <x>  # hand-written data migration
 
 # Admin 2FA
 make admin-2fa-init                    # Initialize TOTP secret
@@ -48,7 +50,7 @@ Copy `.env.example` to `.env`. Required variables:
 - `ADMIN_DASH_TOTP_SECRET` — optional Base32 TOTP secret for 2FA
 - `PORT` — frontend port (4173 in prod compose, 5173 in dev)
 - `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose)
-- `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table (created by `initDb()`), displayed on `/japprends/songsurf-activity`.
+- `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table, displayed on `/japprends/songsurf-activity`.
 
 ## Architecture
 
@@ -74,7 +76,8 @@ lib/server/
   session.ts               — custom admin sessions (web_sessions)
   songsurf.ts              — SongSurf JWT (jose, AUTH_JWT_SECRET)
   audit.ts / ratelimit.ts / songsurf-events.ts
-  db/                      — Drizzle schema (web_* tables) + auth-schema (ba_*)
+  db/                      — Drizzle schema (web_* tables) + auth-schema (ba_*),
+                             migrateDb() applies frontend/drizzle/ at startup
 routes/
   +page.svelte             — member login (POST /auth/password-check)
   signup/                  — invite-based signup
@@ -107,3 +110,5 @@ crates; planned to return via the BetterAuth passkey plugin.
   in web_users (robust to deploy ordering).
 - Role hierarchy: `guest < member < mod < admin`.
 - `make test` runs `npm run check` + `vitest`.
+- Migrations: never edit an applied migration; `0000_baseline` is idempotent so
+  databases created by the former `initDb()` converge without data loss.

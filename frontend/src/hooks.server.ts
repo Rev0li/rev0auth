@@ -1,9 +1,9 @@
 import type { Handle } from '@sveltejs/kit';
 import { getSession, ADMIN_COOKIE } from '$lib/server/session.js';
 import { auth } from '$lib/server/auth-v2.js';
-import { initDb } from '$lib/server/db/index.js';
+import { migrateDb } from '$lib/server/db/index.js';
 
-await initDb();
+await migrateDb();
 
 export const handle: Handle = async ({ event, resolve }) => {
     event.locals.adminSession  = null;
