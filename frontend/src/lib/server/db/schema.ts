@@ -1,4 +1,8 @@
-import { pgTable, text, boolean, bigint, customType } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, bigint, bigserial, customType, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+// Défaut SQL des colonnes *_epoch (secondes Unix), en plus du $defaultFn côté JS
+const nowEpoch = sql`EXTRACT(EPOCH FROM NOW())::BIGINT`;
 
 // Postgres BYTEA mapped to Node Buffer
 const bytea = customType<{ data: Buffer; driverData: unknown }>({
@@ -30,14 +34,14 @@ export const users = pgTable('web_users', {
     avatarMime:        text('avatar_mime_type'),
     avatarBytes:       bytea('avatar_bytes'),
     passwordHash:      text('password_hash').notNull().default(''),
-    createdAt:         bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
+    createdAt:         bigint('created_at_epoch', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
     approved:          boolean('approved').notNull().default(false),
 });
 
 // ─── web_invites (shared with Rust web crate) ────────────────────────────────
 
 export const invites = pgTable('web_invites', {
-    id:            bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    id:            bigserial('id', { mode: 'number' }).primaryKey(),
     code:          text('code').notNull().unique(),
     note:          text('note').notNull().default(''),
     createdAt:     bigint('created_at_epoch', { mode: 'number' }).notNull(),
@@ -46,33 +50,33 @@ export const invites = pgTable('web_invites', {
     usedAt:        bigint('used_at_epoch', { mode: 'number' }),
 });
 
-// ─── web_sessions (SvelteKit-specific, created via init SQL) ─────────────────
+// ─── web_sessions (SvelteKit-specific) ─────────────────
 
 export const sessions = pgTable('web_sessions', {
     token:     text('token').primaryKey(),
     pseudo:    text('pseudo').notNull(),
     kind:      text('kind').notNull(),
     expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
-    createdAt: bigint('created_at', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
 });
 
-// ─── web_audit_log (SvelteKit-specific, created via init SQL) ────────────────
+// ─── web_audit_log (SvelteKit-specific) ────────────────
 
 export const auditLog = pgTable('web_audit_log', {
-    id:          bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    id:          bigserial('id', { mode: 'number' }).primaryKey(),
     action:      text('action').notNull(),
     actorPseudo: text('actor_pseudo').notNull(),
     target:      text('target').notNull().default(''),
     detail:      text('detail').notNull().default(''),
-    createdAt:   bigint('created_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
+    createdAt:   bigint('created_at_epoch', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
+}, (t) => [index('web_audit_log_created_idx').on(t.createdAt.desc())]);
 
-// ─── songsurf_events (SvelteKit-specific, created via init SQL) ──────────────
+// ─── songsurf_events (SvelteKit-specific) ──────────────
 // Événements poussés par le NAS (watcher + songsurf) via /japprends/api/songsurf-events.
 // detail = JSON string (convention cases TEXT). Tri/affichage sur receivedAt (horloge VPS).
 
 export const songsurfEvents = pgTable('songsurf_events', {
-    id:         bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    id:         bigserial('id', { mode: 'number' }).primaryKey(),
     source:     text('source').notNull().default(''),
     eventType:  text('event_type').notNull(),
     eventTs:    bigint('event_ts_epoch', { mode: 'number' }).notNull(),
@@ -83,8 +87,12 @@ export const songsurfEvents = pgTable('songsurf_events', {
     title:      text('title').notNull().default(''),
     detail:     text('detail').notNull().default('{}'),
     ip:         text('ip').notNull().default(''),
-    receivedAt: bigint('received_at_epoch', { mode: 'number' }).notNull().$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
+    receivedAt: bigint('received_at_epoch', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
+}, (t) => [
+    index('songsurf_events_received_idx').on(t.receivedAt.desc()),
+    index('songsurf_events_pseudo_idx').on(t.pseudo, t.receivedAt.desc()),
+    index('songsurf_events_type_idx').on(t.eventType, t.receivedAt.desc()),
+]);
 
 // ─── Inferred types ───────────────────────────────────────────────────────────
 

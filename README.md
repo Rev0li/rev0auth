@@ -26,7 +26,7 @@ npm run dev                   # http://localhost:5173
 ```
 
 PostgreSQL local (Docker) : `docker compose up -d postgres` à la racine `auth/`.
-Les tables (`web_*`, `ba_*`, `songsurf_events`) sont créées par `initDb()` au démarrage.
+Le schéma est géré par des migrations Drizzle (`frontend/drizzle/`), appliquées au démarrage.
 
 ### Stack complète (Docker)
 

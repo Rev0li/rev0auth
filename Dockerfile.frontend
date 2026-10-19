@@ -32,6 +32,8 @@ WORKDIR /app
 COPY --from=builder /build/build ./build
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/package.json ./
+# Migrations Drizzle, appliquées au démarrage (hooks.server.ts)
+COPY --from=builder /build/drizzle ./drizzle
 
 ENV NODE_ENV=production
 EXPOSE 4173
