@@ -10,7 +10,7 @@
 
     let { data }: { data: PageData } = $props();
 
-    type Tab = 'profil' | 'donations' | 'compte';
+    type Tab = 'profil' | 'compte';
     let tab = $state<Tab>('profil');
 
     // ── Profil ────────────────────────────────────────────────────────
@@ -91,28 +91,6 @@
         } finally { pwdLoading = false; }
     }
 
-    // ── Donations ────────────────────────────────────────────────────
-    let donaMethod  = $state<'pcs' | 'crypto'>('pcs');
-    let donaCode    = $state('');
-    let donaLoading = $state(false);
-    let donaMsg     = $state('');
-    let donaOk      = $state(false);
-
-    async function submitDona() {
-        if (!donaCode.trim()) return;
-        donaLoading = true; donaMsg = '';
-        try {
-            const r = await fetch('/members/donations', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ method: donaMethod, code: donaCode }),
-            });
-            donaOk = r.ok;
-            donaMsg = r.ok ? 'Code envoyé, en attente de validation.' : 'Erreur.';
-            if (r.ok) { donaCode = ''; invalidateAll(); }
-        } finally { donaLoading = false; }
-    }
-
     async function logout() {
         await fetch('/auth/logout', { method: 'POST' });
         goto('/');
@@ -133,14 +111,6 @@
         } finally { deleteLoading = false; }
     }
 
-    function timeAgo(date: Date | string | number) {
-        const d = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return 'à l\'instant';
-        if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`;
-        if (sec < 86400) return `il y a ${Math.floor(sec / 3600)} h`;
-        return d.toLocaleDateString('fr-FR');
-    }
 </script>
 
 <!-- Navbar -->
@@ -157,7 +127,6 @@
 <div class="tabbar">
     {#each [
         { id: 'profil',    label: 'Profil'    },
-        { id: 'donations', label: 'Donations' },
         { id: 'compte',    label: 'Compte'    },
     ] as t}
         <button class="tabbar-btn" class:active={tab === t.id} onclick={() => tab = t.id as Tab}>{t.label}</button>
@@ -233,45 +202,6 @@
         </div>
     {/if}
 
-    <!-- ── DONATIONS ── -->
-    {#if tab === 'donations'}
-        <div in:fade={{ duration: 120 }}>
-            <div class="section-card card">
-                <h2 class="section-title">Soumettre une preuve</h2>
-                <div class="folder-tabs" style="margin-bottom:1rem">
-                    <button class="folder-btn" class:active={donaMethod === 'pcs'}    onclick={() => donaMethod = 'pcs'}>PCS</button>
-                    <button class="folder-btn" class:active={donaMethod === 'crypto'} onclick={() => donaMethod = 'crypto'}>Crypto</button>
-                </div>
-                <div class="field">
-                    <label for="dona-code">Code {donaMethod === 'pcs' ? 'coupon PCS' : 'transaction'}</label>
-                    <input id="dona-code" bind:value={donaCode} placeholder={donaMethod === 'pcs' ? '14 chiffres' : 'hash de transaction'} />
-                </div>
-                {#if donaMsg}<p class={donaOk ? 'chip-ok' : 'chip-error'}>{donaMsg}</p>{/if}
-                <button class="btn-primary" onclick={submitDona} disabled={donaLoading || !donaCode.trim()}>
-                    {donaLoading ? '…' : 'Envoyer'}
-                </button>
-            </div>
-
-            <h3 class="section-heading">Historique</h3>
-            {#each data.donations as d (d.id)}
-                <div class="dona-row">
-                    <span class="meta">{d.method.toUpperCase()}</span>
-                    <code class="dona-code">{d.code}</code>
-                    <span class="meta">{timeAgo(d.createdAt)}</span>
-                    {#if !d.reviewed}
-                        <span class="meta">En attente…</span>
-                    {:else if d.approved}
-                        <span class="chip-ok" style="display:inline-block;padding:2px 10px">✓ Validé</span>
-                    {:else}
-                        <span class="chip-error" style="display:inline-block;padding:2px 10px">✗ Refusé</span>
-                    {/if}
-                </div>
-            {:else}
-                <p class="empty-state">Aucune donation.</p>
-            {/each}
-        </div>
-    {/if}
-
     <!-- ── COMPTE ── -->
     {#if tab === 'compte'}
         <div in:fade={{ duration: 120 }}>
@@ -297,7 +227,7 @@
 
             <div class="section-card card" style="border-color:var(--destructive-border)">
                 <h2 class="section-title" style="color:var(--destructive)">Zone dangereuse</h2>
-                <p class="meta">La suppression du compte est définitive : messages, donations et profil seront effacés.</p>
+                <p class="meta">La suppression du compte est définitive : profil et accès seront effacés.</p>
                 {#if !confirmDelete}
                     <button class="btn-danger" onclick={() => confirmDelete = true}>Supprimer mon compte</button>
                 {:else}
@@ -360,7 +290,6 @@
 
     .section-card { padding: 1.5rem; }
     .section-title { margin: 0 0 1rem; font-size: 1rem; font-weight: 700; }
-    .section-heading { font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin: 0.5rem 0 0.75rem; }
 
     .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
 
@@ -399,21 +328,4 @@
     }
     .swatch:hover { transform: scale(1.15); }
     .swatch.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
-
-    .folder-tabs { display: flex; gap: 4px; }
-    .folder-btn {
-        height: 32px; padding: 0 14px; border: 1px solid var(--border);
-        border-radius: var(--radius-full); background: var(--muted);
-        font: 500 0.8125rem/1 var(--font-sans); cursor: pointer; color: var(--muted-foreground);
-        transition: background 0.12s, color 0.12s;
-    }
-    .folder-btn.active { background: var(--card); color: var(--foreground); border-color: var(--primary); }
-
-    .dona-row {
-        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-        padding: 10px 14px; border: 1px solid var(--border);
-        border-radius: var(--radius-md); background: var(--card); margin-bottom: 6px;
-    }
-    .dona-code { font-family: var(--font-mono); font-size: 0.8125rem; background: var(--muted); padding: 2px 6px; border-radius: 4px; }
-    .empty-state { color: var(--muted-foreground); text-align: center; padding: 2rem 0; }
 </style>

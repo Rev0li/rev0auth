@@ -2,12 +2,8 @@
     import type { PageData } from './$types.js';
     import { invalidateAll } from '$app/navigation';
     import { page } from '$app/stores';
-    import { onMount } from 'svelte';
-    import { slide, fade } from 'svelte/transition';
-    import Chat from './Chat.svelte';
+    import { fade } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
-    import EmojiText from '$lib/EmojiText.svelte';
-    import EmojiPicker from '$lib/EmojiPicker.svelte';
 
     let { data }: { data: PageData } = $props();
 
@@ -18,42 +14,11 @@
     let onbError   = $state('');
     let onbLoading = $state(false);
 
-    // Wall
-    let wallPosts  = $state([...data.wall]);
-    let wallBody   = $state('');
-    let wallLoading = $state(false);
-    let wallError  = $state('');
-
     // Demandes d'accès services (conditions : star GitHub / reco LinkedIn)
     let githubInput   = $state('');
     let linkedinInput = $state('');
     let svcLoading    = $state('');
     let svcError      = $state('');
-
-    async function postWall() {
-        wallError = '';
-        const body = wallBody.trim();
-        if (!body) return;
-        wallLoading = true;
-        try {
-            const r = await fetch('/members/wall', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ body }),
-            });
-            if (r.ok) {
-                wallBody = '';
-                // Optimistic: reload wall
-                const fresh = await fetch('/members/wall');
-                if (fresh.ok) wallPosts = await fresh.json();
-            }
-        } finally { wallLoading = false; }
-    }
-
-    async function deleteWallPost(id: number) {
-        wallPosts = wallPosts.filter(p => p.id !== id);
-        await fetch(`/members/wall?id=${id}`, { method: 'DELETE' });
-    }
 
     async function requestService(service: 'songsurf' | 'jellyfin') {
         svcError = '';
@@ -91,20 +56,6 @@
             else { const d = await r.json(); onbError = d.message; }
         } finally { onbLoading = false; }
     }
-
-    function timeAgo(date: Date | string | number) {
-        const d   = typeof date === 'number' ? new Date(date * 1000) : new Date(date);
-        const sec = Math.floor((Date.now() - d.getTime()) / 1000);
-        if (sec < 60) return 'à l\'instant';
-        if (sec < 3600) return `il y a ${Math.floor(sec / 60)} min`;
-        if (sec < 86400) return `il y a ${Math.floor(sec / 3600)} h`;
-        return `il y a ${Math.floor(sec / 86400)} j`;
-    }
-
-    onMount(() => {
-        // Re-fetch wall on mount (data might be stale)
-        fetch('/members/wall').then(r => r.json()).then(d => { if (Array.isArray(d)) wallPosts = d; });
-    });
 </script>
 
 <!-- ── Onboarding modal ── -->
@@ -149,7 +100,7 @@
 <section class="hero">
     <div class="hero-inner">
         <h1 class="hero-title">Bienvenue, <span class="hero-name">{data.user.pseudo}</span></h1>
-        <p class="hero-sub">Ton espace privé — hébergé chez nous, sans publicité, sans tracking, sans tiers. Tu accèdes à des services sélectionnés, partages avec la communauté et gardes le contrôle.</p>
+        <p class="hero-sub">Ton espace privé — hébergé chez nous, sans publicité, sans tracking, sans tiers. Tu accèdes à des services sélectionnés et gardes le contrôle.</p>
     </div>
 </section>
 
@@ -221,7 +172,7 @@
 </section>
 
 <!-- ── Membres en ligne ── -->
-<section class="section">
+<section class="section section-last">
     <div class="section-inner">
         <h2 class="section-heading">Membres</h2>
         <div class="members-row">
@@ -239,53 +190,6 @@
         </div>
     </div>
 </section>
-
-<!-- ── Wall ── -->
-<section class="section section-last">
-    <div class="section-inner">
-        <h2 class="section-heading">Mur</h2>
-        <p class="wall-hint">Partage tes idées d'amélioration, ou les films et séries que tu aimerais voir ajoutés à Jellyfin 🍿</p>
-
-        <div class="wall-compose">
-            <EmojiPicker onpick={(c) => { wallBody += c; }} />
-            <textarea
-                bind:value={wallBody}
-                placeholder="Écris quelque chose…"
-                rows={2}
-                class="wall-input"
-                onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postWall(); } }}
-            ></textarea>
-            <button class="btn-primary" onclick={postWall} disabled={wallLoading || !wallBody.trim()}>
-                {wallLoading ? '…' : 'Publier'}
-            </button>
-        </div>
-
-        <div class="wall-posts">
-            {#each wallPosts as post (post.id)}
-                <div class="wall-post" transition:slide={{ duration: 200 }}>
-                    <div class="post-header">
-                        <strong class="post-author">{post.pseudo}</strong>
-                        <span class="post-time meta">{timeAgo(post.createdAt)}</span>
-                        {#if post.pseudo === data.user.pseudo}
-                            <button class="post-delete" onclick={() => deleteWallPost(post.id)} aria-label="Supprimer">×</button>
-                        {/if}
-                    </div>
-                    <p class="post-body"><EmojiText text={post.body} /></p>
-                </div>
-            {:else}
-                <p class="meta" style="text-align:center;padding:2rem 0">Aucun post pour l'instant.</p>
-            {/each}
-        </div>
-    </div>
-</section>
-
-<!-- ── Messagerie ── -->
-<Chat
-    myPseudo={data.user.pseudo}
-    adminPseudo={data.adminPseudo}
-    members={data.members}
-    initialUnread={data.unreadCount}
-/>
 
 <style>
     /* ── Navbar ── */
@@ -382,23 +286,6 @@
     }
     .member-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
     .member-pseudo { font-weight: 500; }
-
-    /* ── Wall ── */
-    .wall-hint { font-size: 0.875rem; color: var(--muted-foreground); margin: -0.5rem 0 0.75rem; }
-    .wall-compose { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 1.25rem; }
-    .wall-input { flex: 1; min-height: 60px; resize: none; }
-    .wall-posts { display: flex; flex-direction: column; gap: 10px; }
-    .wall-post { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
-    .post-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .post-author { font-size: 0.875rem; }
-    .post-time { margin-left: auto; }
-    .post-delete {
-        background: none; border: none; cursor: pointer;
-        color: var(--muted-foreground); font-size: 1.125rem; padding: 0 2px;
-        transition: color 0.15s;
-    }
-    .post-delete:hover { color: var(--destructive); }
-    .post-body { margin: 0; font-size: 0.9375rem; line-height: 1.5; white-space: pre-wrap; }
 
     /* ── Onboarding modal ── */
     .modal-bg {

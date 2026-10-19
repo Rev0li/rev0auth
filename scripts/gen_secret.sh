@@ -144,14 +144,6 @@ prompt_value "SONGSURF_URL" \
     "URL d'accès à SongSurf (bouton membre)" \
     "http://localhost:9000" ""
 
-# ── Donations ─────────────────────────────────────────────────────────────────
-sep
-echo -e "  ${CYAN}── Donation addresses (optional) ──${NC}"
-echo    "  Format: NAME:ADDRESS,NAME:ADDRESS  — leave empty to disable."
-prompt_value "DONATION_CRYPTO_ADDRESSES" \
-    "Crypto donation addresses shown to members" \
-    "" ""
-
 # ── Write ─────────────────────────────────────────────────────────────────────
 sep
 echo ""

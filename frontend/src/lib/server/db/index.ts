@@ -44,35 +44,10 @@ export async function initDb() {
     await client`ALTER TABLE web_users DROP COLUMN IF EXISTS request_github`;
     await client`ALTER TABLE web_users DROP COLUMN IF EXISTS github_star_claimed`;
 
-    await client`
-        CREATE TABLE IF NOT EXISTS web_messages (
-            id               BIGSERIAL PRIMARY KEY,
-            from_pseudo      TEXT NOT NULL,
-            to_pseudo        TEXT NOT NULL,
-            body             TEXT NOT NULL,
-            is_read          BOOLEAN NOT NULL DEFAULT false,
-            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
-        )
-    `;
-    await client`
-        CREATE TABLE IF NOT EXISTS web_donations (
-            id               BIGSERIAL PRIMARY KEY,
-            pseudo           TEXT NOT NULL,
-            method           TEXT NOT NULL,
-            code             TEXT NOT NULL DEFAULT '',
-            reviewed         BOOLEAN NOT NULL DEFAULT false,
-            approved         BOOLEAN NOT NULL DEFAULT false,
-            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
-        )
-    `;
-    await client`
-        CREATE TABLE IF NOT EXISTS web_wall_posts (
-            id               BIGSERIAL PRIMARY KEY,
-            pseudo           TEXT NOT NULL,
-            body             TEXT NOT NULL,
-            created_at_epoch BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
-        )
-    `;
+    // Fonctionnalités sociales retirées (AUTH-01) : messages, dons, mur.
+    await client`DROP TABLE IF EXISTS web_messages`;
+    await client`DROP TABLE IF EXISTS web_donations`;
+    await client`DROP TABLE IF EXISTS web_wall_posts`;
     await client`
         CREATE TABLE IF NOT EXISTS web_invites (
             id               BIGSERIAL PRIMARY KEY,

@@ -8,7 +8,7 @@ pour SongSurf.
 ## Features
 
 - **Auth & RBAC** : login membre (BetterAuth), login admin (mot de passe + seed + TOTP), rôles `guest/member/mod/admin`
-- **Espace membre** : profil, avatar composable (DiceBear), messages, mur, donations
+- **Espace membre** : profil, avatar composable (DiceBear), accès aux services
 - **Admin** (`/japprends`) : gestion des users, file d'attente d'invitations, audit, activité SongSurf
 - **Portail public** : page de login, signup sur invitation
 - **SongSurf** : handoff JWT (HS256, `AUTH_JWT_SECRET` partagé)

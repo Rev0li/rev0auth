@@ -1,8 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
-import { users, messages, donations } from '$lib/server/db/schema.js';
-import { or, sql } from 'drizzle-orm';
+import { users } from '$lib/server/db/schema.js';
+import { sql } from 'drizzle-orm';
 import { deleteSession, MEMBER_COOKIE } from '$lib/server/session.js';
 import { deleteBaUser } from '$lib/server/ba-sync.js';
 
@@ -18,13 +18,6 @@ export const DELETE: RequestHandler = async ({ cookies, locals }) => {
         return json({ ok: false, message: 'Utilisateur introuvable.' });
     }
 
-    await db.delete(messages).where(
-        or(
-            sql`LOWER(${messages.fromPseudo}) = LOWER(${pseudo})`,
-            sql`LOWER(${messages.toPseudo})   = LOWER(${pseudo})`,
-        ),
-    );
-    await db.delete(donations).where(sql`LOWER(${donations.pseudo}) = LOWER(${pseudo})`);
     await deleteBaUser(pseudo); // révoque aussi les ba_sessions (cascade SQL)
 
     const token = cookies.get(MEMBER_COOKIE);
