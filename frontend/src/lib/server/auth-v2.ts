@@ -19,6 +19,9 @@ export const auth = betterAuth({
 
     emailAndPassword: {
         enabled: true,
+        // Comptes créés uniquement côté serveur (invitation, admin) : pas
+        // d'inscription directe par BetterAuth.
+        disableSignUp: true,
         minPasswordLength: 8,
         // Hash Argon2 (cohérent avec les comptes migrés depuis web_users et
         // avec auth.ts pour le login admin). Le fallback scrypt couvre les
