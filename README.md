@@ -7,7 +7,7 @@ pour SongSurf.
 
 ## Features
 
-- **Auth & RBAC** : login membre (BetterAuth), login admin (mot de passe + seed + TOTP), rôles `guest/member/mod/admin`
+- **Auth & RBAC** : une seule connexion (BetterAuth, pseudo + mot de passe) ; console admin = rôle admin + clé de sécurité (YubiKey) ; rôles `guest/member/mod/admin`
 - **Espace membre** : profil, avatar composable (DiceBear), accès aux services
 - **Admin** (`/japprends`) : gestion des users, file d'attente d'invitations, audit, activité SongSurf
 - **Portail public** : page de login, signup sur invitation
@@ -20,7 +20,7 @@ pour SongSurf.
 
 ```bash
 cd frontend
-cp .env.example .env          # puis remplir AUTH_JWT_SECRET, ADMIN_DASH_*, DATABASE_URL
+cp .env.example .env          # puis remplir AUTH_JWT_SECRET, DATABASE_URL
 npm install
 npm run dev                   # http://localhost:5173
 ```
@@ -33,7 +33,8 @@ Le schéma est géré par des migrations Drizzle (`frontend/drizzle/`), appliqu�
 ```bash
 make gen-secret               # crée .env interactivement
 make launch-all               # docker compose up -d --build (postgres + frontend)
-# Vérif : http://localhost:4173/japprends/login
+make admin-setup PSEUDO=moi   # compte admin + code pour enregistrer la clé de sécurité
+# Vérif : http://localhost:4173 → connexion → « Console admin » → code + clé
 ```
 
 ### Production

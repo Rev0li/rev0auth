@@ -1,102 +1,123 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { goto } from '$app/navigation';
+    import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 
-    // Login admin par mot de passe (POST /japprends/login).
-    // Le mode YubiKey (proxy WebAuthn vers crates/web) a été retiré avec le
-    // Rust web — les passkeys reviendront via le plugin BetterAuth.
-    let pseudo    = $state('');
-    let seed      = $state('');
-    let password  = $state('');
-    let otp       = $state('');
-    let challenge = $state('');   // doit valoir 'secure-lock'
-    let trap      = $state('');   // honeypot — doit rester vide
-    let loading   = $state(false);
-    let error     = $state('');
+    // Console admin : on est déjà connecté comme membre, la clé de sécurité
+    // ouvre la console. Sans clé enregistrée (première fois ou clé perdue) :
+    // code d'installation généré sur le serveur, puis enregistrement de la clé.
+    let { data } = $props();
 
-    const CHALLENGE_ICONS = [
-        { value: 'master-key',  icon: '🔑' },
-        { value: 'secure-lock', icon: '🔒' },
-        { value: 'iron-shield', icon: '🛡️' },
-    ];
+    // Mode de départ seulement : ensuite, c'est l'utilisateur qui bascule
+    let mode    = $state<'key' | 'setup'>(untrack(() => data.hasKeys) ? 'key' : 'setup');
+    let code    = $state('');
+    let keyName = $state('');
+    let loading = $state(false);
+    let error   = $state('');
 
-    async function login(e: SubmitEvent) {
-        e.preventDefault();
+    async function post(url: string, body: unknown = {}) {
+        const res = await fetch(url, {
+            method:  'POST',
+            headers: { 'content-type': 'application/json' },
+            body:    JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.ok === false) throw new Error(json.message ?? 'Erreur.');
+        return json;
+    }
+
+    // NotAllowedError : opération annulée ou clé non touchée à temps
+    function describe(e: unknown): string {
+        if (e instanceof Error && e.name === 'NotAllowedError') return 'Opération annulée ou clé non détectée.';
+        return e instanceof Error ? e.message : 'Erreur.';
+    }
+
+    async function useKey() {
         error = '';
-        if (!pseudo.trim() || !seed.trim() || !password) {
-            error = 'Tous les champs sont requis.';
-            return;
-        }
-        if (!challenge) {
-            error = 'Choisis un symbole.';
-            return;
-        }
-
         loading = true;
         try {
-            const res = await fetch('/japprends/login', {
-                method:  'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                    pseudo: pseudo.trim(),
-                    seed:   seed.trim(),
-                    password,
-                    otp:    otp.trim() || undefined,
-                    challenge_choice: challenge,
-                    trap_value: trap,
-                }),
-            });
-            const data = await res.json() as { ok: boolean; message?: string };
-            if (!data.ok) {
-                error = data.message ?? 'Connexion refusée.';
-                return;
-            }
-            goto('/japprends/dashboard');
-        } catch {
-            error = 'Erreur réseau.';
+            const { options } = await post('/japprends/passkey/auth-options');
+            const response = await startAuthentication({ optionsJSON: options });
+            await post('/japprends/passkey/auth-verify', { response });
+            await goto('/japprends/dashboard');
+        } catch (e) {
+            error = describe(e);
         } finally {
             loading = false;
         }
     }
+
+    async function registerKey(event: SubmitEvent) {
+        event.preventDefault();
+        error = '';
+        if (!code.trim()) {
+            error = "Entre le code d'installation.";
+            return;
+        }
+        loading = true;
+        try {
+            const { options } = await post('/japprends/passkey/register-options', { code });
+            const response = await startRegistration({ optionsJSON: options });
+            await post('/japprends/passkey/register-verify', { response, name: keyName });
+            await goto('/japprends/dashboard');
+        } catch (e) {
+            error = describe(e);
+        } finally {
+            loading = false;
+        }
+    }
+
+    async function logout() {
+        await fetch('/auth/logout', { method: 'POST' });
+        await goto('/');
+    }
 </script>
 
+<svelte:head>
+    <title>Console admin — rev0auth</title>
+</svelte:head>
+
 <main class="admin-bg">
-    <form class="card" onsubmit={login}>
+    <div class="card">
         <div class="brand">
             <span class="brand-badge">rev0auth admin</span>
         </div>
 
-        <h1>Admin Access</h1>
+        <h1>Console admin</h1>
+        <p class="hint">Connecté en tant que <strong>{data.pseudo}</strong></p>
 
-        <div class="fields">
-            <input class="field" type="text" placeholder="Pseudo" autocomplete="username" bind:value={pseudo} />
-            <input class="field" type="password" placeholder="Seed" autocomplete="off" bind:value={seed} />
-            <input class="field" type="password" placeholder="Mot de passe" autocomplete="current-password" bind:value={password} />
-            <input class="field" type="text" inputmode="numeric" placeholder="Code 2FA (si activé)" autocomplete="one-time-code" bind:value={otp} />
-        </div>
-
-        <!-- Honeypot : invisible pour un humain, rempli par les bots -->
-        <input class="trap" type="text" name="website" tabindex="-1" autocomplete="off" bind:value={trap} />
-
-        <div class="challenge-row" role="radiogroup" aria-label="Vérification">
-            {#each CHALLENGE_ICONS as c (c.value)}
-                <button
-                    type="button"
-                    class="challenge-btn"
-                    class:selected={challenge === c.value}
-                    onclick={() => { challenge = c.value; }}
-                    aria-pressed={challenge === c.value}
-                >{c.icon}</button>
-            {/each}
-        </div>
-
-        {#if error}
-            <p class="result err">{error}</p>
+        {#if mode === 'key'}
+            <p class="hint">Branche ta clé de sécurité, puis touche-la quand elle clignote.</p>
+            <button class="btn" type="button" onclick={useKey} disabled={loading}>
+                {loading ? 'En attente de la clé…' : 'Utiliser ma clé'}
+            </button>
+            <button class="text-btn" type="button" onclick={() => { mode = 'setup'; error = ''; }}>
+                Clé perdue ? Utiliser un code d'installation
+            </button>
+        {:else}
+            <form class="fields" onsubmit={registerKey}>
+                <p class="hint">Entre le code d'installation généré sur le serveur, puis touche ta nouvelle clé.</p>
+                <input class="field" type="text" placeholder="Code d'installation" autocomplete="one-time-code"
+                       aria-label="Code d'installation" bind:value={code} />
+                <input class="field" type="text" placeholder="Nom de la clé (ex. YubiKey 5)" maxlength="60"
+                       aria-label="Nom de la clé" bind:value={keyName} />
+                <button class="btn" type="submit" disabled={loading}>
+                    {loading ? 'En attente de la clé…' : 'Enregistrer ma clé'}
+                </button>
+            </form>
+            {#if data.hasKeys}
+                <button class="text-btn" type="button" onclick={() => { mode = 'key'; error = ''; }}>
+                    J'ai ma clé
+                </button>
+            {/if}
         {/if}
 
-        <button class="btn" type="submit" disabled={loading}>
-            {loading ? 'Connexion…' : 'Se connecter'}
-        </button>
-    </form>
+        {#if error}
+            <p class="chip-error" role="alert">{error}</p>
+        {/if}
+
+        <button class="text-btn" type="button" onclick={logout}>Se déconnecter</button>
+    </div>
 </main>
 
 <style>
@@ -157,40 +178,6 @@
     }
     .field:focus { outline: none; border-color: var(--primary); }
 
-    .trap {
-        position: absolute;
-        left: -9999px;
-        width: 1px;
-        height: 1px;
-        opacity: 0;
-    }
-
-    .challenge-row {
-        display: flex;
-        justify-content: center;
-        gap: 0.75rem;
-    }
-
-    .challenge-btn {
-        font-size: 1.25rem;
-        padding: 0.5rem 0.875rem;
-        background: var(--muted);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        transition: border-color 0.15s;
-    }
-    .challenge-btn:hover    { border-color: var(--primary); }
-    .challenge-btn.selected { border-color: var(--primary); background: var(--background); }
-
-    .result {
-        font-size: 0.875rem;
-        padding: 8px 12px;
-        border-radius: var(--radius-sm);
-        margin: 0;
-    }
-    .result.err { color: hsl(0 72% 51%); background: hsl(0 72% 51% / 0.1); }
-
     .btn {
         width: 100%;
         padding: 0.6rem 1rem;
@@ -204,4 +191,22 @@
     }
     .btn:hover:not(:disabled) { opacity: 0.9; }
     .btn:disabled { opacity: 0.6; cursor: default; }
+
+    .hint {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--muted-foreground);
+    }
+
+    .text-btn {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: 0.8125rem;
+        color: var(--muted-foreground);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+    }
+    .text-btn:hover { color: var(--foreground); }
 </style>

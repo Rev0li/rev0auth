@@ -36,9 +36,9 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/rev0auth'
 npm run db:generate -- --name <change>  # new migration after editing db/*schema.ts
 npx drizzle-kit generate --custom --name <x>  # hand-written data migration
 
-# Admin 2FA
-make admin-2fa-init                    # Initialize TOTP secret
-make admin-otp                         # Generate current OTP
+# Admin console: admin role + one-time code to register a security key (15 min)
+make admin-setup PSEUDO=<pseudo>       # docker compose exec frontend node scripts/admin-setup.mjs
+node --env-file=.env scripts/admin-setup.mjs <pseudo>  # same, outside Docker
 ```
 
 ## Environment
@@ -46,10 +46,9 @@ make admin-otp                         # Generate current OTP
 Copy `.env.example` to `.env`. Required variables:
 - `AUTH_JWT_SECRET` — min 32-byte secret for JWT signing (shared with SongSurf)
 - `DATABASE_URL` — PostgreSQL connection string
-- `ADMIN_DASH_PASSWORD`, `ADMIN_DASH_PSEUDO`, `ADMIN_DASH_SEED` — admin credentials
-- `ADMIN_DASH_TOTP_SECRET` — optional Base32 TOTP secret for 2FA
 - `PORT` — frontend port (4173 in prod compose, 5173 in dev)
-- `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose)
+- `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose);
+  also the WebAuthn origin, its hostname is the RP ID of the admin security keys
 - `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table, displayed on `/japprends/songsurf-activity`.
 
 ## Architecture
@@ -65,15 +64,17 @@ The Rust API used to mint the JWTs SongSurf validates. This now lives in
 ### Frontend (`frontend/src/`)
 
 ```
-hooks.server.ts            — resolves locals.adminSession (web_sessions) and
-                             locals.memberSession (BetterAuth ba_sessions)
+hooks.server.ts            — resolves locals.memberSession (BetterAuth ba_sessions)
+                             and locals.adminSession (admin role + security key
+                             validated in that session)
 lib/server/
   auth-v2.ts               — BetterAuth instance (ba_* tables, username plugin,
                              custom Argon2 password hash/verify)
   ba-sync.ts               — web_users → ba_* sync helpers (any code touching
                              password_hash/role/user deletion MUST use these)
-  auth.ts                  — Argon2 helpers + TOTP (admin login)
-  session.ts               — custom admin sessions (web_sessions)
+  auth.ts                  — Argon2 helpers, random tokens
+  admin-passkey.ts         — admin security keys (WebAuthn, @simplewebauthn),
+                             setup codes, session elevation
   songsurf.ts              — SongSurf JWT (jose, AUTH_JWT_SECRET)
   audit.ts / ratelimit.ts / songsurf-events.ts
   db/                      — Drizzle schema (web_* tables) + auth-schema (ba_*),
@@ -82,20 +83,27 @@ routes/
   +page.svelte             — member login (POST /auth/password-check)
   signup/                  — invite-based signup
   home/friend/, members/*  — member zone
-  japprends/*              — admin (login, dashboard, audit, songsurf pages, API endpoints)
+  japprends/*              — admin (login = security key, dashboard, audit,
+                             songsurf pages, passkey/* endpoints)
   portal/+server.ts        — 301 → / (legacy watcher login URL)
 scripts/
+  admin-setup.mjs          — admin role + one-time setup code (creates the
+                             account with a temporary password if missing)
   migrate-web-users-to-ba.mjs — bulk account migration (idempotent, --dry-run)
 ```
 
-**Sessions**: members = BetterAuth cookie `better-auth.session_token` (24h);
-admin = custom cookie `rev0auth_admin_session` (8h, password + challenge +
-honeypot + optional TOTP). Admin passkey (YubiKey) was removed with the Rust
-crates; planned to return via the BetterAuth passkey plugin.
+**Sessions**: one BetterAuth session (`better-auth.session_token`, 24h) for
+everyone. Admin console = member with role `admin` + a security key (WebAuthn)
+validated in that same session: `ba_sessions.admin_verified_at`, valid 8h, gone
+with logout/expiry. First key (or lost key): one-time setup code from
+`scripts/admin-setup.mjs`; extra keys from an already validated session
+(dashboard › Sécurité). Not the BetterAuth passkey plugin: it signs in
+passwordless and creates a second session, here the key is a second factor.
 
 **Route groups**:
-- Public: `/`, `/signup`, `/japprends/login`, `/portal` (redirect)
-- Admin-protected: `/japprends/*`
+- Public: `/`, `/signup`, `/portal` (redirect)
+- Admin role, key not yet validated: `/japprends/login`, `/japprends/passkey/{auth,register}-*`
+- Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`
 
 ## Key Design Notes

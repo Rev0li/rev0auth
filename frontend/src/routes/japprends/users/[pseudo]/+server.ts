@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
 import { db } from '$lib/server/db/index.js';
-import { users, sessions } from '$lib/server/db/schema.js';
+import { users } from '$lib/server/db/schema.js';
 import { eq, sql } from 'drizzle-orm';
 import { deleteBaUser, syncBaRole } from '$lib/server/ba-sync.js';
 import { writeAudit } from '$lib/server/audit.js';
@@ -35,9 +35,7 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
         return json({ ok: false, message: 'Utilisateur introuvable.' });
     }
 
-    // Cascade : sessions
-    await db.delete(sessions).where(sql`LOWER(${sessions.pseudo}) = LOWER(${pseudo})`);
-    await deleteBaUser(pseudo); // ba_sessions + ba_accounts en cascade SQL
+    await deleteBaUser(pseudo); // ba_sessions, ba_accounts, admin_passkeys en cascade SQL
 
     await writeAudit('delete_user', locals.adminSession!.pseudo, deleted[0].pseudo, 'user and all data deleted');
     return json({ ok: true });

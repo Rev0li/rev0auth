@@ -14,13 +14,6 @@ ask()  { echo -e "${CYAN}?${NC}  $*"; }
 sep()  { echo -e "\n${CYAN}──────────────────────────────────────────${NC}"; }
 
 gen_hex() { openssl rand -hex "${1:-32}"; }
-gen_b32() {
-    python3 -c "
-import os, base64
-raw = os.urandom(20)
-print(base64.b32encode(raw).decode().rstrip('='))
-" 2>/dev/null || openssl rand -base64 20 | tr '+/' 'AZ' | tr -d '=' | head -c 32
-}
 
 # Read current value of a key from .env (strips quotes)
 current_val() {
@@ -108,22 +101,6 @@ prompt_value "AUTH_JWT_SECRET" \
     "JWT signing secret — min 32 bytes. Copy to SongSurf .secrets." \
     "" "gen_hex 32"
 
-# ── Admin credentials ─────────────────────────────────────────────────────────
-sep
-echo -e "  ${CYAN}── Admin credentials ──${NC}"
-prompt_value "ADMIN_DASH_PSEUDO"   "Admin username"                              "admin"   ""
-prompt_value "ADMIN_DASH_SEED"     "Admin seed phrase (used for session signing)" ""       "gen_hex 16"
-prompt_value "ADMIN_DASH_PASSWORD" "Admin login password (strong)"               ""        ""
-
-# ── TOTP 2FA ──────────────────────────────────────────────────────────────────
-sep
-echo -e "  ${CYAN}── TOTP 2FA ──${NC}"
-echo    "  Leave blank to skip. After generation, run: make admin-2fa-init"
-echo    "  then scan the QR displayed with your authenticator app."
-prompt_value "ADMIN_DASH_TOTP_SECRET" \
-    "Base32 TOTP secret (empty = 2FA disabled)" \
-    "" "gen_b32"
-
 # ── Cookie domain (cross-domain SongSurf) ─────────────────────────────────────
 sep
 echo -e "  ${CYAN}── Cookie domain (SongSurf cross-domain) ──${NC}"
@@ -161,6 +138,6 @@ ok "Written to ${ENV_FILE} (chmod 600)"
 echo ""
 echo -e "  ${CYAN}Next steps:${NC}"
 echo    "  1. make launch-all                  — build Docker image + start all services"
-echo    "  2. Open http://localhost:4173/japprends/login — verify admin login + TOTP"
+echo    "  2. make admin-setup PSEUDO=<pseudo> — compte admin + code pour enregistrer la clé de sécurité"
 echo    "  3. Copy AUTH_JWT_SECRET to SongSurf .secrets (must be identical)"
 echo ""
