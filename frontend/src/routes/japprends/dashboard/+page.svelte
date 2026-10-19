@@ -2,14 +2,16 @@
     import { onMount } from 'svelte';
     import MembersTab     from './MembersTab.svelte';
     import InvitationsTab from './InvitationsTab.svelte';
+    import SecurityTab    from './SecurityTab.svelte';
     import ThemeToggle    from '$lib/ThemeToggle.svelte';
 
-    const TABS = ['members', 'invitations'] as const;
+    const TABS = ['members', 'invitations', 'security'] as const;
     type Tab = typeof TABS[number];
 
     const TAB_LABELS: Record<Tab, string> = {
         members:     'Membres',
         invitations: 'Invitations',
+        security:    'Sécurité',
     };
 
     let { data } = $props();
@@ -26,8 +28,8 @@
     }
 
     async function logout() {
-        await fetch('/japprends/logout', { method: 'POST' });
-        location.href = '/japprends/login';
+        await fetch('/auth/logout', { method: 'POST' });
+        location.href = '/';
     }
 </script>
 
@@ -66,6 +68,8 @@
             <MembersTab users={data.users} />
         {:else if active === 'invitations'}
             <InvitationsTab />
+        {:else if active === 'security'}
+            <SecurityTab />
         {/if}
     </main>
 </div>

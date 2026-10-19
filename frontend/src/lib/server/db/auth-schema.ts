@@ -33,6 +33,8 @@ export const ba_sessions = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => ba_users.id, { onDelete: "cascade" }),
+    // Console admin : clé de sécurité validée dans cette session (hors BetterAuth)
+    adminVerifiedAt: timestamp("admin_verified_at"),
   },
   (table) => [index("ba_sessions_userId_idx").on(table.userId)],
 );

@@ -1,5 +1,6 @@
-import { pgTable, text, boolean, bigint, bigserial, customType, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, bigint, bigserial, timestamp, customType, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { ba_users } from './auth-schema.js';
 
 // Défaut SQL des colonnes *_epoch (secondes Unix), en plus du $defaultFn côté JS
 const nowEpoch = sql`EXTRACT(EPOCH FROM NOW())::BIGINT`;
@@ -50,16 +51,6 @@ export const invites = pgTable('web_invites', {
     usedAt:        bigint('used_at_epoch', { mode: 'number' }),
 });
 
-// ─── web_sessions (SvelteKit-specific) ─────────────────
-
-export const sessions = pgTable('web_sessions', {
-    token:     text('token').primaryKey(),
-    pseudo:    text('pseudo').notNull(),
-    kind:      text('kind').notNull(),
-    expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
-    createdAt: bigint('created_at', { mode: 'number' }).notNull().default(nowEpoch).$defaultFn(() => Math.floor(Date.now() / 1000)),
-});
-
 // ─── web_audit_log (SvelteKit-specific) ────────────────
 
 export const auditLog = pgTable('web_audit_log', {
@@ -94,12 +85,28 @@ export const songsurfEvents = pgTable('songsurf_events', {
     index('songsurf_events_type_idx').on(t.eventType, t.receivedAt.desc()),
 ]);
 
+// ─── admin_passkeys ──────────────────────────────────────────────────────────
+// Clés de sécurité (WebAuthn) exigées pour entrer dans la console admin,
+// rattachées à l'identité BetterAuth. publicKey = clé COSE en base64url.
+
+export const adminPasskeys = pgTable('admin_passkeys', {
+    id:           bigserial('id', { mode: 'number' }).primaryKey(),
+    userId:       text('user_id').notNull().references(() => ba_users.id, { onDelete: 'cascade' }),
+    credentialId: text('credential_id').notNull().unique(),
+    publicKey:    text('public_key').notNull(),
+    counter:      bigint('counter', { mode: 'number' }).notNull().default(0),
+    transports:   text('transports').notNull().default(''),
+    name:         text('name').notNull().default(''),
+    createdAt:    timestamp('created_at').notNull().defaultNow(),
+    lastUsedAt:   timestamp('last_used_at'),
+}, (t) => [index('admin_passkeys_user_idx').on(t.userId)]);
+
 // ─── Inferred types ───────────────────────────────────────────────────────────
 
 export type User       = typeof users.$inferSelect;
 export type NewUser    = typeof users.$inferInsert;
-export type Session    = typeof sessions.$inferSelect;
 export type Invite     = typeof invites.$inferSelect;
 export type AuditEntry = typeof auditLog.$inferSelect;
+export type AdminPasskey = typeof adminPasskeys.$inferSelect;
 export type SongsurfEvent    = typeof songsurfEvents.$inferSelect;
 export type NewSongsurfEvent = typeof songsurfEvents.$inferInsert;

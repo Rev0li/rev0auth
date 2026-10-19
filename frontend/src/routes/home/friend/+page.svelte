@@ -92,6 +92,9 @@
         />
         <span class="nav-pseudo">{data.user.pseudo}</span>
         <a class="nav-btn" href="/members/profile">Profil</a>
+        {#if data.user.role === 'admin'}
+            <a class="nav-btn" href="/japprends/login">Console admin</a>
+        {/if}
         <ThemeToggle inline />
     </div>
 </nav>

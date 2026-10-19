@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hashPassword, verifyPassword, generateToken, verifyTotp } from '../auth.js';
+import { hashPassword, verifyPassword, generateToken } from '../auth.js';
 
 describe('hashPassword / verifyPassword', () => {
     it('hashes a password and verifies it correctly', async () => {
@@ -31,23 +31,5 @@ describe('generateToken', () => {
     it('produces unique tokens', () => {
         const tokens = new Set(Array.from({ length: 20 }, () => generateToken(32)));
         expect(tokens.size).toBe(20);
-    });
-});
-
-describe('verifyTotp', () => {
-    it('rejects tokens that are not 6 digits', () => {
-        expect(verifyTotp('JBSWY3DPEHPK3PXP', '12345')).toBe(false);
-        expect(verifyTotp('JBSWY3DPEHPK3PXP', '1234567')).toBe(false);
-        expect(verifyTotp('JBSWY3DPEHPK3PXP', 'abcdef')).toBe(false);
-        expect(verifyTotp('JBSWY3DPEHPK3PXP', '')).toBe(false);
-    });
-
-    it('verifies a known TOTP code (Google Authenticator test vector)', () => {
-        // RFC 6238 test vector: secret=12345678901234567890 (ASCII), T=59s → code=287082
-        // We can't easily test a live code without controlling time,
-        // so we verify the rejection path is reliable.
-        const result = verifyTotp('JBSWY3DPEHPK3PXP', '000000');
-        // Might be true or false depending on time — just confirm it returns a boolean
-        expect(typeof result).toBe('boolean');
     });
 });

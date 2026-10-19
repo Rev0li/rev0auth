@@ -1,11 +1,10 @@
-import type { Session } from '$lib/server/db/schema.js';
-
 declare global {
     namespace App {
         interface Locals {
-            adminSession:  Session | null;
             // Session BetterAuth (ba_sessions) — pseudo = web_users.pseudo exact
-            memberSession: { pseudo: string; role: string } | null;
+            memberSession: { pseudo: string; role: string; userId: string; sessionId: string } | null;
+            // Console admin : rôle admin + clé de sécurité validée dans cette session
+            adminSession: { pseudo: string } | null;
         }
     }
 }
