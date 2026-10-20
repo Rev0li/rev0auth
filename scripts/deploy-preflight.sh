@@ -55,6 +55,9 @@ else
     ok ".env found"
     # shellcheck disable=SC1090
     set -a; source "$ROOT_DIR/.env"; set +a
+    # En prod, les secrets sont à part (env_file .secrets du compose)
+    # shellcheck disable=SC1091
+    if [[ -f "$ROOT_DIR/.secrets" ]]; then set -a; source "$ROOT_DIR/.secrets"; set +a; fi
 
     check_var() {
         local var="$1" desc="$2"
@@ -67,7 +70,7 @@ else
     }
 
     check_var "POSTGRES_PASSWORD"   "required for Docker postgres container"
-    check_var "AUTH_JWT_SECRET"     "required for JWT signing + SongSurf validation"
+    check_var "BETTER_AUTH_SECRET"  "required to sign the session cookie"
 fi
 
 # ── Build files ───────────────────────────────────────────────────────────────

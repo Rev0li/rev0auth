@@ -21,7 +21,7 @@ export const cookieDomain = origin.startsWith('https://') ? new URL(origin).host
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, { provider: 'pg' }),
-    secret: process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_JWT_SECRET,
+    secret: process.env.BETTER_AUTH_SECRET,
     baseURL: origin,
 
     emailAndPassword: {

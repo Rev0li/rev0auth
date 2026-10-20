@@ -79,7 +79,7 @@ Copy `.env.example` to `.env`.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `AUTH_JWT_SECRET` | yes | Min 32-byte secret for JWT signing |
+| `BETTER_AUTH_SECRET` | yes | Min 32-byte secret signing the session cookie |
 | `DATABASE_URL` | no | PostgreSQL URL — falls back to in-memory if unset |
 | `ADMIN_DASH_PASSWORD` | yes | Admin login password |
 | `ADMIN_DASH_PSEUDO` | no | Admin display name |
@@ -205,7 +205,7 @@ Post-deploy verification:
 | File | Purpose |
 |------|---------|
 | `docs/BASE_DOC.md` | This file — project bible |
-| `docs/connexion.md` | JWT integration for linked services (Songsurf, Jellyfin) |
+| `docs/connexion.md` | Putting a service behind the portal gate (forward_auth) |
 | `docs/install-to-launch.md` | Local → VPS deployment guide |
 | `docs/public-project-handbook.md` | Public-facing project overview |
 | `docs/cheatsheet-complet.md` | Quick reference — commands, URLs, debug |

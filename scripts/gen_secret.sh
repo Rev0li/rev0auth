@@ -93,20 +93,19 @@ else
     ok "Set."
 fi
 
-# ── JWT / Auth ────────────────────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 sep
 echo -e "  ${CYAN}── Auth ──${NC}"
-echo    "  AUTH_JWT_SECRET must be identical in SongSurf .secrets."
-prompt_value "AUTH_JWT_SECRET" \
-    "JWT signing secret — min 32 bytes. Copy to SongSurf .secrets." \
+echo    "  BETTER_AUTH_SECRET signe le cookie de session : le changer déconnecte tout le monde."
+prompt_value "BETTER_AUTH_SECRET" \
+    "Session signing secret — min 32 bytes." \
     "" "gen_hex 32"
 
 # ── SongSurf URL ─────────────────────────────────────────────────────────────
 sep
 echo -e "  ${CYAN}── SongSurf URL ──${NC}"
-echo    "  URL du bouton 'Ouvrir Songsurf' affiché aux membres autorisés."
-echo    "  Local : http://localhost:9000"
-echo    "  Tailscale : http://<ip-tailscale>:9000 ou https://songsurf.xxx.ts.net"
+echo    "  Adresse publique de SongSurf, derrière la porte du portail (Caddy)."
+echo    "  Prod : https://songsurf.<domaine>"
 prompt_value "SONGSURF_URL" \
     "URL d'accès à SongSurf (bouton membre)" \
     "http://localhost:9000" ""
@@ -129,5 +128,5 @@ echo ""
 echo -e "  ${CYAN}Next steps:${NC}"
 echo    "  1. make launch-all                  — build Docker image + start all services"
 echo    "  2. make admin-setup PSEUDO=<pseudo> — compte admin + code pour enregistrer la clé de sécurité"
-echo    "  3. Copy AUTH_JWT_SECRET to SongSurf .secrets (must be identical)"
+echo    "  3. SongSurf : SONGSURF_PROXY_SECRET identique sur le NAS et dans le fichier Caddy (infra/caddy)"
 echo ""

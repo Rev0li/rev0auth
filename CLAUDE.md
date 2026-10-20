@@ -8,7 +8,7 @@ rev0auth is an authentication platform with RBAC. The migration to SvelteKit is
 complete: the **SvelteKit frontend serves the whole site** (portal, members,
 admin, signup) with one BetterAuth session for everyone; the admin console
 additionally requires a security key. The Rust backend (`crates/`) has been
-removed (Phase 4) — SvelteKit signs its own SongSurf JWTs.
+removed (Phase 4). Services sit behind the portal gate (Caddy forward_auth), see `docs/connexion.md`.
 
 - `frontend/` — SvelteKit (adapter-node, port 4173 in prod, 5173 in dev): all
   pages + API endpoints, Drizzle + PostgreSQL, BetterAuth (`ba_*` tables: the
@@ -44,9 +44,9 @@ node --env-file=.env scripts/admin-setup.mjs <pseudo>  # same, outside Docker
 ## Environment
 
 Copy `.env.example` to `.env`. Required variables:
-- `BETTER_AUTH_SECRET` — min 32-byte secret for BetterAuth sessions. Falls back to
-  `AUTH_JWT_SECRET` (the old SongSurf JWT secret, still the one used in prod until
-  it is renamed — AUTH-09 step 6)
+- `BETTER_AUTH_SECRET` — min 32-byte secret for BetterAuth sessions (signs the
+  session cookie: changing it logs everyone out). Formerly `AUTH_JWT_SECRET`,
+  renamed with the same value in prod (AUTH-09)
 - `SONGSURF_URL` — public SongSurf address (https://songsurf.…), behind the portal gate
 - `DATABASE_URL` — PostgreSQL connection string
 - `PORT` — frontend port (4173 in prod compose, 5173 in dev)
