@@ -1,153 +1,64 @@
-# Caddy + DuckDNS (pour les nuls)
+# Caddy + DuckDNS
 
-Date: 2026-04-03
+Mis à jour : 2026-10-20 (AUTH-06)
 
-## Objectif
+## Le principe
 
-Avoir un reverse proxy sur le VPS (pas sur le NAS) avec tes domaines DuckDNS.
+Caddy, sur le VPS, reçoit tout le trafic HTTPS et le renvoie au bon service :
+le portail rev0auth (conteneur local) ou les services du NAS (via Tailscale).
 
-## Ton cas (resume)
+Tout est sous un seul domaine DuckDNS :
 
-- avant: domaines DuckDNS -> NAS/Tailscale
-- maintenant: Caddy tourne sur le VPS
-- certains services restent sur le NAS via Tailscale (`100.121.1.89`)
+| Adresse | Service |
+|---|---|
+| `rev0li.duckdns.org` | portail rev0auth |
+| `songsurf.rev0li.duckdns.org` | SongSurf (NAS) |
+| `jellyfin.rev0li.duckdns.org` | Jellyfin (NAS) |
+| `portfolio.rev0li.duckdns.org` | portfolio (NAS) |
 
-## Important
+Les anciennes adresses (`rev0lisurf`, `revoli-jellyfin`, `revoli-portfolio`)
+redirigent en 308 vers les nouvelles, le temps de mettre à jour les liens et
+les applis.
 
-Le token DuckDNS ne doit pas apparaitre dans les commits ni dans le Caddyfile.
-S'il a ete expose, fais une rotation du token DuckDNS.
+## DNS : rien à déclarer
 
-## Etape 1 - DNS
+DuckDNS résout n'importe quel nom sous `rev0li.duckdns.org` vers la même IP
+que `rev0li.duckdns.org`. Ajouter un service = ajouter un bloc au Caddyfile.
 
-Pour chaque sous-domaine, le DNS doit pointer vers l'IP publique du VPS.
+## Certificats : challenge HTTP, sans jeton
 
-Exemple:
+Pour chaque nom, Let's Encrypt appelle
+`http://<nom>/.well-known/acme-challenge/…` et Caddy répond : ça prouve que le
+nom pointe vers ce serveur. Il faut seulement les ports 80 et 443 ouverts.
+Caddy obtient et renouvelle un certificat par nom, tout seul.
 
-- `revoli-portfolio.duckdns.org` -> VPS
-- `revoli-songsurf.duckdns.org` -> VPS
-- `revoli-jellyfin.duckdns.org` -> VPS
-- `hi-revoli.duckdns.org` -> VPS
+Le challenge DNS (`acme_dns duckdns <token>`) n'est plus utilisé. Il demandait
+le jeton du compte DuckDNS sur le serveur, et DuckDNS ne publie qu'une valeur
+de vérification à la fois, ce qui fait échouer un certificat qui couvre en
+même temps le domaine et ses sous-domaines.
 
-## Etape 2 - Ports VPS
+Contrepartie : chaque certificat est publié dans les journaux de
+transparence, donc les noms des sous-domaines sont publics.
 
-Ouvrir uniquement:
+## Appliquer une modification
 
-- `80/tcp`
-- `443/tcp`
-
-Le reste doit rester ferme.
-
-## Etape 3 - Caddyfile simple (recommande)
-
-Si tu utilises Caddy standard (apt), commence sans `acme_dns`.
-Let's Encrypt utilisera le challenge HTTP automatiquement.
-
-```caddy
-{
-    email admin@example.com
-}
-
-revoli-portfolio.duckdns.org {
-    reverse_proxy 127.0.0.1:3000
-}
-
-revoli-songsurf.duckdns.org {
-    reverse_proxy 100.121.1.89:8080
-}
-
-revoli-jellyfin.duckdns.org {
-    reverse_proxy 100.121.1.89:8096
-}
-
-hi-revoli.duckdns.org {
-    # Option simple: un service frontal de logs
-    reverse_proxy 127.0.0.1:9000
-
-    # Si tu veux router par chemin, remplace par des handles:
-    # handle_path /jellyfin/* {
-    #     reverse_proxy 100.121.1.89:8096
-    # }
-    # handle_path /songsurf/* {
-    #     reverse_proxy 100.121.1.89:8080
-    # }
-}
-```
-
-## Etape 4 - Installer / valider Caddy
-
-Sur le VPS:
+Modèle : `infra/caddy/Caddyfile.template` (variables dans
+`infra/caddy/caddy.env.example`). Sur le VPS, le Caddyfile est
+`/etc/caddy/Caddyfile` (`640 root:caddy`).
 
 ```bash
-sudo ./scripts/install-caddy-template.sh --dry-run
-sudo ./scripts/install-caddy-template.sh
-```
-
-Si tu utilises le Caddyfile ci-dessus en direct:
-
-```bash
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F)
 sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-sudo systemctl restart caddy
-sudo systemctl status caddy --no-pager
+sudo systemctl reload caddy
+sudo journalctl -u caddy --since "5 min ago" | grep -iE "obtain|error"
 ```
 
-## Etape 5 - Verifier que le VPS reach le NAS
-
-Le VPS doit avoir Tailscale et joindre `100.121.1.89`.
+Vérifier :
 
 ```bash
-curl -I http://100.121.1.89:8080
-curl -I http://100.121.1.89:8096
+curl -sI https://songsurf.rev0li.duckdns.org | head -1
+curl -sI https://rev0lisurf.duckdns.org | grep -i location
 ```
-
-Si ca ne repond pas:
-
-- verifier Tailscale sur VPS et NAS
-- verifier ACL tailnet
-- verifier firewall NAS
-
-## Cas conflit de port (Songsurf deja sur 8080)
-
-Si `8080` est deja utilise sur la machine du projet, ne force pas de partage de port.
-
-Utilise une separation simple:
-
-1. API rev0auth sur un autre port local (ex: `18080`)
-2. Songsurf garde son port actuel via Tailscale/NAS
-3. Caddy route chaque domaine vers le bon upstream
-
-Exemple variables:
-
-```bash
-# API process
-export API_BIND_ADDR='0.0.0.0:18080'
-
-# Web process (checks internes)
-export REV0AUTH_API_UPSTREAM='127.0.0.1:18080'
-
-# Caddy env
-API_UPSTREAM=127.0.0.1:18080
-```
-
-Resultat: pas de collision avec Songsurf, et rev0auth reste stable.
-
-## Etape 6 - Tests finaux
-
-```bash
-curl -I https://revoli-portfolio.duckdns.org
-curl -I https://revoli-songsurf.duckdns.org
-curl -I https://revoli-jellyfin.duckdns.org
-curl -I https://hi-revoli.duckdns.org
-```
-
-## Si tu veux absolument `acme_dns duckdns`
-
-Ca demande un Caddy build avec le module DNS DuckDNS.
-Ce n'est pas le chemin le plus simple pour commencer.
-
-Recommandation:
-
-1. d'abord faire fonctionner le mode simple (HTTP challenge)
-2. ensuite seulement passer en DNS challenge si necessaire
 
 ## Liens
 

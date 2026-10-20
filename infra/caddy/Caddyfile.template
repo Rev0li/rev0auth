@@ -1,14 +1,15 @@
 # rev0auth — Caddyfile template (VPS production)
 #
-# Service behind Caddy:
-#   auth.example.com/*  → SvelteKit (Docker :4173) — tout le site
-#
-# SvelteKit sert l'intégralité du site (portail, membres, admin, signup) et
-# signe lui-même les JWT pour SongSurf. Le backend Rust (crates/) a été retiré.
+# Tout l'univers sous un même domaine : le portail sur la racine, chaque
+# service sur un sous-domaine (AUTH-06). Les sous-domaines de
+# rev0li.duckdns.org sont résolus par DuckDNS sans rien déclarer.
+# Certificats par le challenge HTTP (ports 80/443 ouverts) : un certificat par
+# nom, aucun jeton DuckDNS nécessaire.
 #
 # Required env vars (in /etc/caddy/rev0auth-caddy.env):
-#   WEB_DOMAIN        e.g. auth.rev0univers.com
+#   WEB_DOMAIN        e.g. rev0li.duckdns.org
 #   FRONTEND_UPSTREAM e.g. 127.0.0.1:4173       (SvelteKit)
+#   NAS_UPSTREAM      adresse Tailscale du NAS (SongSurf, Jellyfin, portfolio)
 #   ACME_EMAIL        e.g. you@example.com
 
 {
@@ -18,7 +19,7 @@
     }
 }
 
-# ── Web (SvelteKit) ───────────────────────────────────────────────────────────
+# ── Portail (SvelteKit) ───────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
 
@@ -32,4 +33,17 @@
     handle {
         reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
     }
+}
+
+# ── Services du NAS ───────────────────────────────────────────────────────────
+songsurf.{$WEB_DOMAIN} {
+    reverse_proxy {$NAS_UPSTREAM}:9000
+}
+
+jellyfin.{$WEB_DOMAIN} {
+    reverse_proxy {$NAS_UPSTREAM}:8096
+}
+
+portfolio.{$WEB_DOMAIN} {
+    reverse_proxy {$NAS_UPSTREAM}:49154
 }
