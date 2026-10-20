@@ -13,7 +13,7 @@ RUN npm ci
 COPY frontend/ ./
 # BetterAuth s'instancie au chargement du module et exige un secret. Pendant le
 # build SSR aucun env n'est présent -> placeholder scopé à cette seule commande.
-# Au runtime, le vrai secret vient d'env_file (AUTH_JWT_SECRET) : ce module est
+# Au runtime, le vrai secret vient d'env_file (BETTER_AUTH_SECRET) : ce module est
 # réévalué au démarrage du conteneur (process.env lu au runtime, jamais baké).
 RUN BETTER_AUTH_SECRET="build-time-placeholder-not-used-at-runtime" npm run build
 

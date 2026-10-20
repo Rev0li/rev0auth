@@ -70,7 +70,6 @@ const MATRIX: Record<string, Entry> = {
     '/members/avatar/[pseudo] GET':    { level: 'member' },
     '/members/account DELETE':         { level: 'member' },
     '/members/access/request POST':    { level: 'member' },
-    '/members/songsurf/launch GET':    { level: 'member' },
     // Rôle admin, clé pas encore validée (entrée dans la console)
     '/japprends/login load':                     { level: 'adminMember' },
     '/japprends/passkey/auth-options POST':      { level: 'adminMember' },
@@ -85,7 +84,6 @@ const MATRIX: Record<string, Entry> = {
     '/japprends/songsurf-activity load':         { level: 'admin' },
     '/japprends/songsurf-logs load':             { level: 'admin' },
     '/japprends/songsurf-logs GET':              { level: 'admin' },
-    '/japprends/songsurf-access GET':            { level: 'admin' },
     '/japprends/passkey GET':                    { level: 'admin' },
     '/japprends/passkey/[id] DELETE':            { level: 'admin' },
     '/japprends/users GET':                      { level: 'admin' },

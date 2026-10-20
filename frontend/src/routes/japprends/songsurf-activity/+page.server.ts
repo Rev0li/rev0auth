@@ -4,7 +4,7 @@ import { songsurfEvents } from '$lib/server/db/schema.js';
 import type { SongsurfEvent } from '$lib/server/db/schema.js';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { EVENT_TYPES } from '$lib/server/songsurf-events.js';
-import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
+import { songsurfConfigured, fetchSongsurfDlLogs } from '$lib/server/songsurf.js';
 import type { PageServerLoad } from './$types.js';
 
 // La table songsurf_events n'est remplie que par le push du NAS. Les
@@ -35,15 +35,10 @@ function parisWallToEpoch(s?: string): number {
     return Math.floor((utcGuess - offsetMs) / 1000);
 }
 
-async function fetchDownloads(pseudo: string, limit: number): Promise<SongsurfEvent[]> {
+async function fetchDownloads(cookieHeader: string | null, pseudo: string, limit: number): Promise<SongsurfEvent[]> {
     if (!songsurfConfigured()) return [];
     try {
-        const token = await signSongsurfJwt('admin', 'admin', 120);
-        const target = `${songsurfBaseUrl()}/api/admin/dl-logs?pseudo=${encodeURIComponent(pseudo)}&limit=${limit}`;
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        const resp = await fetch(target, { headers: { Cookie: `access_token=${token}` }, signal: ctrl.signal });
-        clearTimeout(timer);
+        const resp = await fetchSongsurfDlLogs(cookieHeader, pseudo, limit, 8000);
         if (!resp.ok) return [];
         const data = (await resp.json().catch(() => null)) as { entries?: DlEntry[] } | null;
         const entries = Array.isArray(data?.entries) ? data!.entries : [];
@@ -66,7 +61,7 @@ async function fetchDownloads(pseudo: string, limit: number): Promise<SongsurfEv
     }
 }
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, request }) => {
     if (!locals.adminSession) throw redirect(303, '/japprends/login');
 
     const pseudo = url.searchParams.get('pseudo') ?? '';
@@ -86,7 +81,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     // Pull live des téléchargements (seulement si le filtre type le permet —
     // le journal SongSurf ne contient que des téléchargements réussis).
     const pulled = (!type || type === 'download_success')
-        ? await fetchDownloads(pseudo, limit)
+        ? await fetchDownloads(request.headers.get('cookie'), pseudo, limit)
         : [];
 
     const events = [...pushed, ...pulled]

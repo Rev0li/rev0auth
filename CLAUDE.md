@@ -44,7 +44,10 @@ node --env-file=.env scripts/admin-setup.mjs <pseudo>  # same, outside Docker
 ## Environment
 
 Copy `.env.example` to `.env`. Required variables:
-- `AUTH_JWT_SECRET` — min 32-byte secret for JWT signing (shared with SongSurf)
+- `BETTER_AUTH_SECRET` — min 32-byte secret for BetterAuth sessions. Falls back to
+  `AUTH_JWT_SECRET` (the old SongSurf JWT secret, still the one used in prod until
+  it is renamed — AUTH-09 step 6)
+- `SONGSURF_URL` — public SongSurf address (https://songsurf.…), behind the portal gate
 - `DATABASE_URL` — PostgreSQL connection string
 - `PORT` — frontend port (4173 in prod compose, 5173 in dev)
 - `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose);
@@ -53,13 +56,14 @@ Copy `.env.example` to `.env`. Required variables:
 
 ## Architecture
 
-### SongSurf JWT handoff
+### SongSurf behind the gate (AUTH-09)
 
-The Rust API used to mint the JWTs SongSurf validates. This now lives in
-`frontend/src/lib/server/songsurf.ts` (`jose`, HS256, `AUTH_JWT_SECRET`):
-- member login `/auth/password-check` → redirect `?token=` to SongSurf (8h)
-- admin `/japprends/songsurf-access` → admin token (8h)
-- admin `/japprends/songsurf-logs` → short-lived token (120s) for the logs proxy, plus the admin's session cookie so the call passes the SongSurf gate (AUTH-09)
+No more JWT handoff: SongSurf sits behind the portal gate (Caddy forward_auth →
+`/auth/verify?service=songsurf`), so the member and admin buttons are plain links
+to `SONGSURF_URL`. The admin pages that read SongSurf's download log
+(`/japprends/songsurf-logs`, `/japprends/songsurf-activity`) call it server-side
+with the admin's own session cookie (`fetchSongsurfDlLogs` in `songsurf.ts`,
+session cookie only, https on the portal domain only).
 
 ### Frontend (`frontend/src/`)
 
@@ -75,7 +79,7 @@ lib/server/
   auth.ts                  — Argon2 helpers, random tokens
   admin-passkey.ts         — admin security keys (WebAuthn, @simplewebauthn),
                              setup codes, session elevation
-  songsurf.ts              — SongSurf JWT (jose, AUTH_JWT_SECRET)
+  songsurf.ts              — SongSurf address + admin calls through the gate
   forward-auth.ts          — service gate rules (access per service, safe
                              return URL) for /auth/verify
   audit.ts / ratelimit.ts / songsurf-events.ts
