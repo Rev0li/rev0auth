@@ -101,16 +101,6 @@ prompt_value "AUTH_JWT_SECRET" \
     "JWT signing secret — min 32 bytes. Copy to SongSurf .secrets." \
     "" "gen_hex 32"
 
-# ── Cookie domain (cross-domain SongSurf) ─────────────────────────────────────
-sep
-echo -e "  ${CYAN}── Cookie domain (SongSurf cross-domain) ──${NC}"
-echo    "  Empty for local dev (cookie stays on localhost)."
-echo    "  Set to root domain for prod: .rev0univers.com"
-echo    "  This lets auth.rev0univers.com share the cookie with songsurf.rev0univers.com."
-prompt_value "COOKIE_DOMAIN" \
-    "Cookie Domain attribute (empty = localhost, .yourdomain.com = prod)" \
-    "" ""
-
 # ── SongSurf URL ─────────────────────────────────────────────────────────────
 sep
 echo -e "  ${CYAN}── SongSurf URL ──${NC}"

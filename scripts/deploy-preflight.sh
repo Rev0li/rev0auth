@@ -68,9 +68,6 @@ else
 
     check_var "POSTGRES_PASSWORD"   "required for Docker postgres container"
     check_var "AUTH_JWT_SECRET"     "required for JWT signing + SongSurf validation"
-
-    # Warn (not fail) for optional but important vars
-    [[ -z "${COOKIE_DOMAIN:-}" ]]          && warn "COOKIE_DOMAIN empty — SongSurf cross-domain cookie disabled (OK for local dev)"
 fi
 
 # ── Build files ───────────────────────────────────────────────────────────────
