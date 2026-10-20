@@ -128,5 +128,9 @@ passwordless and creates a second session, here the key is a second factor.
   and revokes the other sessions; an admin reset/removal revokes all of them.
 - Role hierarchy: `guest < member < mod < admin`.
 - `make test` runs `npm run check` + `vitest`.
+- Access control is tested route × role in
+  `lib/server/__tests__/routes-access.test.ts` (no DB: any DB/BetterAuth call
+  means the guard was passed) and `hooks.test.ts` (session → locals). A new
+  server route must be added to its `MATRIX`, or the coverage test fails.
 - Migrations: never edit an applied migration; `0000_baseline` is idempotent so
   databases created by the former `initDb()` converge without data loss.
