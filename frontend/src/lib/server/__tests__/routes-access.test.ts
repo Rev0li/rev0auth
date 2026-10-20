@@ -21,7 +21,7 @@ const { PASSED, trap } = vi.hoisted(() => {
 vi.mock('$lib/server/db/index.js', () => ({ db: trap, migrateDb: async () => {} }));
 vi.mock('$lib/server/auth-v2.js', () => ({ auth: trap, cookieDomain: undefined }));
 
-type Level = 'public' | 'member' | 'adminMember' | 'admin' | 'secret';
+type Level = 'public' | 'member' | 'adminMember' | 'admin' | 'secret' | 'own';
 type Profile = 'anonyme' | 'guest' | 'member' | 'mod' | 'admin sans clé' | 'admin';
 
 const PROFILES: Record<Profile, App.Locals> = {
@@ -41,6 +41,7 @@ const ALLOWED: Record<Level, Profile[]> = {
     adminMember: ['admin sans clé', 'admin'],
     admin:       ['admin'],
     secret:      [],
+    own:         [], // règle propre, testée à part
 };
 
 type Entry = { level: Level; body?: unknown };
@@ -57,6 +58,8 @@ const MATRIX: Record<string, Entry> = {
     '/auth/logout POST':               { level: 'public' },
     '/avatars/[seed] GET':             { level: 'public' },
     '/members/dashboard load':         { level: 'public' }, // redirection permanente
+    // Porte des services (Caddy forward_auth) : cf. forward-auth.test.ts
+    '/auth/verify GET':                { level: 'own' },
     // Espace membre
     '/home/friend load':               { level: 'member' },
     '/members/profile load':           { level: 'member' },
@@ -112,7 +115,7 @@ function routeOf(file: string): string {
 }
 
 function member(role: string): NonNullable<App.Locals['memberSession']> {
-    return { pseudo: 'Alice', role, userId: 'u1', sessionId: 's1' };
+    return { pseudo: 'Alice', role, userId: 'u1', sessionId: 's1', access: { songsurf: false, jellyfin: false } };
 }
 
 function buildEvent(route: string, method: string, locals: App.Locals, body: unknown) {
@@ -173,6 +176,7 @@ describe('droits d\'accès par route', () => {
     });
 
     for (const [key, { level, body }] of Object.entries(MATRIX)) {
+        if (level === 'own') continue;
         const [route, method] = key.split(' ');
         for (const profile of Object.keys(PROFILES) as Profile[]) {
             const expected = ALLOWED[level].includes(profile) ? 'allowed' : 'refused';

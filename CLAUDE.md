@@ -76,6 +76,8 @@ lib/server/
   admin-passkey.ts         — admin security keys (WebAuthn, @simplewebauthn),
                              setup codes, session elevation
   songsurf.ts              — SongSurf JWT (jose, AUTH_JWT_SECRET)
+  forward-auth.ts          — service gate rules (access per service, safe
+                             return URL) for /auth/verify
   audit.ts / ratelimit.ts / songsurf-events.ts
   db/                      — Drizzle schema (web_*, user_avatars, admin_passkeys)
                              + auth-schema (ba_*, incl. business fields),
@@ -105,6 +107,11 @@ passwordless and creates a second session, here the key is a second factor.
 
 **Route groups**:
 - Public: `/`, `/signup`, `/portal` (redirect)
+- Service gate: `/auth/verify?service=songsurf|jellyfin`, called by Caddy
+  `forward_auth` (snippet `porte_portail`) before each request to a service
+  subdomain: 204 + `X-User-Id/Name/Role` if the member has access (admin: all),
+  302 to `/?redirect=<url>` for a navigation without session, 401 for API
+  calls, 403 without access (`lib/server/forward-auth.ts`)
 - Admin role, key not yet validated: `/japprends/login`, `/japprends/passkey/{auth,register}-*`
 - Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`
