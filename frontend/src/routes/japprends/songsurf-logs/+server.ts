@@ -1,8 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
+import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt, portalSessionCookies } from '$lib/server/songsurf.js';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, request, locals }) => {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
 
     if (!songsurfConfigured()) {
@@ -19,7 +19,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 10_000);
         const resp = await fetch(target, {
-            headers: { Cookie: `access_token=${token}` },
+            // Session de l'admin pour la porte du portail (AUTH-09), JWT pour
+            // le Watcher tant qu'il l'accepte encore.
+            headers: { Cookie: [...portalSessionCookies(request.headers.get('cookie'), target), `access_token=${token}`].join('; ') },
             signal: ctrl.signal,
         });
         clearTimeout(timer);

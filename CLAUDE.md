@@ -59,7 +59,7 @@ The Rust API used to mint the JWTs SongSurf validates. This now lives in
 `frontend/src/lib/server/songsurf.ts` (`jose`, HS256, `AUTH_JWT_SECRET`):
 - member login `/auth/password-check` → redirect `?token=` to SongSurf (8h)
 - admin `/japprends/songsurf-access` → admin token (8h)
-- admin `/japprends/songsurf-logs` → short-lived token (120s) for the logs proxy
+- admin `/japprends/songsurf-logs` → short-lived token (120s) for the logs proxy, plus the admin's session cookie so the call passes the SongSurf gate (AUTH-09)
 
 ### Frontend (`frontend/src/`)
 
