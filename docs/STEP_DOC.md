@@ -26,7 +26,7 @@ Copy `.env.example` → `.env` on the VPS and fill every value from your secrets
 
 | Variable | Requirement |
 |---|---|
-| `AUTH_JWT_SECRET` | Min 32 bytes, random, never reused |
+| `BETTER_AUTH_SECRET` | Min 32 bytes, random, never reused |
 | `DATABASE_URL` | Postgres URL, same as used for migrations |
 | `POSTGRES_PASSWORD` | Strong, matches `DATABASE_URL` |
 | `ADMIN_DASH_PASSWORD` | Strong password, not the same as DB password |

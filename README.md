@@ -20,7 +20,7 @@ pour SongSurf.
 
 ```bash
 cd frontend
-cp .env.example .env          # puis remplir AUTH_JWT_SECRET, DATABASE_URL
+cp .env.example .env          # puis remplir BETTER_AUTH_SECRET, DATABASE_URL
 npm install
 npm run dev                   # http://localhost:5173
 ```
