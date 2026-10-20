@@ -100,7 +100,7 @@
                 </div>
                 <div class="svc-body">
                     {#if data.user.accessJellyfin}
-                        <a class="btn-primary svc-launch" href="https://revoli-jellyfin.duckdns.org" target="_blank" rel="noopener">
+                        <a class="btn-primary svc-launch" href="https://jellyfin.rev0li.duckdns.org" target="_blank" rel="noopener">
                             Ouvrir Jellyfin →
                         </a>
                     {:else if data.user.requestJellyfin}
