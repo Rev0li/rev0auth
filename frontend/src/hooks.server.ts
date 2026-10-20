@@ -27,6 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
                 role:      user.role,
                 userId:    user.id,
                 sessionId: session.id,
+                access:    { songsurf: user.accessSongsurf, jellyfin: user.accessJellyfin },
             };
             if (user.role === 'admin' && await isSessionElevated(session.id)) {
                 event.locals.adminSession = { pseudo: user.name };

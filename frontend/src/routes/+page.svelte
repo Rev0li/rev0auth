@@ -4,6 +4,8 @@
     import { Input } from '$lib/components/ui/input/index.js';
     import { Card } from '$lib/components/ui/card/index.js';
 
+    let { data } = $props();
+
     let pseudo   = $state('');
     let password = $state('');
     let loading  = $state(false);
@@ -27,9 +29,10 @@
             if (!data.ok) { error = data.message; return; }
 
             localStorage.setItem('logged_pseudo', data.pseudo ?? key);
-            // Le lancement SongSurf se fait via /members/songsurf/launch (token
-            // frais re-signé à chaque clic), plus besoin de transporter l'URL ici.
-            goto('/home/friend');
+            // Retour au service qui a demandé la connexion (adresse vérifiée
+            // côté serveur), sinon l'espace membre.
+            if (data.returnTo) window.location.assign(data.returnTo);
+            else goto('/home/friend');
         } catch { error = 'Erreur réseau.'; }
         finally { loading = false; }
     }

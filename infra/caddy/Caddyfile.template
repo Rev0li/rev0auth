@@ -25,6 +25,24 @@
     header_up Cookie "(__Secure-)?better-auth\.[A-Za-z_]+=[^;]*;?\s*" ""
 }
 
+# Porte commune (AUTH-08) : avant chaque requête, Caddy demande au portail si
+# la session donne accès au service. 2xx → identité copiée dans X-User-*
+# (celles envoyées par le client sont d'abord effacées) ; sinon la réponse du
+# portail est renvoyée (connexion, 401 ou 403). `route` garde cet ordre :
+# sans lui, Caddy exécute forward_auth avant request_header.
+# Usage : `import porte_portail songsurf`
+(porte_portail) {
+    route {
+        request_header -X-User-Id
+        request_header -X-User-Name
+        request_header -X-User-Role
+        forward_auth {$FRONTEND_UPSTREAM:127.0.0.1:4173} {
+            uri /auth/verify?service={args[0]}
+            copy_headers X-User-Id X-User-Name X-User-Role
+        }
+    }
+}
+
 # ── Portail (SvelteKit) ───────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip

@@ -24,7 +24,7 @@ async function localsFor(cookie: string | null): Promise<App.Locals> {
 }
 
 function session(user: { role: string; active: boolean }) {
-    return { user: { id: 'u1', name: 'Alice', ...user }, session: { id: 's1' } };
+    return { user: { id: 'u1', name: 'Alice', accessSongsurf: true, accessJellyfin: false, ...user }, session: { id: 's1' } };
 }
 
 beforeEach(() => {
@@ -53,7 +53,10 @@ describe('hooks.server — sessions', () => {
         getSession.mockResolvedValue(session({ role: 'member', active: true }));
         isSessionElevated.mockResolvedValue(true);
         const locals = await localsFor(COOKIE);
-        expect(locals.memberSession).toEqual({ pseudo: 'Alice', role: 'member', userId: 'u1', sessionId: 's1' });
+        expect(locals.memberSession).toEqual({
+            pseudo: 'Alice', role: 'member', userId: 'u1', sessionId: 's1',
+            access: { songsurf: true, jellyfin: false },
+        });
         expect(locals.adminSession).toBeNull();
         expect(isSessionElevated).not.toHaveBeenCalled();
     });
