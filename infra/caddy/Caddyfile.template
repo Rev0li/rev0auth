@@ -43,6 +43,15 @@
     }
 }
 
+# Preuve que la requête vient de Caddy (AUTH-09) : fichier privé du VPS
+# (root:caddy, 640) qui définit le snippet `preuve_songsurf` :
+#   (preuve_songsurf) {
+#       header_up X-Proxy-Token "<SONGSURF_PROXY_SECRET>"
+#   }
+# Même valeur que sur le NAS. Pas de variable d'environnement : Caddy est
+# lancé avec --environ et écrirait le secret dans le journal.
+import /etc/caddy/secrets/songsurf-preuve.caddy
+
 # ── Portail (SvelteKit) ───────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
@@ -61,8 +70,23 @@
 
 # ── Services du NAS ───────────────────────────────────────────────────────────
 songsurf.{$WEB_DOMAIN} {
-    reverse_proxy {$NAS_UPSTREAM}:9000 {
-        import sans_cookie_portail
+    # Preflight CORS de l'extension : sans cookie, il passe sans la porte.
+    # Sans preuve, le Watcher ignore toute identité ; il n'y répond que CORS.
+    @preflight method OPTIONS
+    handle @preflight {
+        reverse_proxy {$NAS_UPSTREAM}:9000 {
+            import sans_cookie_portail
+            header_up -X-User-*
+            header_up -X-Proxy-Token
+        }
+    }
+
+    handle {
+        import porte_portail songsurf
+        reverse_proxy {$NAS_UPSTREAM}:9000 {
+            import sans_cookie_portail
+            import preuve_songsurf
+        }
     }
 }
 
