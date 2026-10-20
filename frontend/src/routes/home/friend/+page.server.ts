@@ -1,30 +1,22 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
-import { db } from '$lib/server/db/index.js';
-import { users } from '$lib/server/db/schema.js';
-import { eq } from 'drizzle-orm';
+import { findUserById, listUsers } from '$lib/server/users.js';
 
 export const load: PageServerLoad = async ({ locals }) => {
     if (!locals.memberSession) throw redirect(302, '/');
-    const pseudo = locals.memberSession.pseudo;
 
-    const [userRows, members] = await Promise.all([
-        db.select().from(users).where(eq(users.pseudo, pseudo)).limit(1),
-        db.select({
-            pseudo:    users.pseudo,
-            role:      users.role,
-            bio:       users.bio,
-            avatarMime: users.avatarMime,
-        }).from(users).where(eq(users.active, true)),
-    ]);
-
-    const user = userRows[0];
+    const [user, all] = await Promise.all([findUserById(locals.memberSession.userId), listUsers()]);
     if (!user) throw redirect(302, '/');
 
-    const { passwordHash: _h, avatarBytes: _b, ...safeUser } = user;
-
     return {
-        user:        safeUser,
-        members,
+        user: {
+            pseudo:          user.name,
+            role:            user.role,
+            accessJellyfin:  user.accessJellyfin,
+            accessSongsurf:  user.accessSongsurf,
+            requestJellyfin: user.requestJellyfin,
+            requestSongsurf: user.requestSongsurf,
+        },
+        members: all.filter((u) => u.active).map((u) => ({ pseudo: u.name, role: u.role, bio: u.bio })),
     };
 };

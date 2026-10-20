@@ -14,7 +14,17 @@ export const ba_users = pgTable("ba_users", {
     .notNull(),
   username: text("username").unique(),
   displayUsername: text("display_username"),
-  role: text("role").default("member"),
+  role: text("role").default("member").notNull(),
+  // Champs métier (ex-web_users), déclarés en additionalFields dans auth-v2.ts
+  active: boolean("active").default(true).notNull(),
+  approved: boolean("approved").default(false).notNull(),
+  bio: text("bio").default("").notNull(),
+  accessJellyfin: boolean("access_jellyfin").default(false).notNull(),
+  accessSongsurf: boolean("access_songsurf").default(false).notNull(),
+  requestJellyfin: boolean("request_jellyfin").default(false).notNull(),
+  requestSongsurf: boolean("request_songsurf").default(false).notNull(),
+  githubUsername: text("github_username"),
+  linkedinName: text("linkedin_name"),
 });
 
 export const ba_sessions = pgTable(

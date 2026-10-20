@@ -1,9 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth-v2.js';
-import { db, migrateDb } from '$lib/server/db/index.js';
+import { migrateDb } from '$lib/server/db/index.js';
 import { isSessionElevated } from '$lib/server/admin-passkey.js';
-import { users } from '$lib/server/db/schema.js';
-import { sql } from 'drizzle-orm';
 
 await migrateDb();
 
@@ -11,9 +9,9 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.adminSession  = null;
     event.locals.memberSession = null;
 
-    // Membre : session BetterAuth (ba_sessions). L'identité vient de
-    // user.username (unique, fixé côté serveur = LOWER(pseudo)), jamais du nom
-    // d'affichage. Pseudo exact et rôle sont relus dans web_users, et seul un
+    // Membre : session BetterAuth (ba_sessions + ba_users, champs métier
+    // compris). Identité = user.id ; pseudo affiché = user.name, fixé côté
+    // serveur (aucune route ne permet au client de le modifier). Seul un
     // compte actif ouvre une session membre.
     // Console admin : rôle admin + clé de sécurité validée dans cette même
     // session BetterAuth (cf. admin-passkey.ts).
@@ -22,24 +20,16 @@ export const handle: Handle = async ({ event, resolve }) => {
     const cookieHeader = event.request.headers.get('cookie') ?? '';
     if (cookieHeader.includes('better-auth.session_token')) {
         const baSession = await auth.api.getSession({ headers: event.request.headers });
-        const username = baSession?.user.username;
-        if (baSession && username) {
-            const rows = await db
-                .select({ pseudo: users.pseudo, role: users.role, active: users.active })
-                .from(users)
-                .where(sql`LOWER(${users.pseudo}) = ${username}`)
-                .limit(1);
-            const user = rows[0];
-            if (user?.active) {
-                event.locals.memberSession = {
-                    pseudo:    user.pseudo,
-                    role:      user.role,
-                    userId:    baSession.user.id,
-                    sessionId: baSession.session.id,
-                };
-                if (user.role === 'admin' && await isSessionElevated(baSession.session.id)) {
-                    event.locals.adminSession = { pseudo: user.pseudo };
-                }
+        if (baSession?.user.active) {
+            const { user, session } = baSession;
+            event.locals.memberSession = {
+                pseudo:    user.name,
+                role:      user.role,
+                userId:    user.id,
+                sessionId: session.id,
+            };
+            if (user.role === 'admin' && await isSessionElevated(session.id)) {
+                event.locals.adminSession = { pseudo: user.name };
             }
         }
     }

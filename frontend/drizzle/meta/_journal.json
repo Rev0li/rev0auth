@@ -29,6 +29,27 @@
       "when": 1792436888551,
       "tag": "0003_drop_web_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792439523471,
+      "tag": "0004_users_into_ba",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792439570479,
+      "tag": "0005_copy_web_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792439571301,
+      "tag": "0006_drop_web_users",
+      "breakpoints": true
     }
   ]
 }

@@ -1,42 +1,57 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types.js';
-import { db } from '$lib/server/db/index.js';
-import { users } from '$lib/server/db/schema.js';
-import { eq, sql } from 'drizzle-orm';
-import { deleteBaUser, syncBaRole } from '$lib/server/ba-sync.js';
+import { findUserByPseudo, updateUser, deleteUser, ROLES } from '$lib/server/users.js';
 import { writeAudit } from '$lib/server/audit.js';
 
 function requireAdmin({ locals }: { locals: App.Locals }) {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
 }
 
+const BOOLEAN_FIELDS = ['active', 'approved', 'accessJellyfin', 'accessSongsurf', 'requestJellyfin', 'requestSongsurf'] as const;
+const TEXT_FIELDS = ['bio', 'githubUsername', 'linkedinName'] as const;
+
+// Seuls les champs métier listés ici sont modifiables, avec leur type
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
     requireAdmin({ locals });
-    const updates = await request.json();
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') return json({ ok: false, message: 'Corps invalide.' }, { status: 400 });
 
-    delete updates.passwordHash;
-    delete updates.pseudo;
-    delete updates.avatarBytes;
+    const patch: Record<string, unknown> = {};
+    if ('role' in body) {
+        if (!ROLES.includes(body.role)) return json({ ok: false, message: 'Rôle inconnu.' }, { status: 400 });
+        patch.role = body.role;
+    }
+    for (const field of BOOLEAN_FIELDS) {
+        if (!(field in body)) continue;
+        if (typeof body[field] !== 'boolean') return json({ ok: false, message: `${field} invalide.` }, { status: 400 });
+        patch[field] = body[field];
+    }
+    for (const field of TEXT_FIELDS) {
+        if (!(field in body)) continue;
+        const value = body[field];
+        if (value !== null && (typeof value !== 'string' || value.length > 500)) {
+            return json({ ok: false, message: `${field} invalide.` }, { status: 400 });
+        }
+        patch[field] = value;
+    }
+    if (Object.keys(patch).length === 0) return json({ ok: false, message: 'Aucun champ modifiable.' }, { status: 400 });
 
-    await db.update(users).set(updates).where(eq(users.pseudo, params.pseudo));
-    if (typeof updates.role === 'string') await syncBaRole(params.pseudo, updates.role);
+    const user = await findUserByPseudo(params.pseudo);
+    if (!user) return json({ ok: false, message: 'Utilisateur introuvable.' }, { status: 404 });
 
+    await updateUser(user.id, patch);
+    if ('role' in patch || 'active' in patch) {
+        await writeAudit('update_user', locals.adminSession!.pseudo, user.name, JSON.stringify(patch));
+    }
     return json({ ok: true });
 };
 
 export const DELETE: RequestHandler = async ({ locals, params }) => {
     requireAdmin({ locals });
-    const pseudo = params.pseudo;
+    const user = await findUserByPseudo(params.pseudo);
+    if (!user) return json({ ok: false, message: 'Utilisateur introuvable.' });
 
-    const deleted = await db.delete(users)
-        .where(sql`LOWER(${users.pseudo}) = LOWER(${pseudo})`)
-        .returning({ pseudo: users.pseudo });
-    if (deleted.length === 0) {
-        return json({ ok: false, message: 'Utilisateur introuvable.' });
-    }
-
-    await deleteBaUser(pseudo); // ba_sessions, ba_accounts, admin_passkeys en cascade SQL
-
-    await writeAudit('delete_user', locals.adminSession!.pseudo, deleted[0].pseudo, 'user and all data deleted');
+    await deleteUser(user.id); // sessions, mot de passe, clés admin, avatar en cascade
+    await writeAudit('delete_user', locals.adminSession!.pseudo, user.name, 'user and all data deleted');
     return json({ ok: true });
 };
