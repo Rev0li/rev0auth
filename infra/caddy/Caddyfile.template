@@ -19,6 +19,12 @@
     }
 }
 
+# Le cookie de session du portail vaut pour tous les sous-domaines (AUTH-07) :
+# on le retire avant de transmettre aux services, qui n'en ont pas besoin.
+(sans_cookie_portail) {
+    header_up Cookie "(__Secure-)?better-auth\.[A-Za-z_]+=[^;]*;?\s*" ""
+}
+
 # ── Portail (SvelteKit) ───────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
@@ -37,13 +43,19 @@
 
 # ── Services du NAS ───────────────────────────────────────────────────────────
 songsurf.{$WEB_DOMAIN} {
-    reverse_proxy {$NAS_UPSTREAM}:9000
+    reverse_proxy {$NAS_UPSTREAM}:9000 {
+        import sans_cookie_portail
+    }
 }
 
 jellyfin.{$WEB_DOMAIN} {
-    reverse_proxy {$NAS_UPSTREAM}:8096
+    reverse_proxy {$NAS_UPSTREAM}:8096 {
+        import sans_cookie_portail
+    }
 }
 
 portfolio.{$WEB_DOMAIN} {
-    reverse_proxy {$NAS_UPSTREAM}:49154
+    reverse_proxy {$NAS_UPSTREAM}:49154 {
+        import sans_cookie_portail
+    }
 }

@@ -10,10 +10,19 @@ import { db } from './db/index.js';
 // champs métier). Connexion pseudo + mot de passe via le plugin username ;
 // l'email reste requis par le core → `<pseudo>@local.invalid` (pas d'envoi).
 // Comptes créés uniquement côté serveur : voir users.ts.
+
+const origin = process.env.ORIGIN ?? 'http://localhost:5173';
+
+// Session partagée par tous les sous-domaines du portail (songsurf.,
+// jellyfin.…) : Caddy la transmet à l'endpoint de vérification (forward_auth).
+// Domaine déduit d'ORIGIN ; pas en dev (http://localhost), où le cookie reste
+// lié à l'hôte.
+export const cookieDomain = origin.startsWith('https://') ? new URL(origin).hostname : undefined;
+
 export const auth = betterAuth({
     database: drizzleAdapter(db, { provider: 'pg' }),
     secret: process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_JWT_SECRET,
-    baseURL: process.env.ORIGIN ?? 'http://localhost:5173',
+    baseURL: origin,
 
     emailAndPassword: {
         enabled: true,
@@ -69,6 +78,11 @@ export const auth = betterAuth({
     },
     account: { modelName: 'ba_accounts' },
     verification: { modelName: 'ba_verifications' },
+
+    advanced: {
+        crossSubDomainCookies: { enabled: !!cookieDomain, domain: cookieDomain },
+        defaultCookieAttributes: { httpOnly: true, sameSite: 'lax' },
+    },
 
     rateLimit: {
         enabled: true,

@@ -93,7 +93,10 @@ scripts/
 ```
 
 **Sessions**: one BetterAuth session (`better-auth.session_token`, 24h) for
-everyone. Admin console = member with role `admin` + a security key (WebAuthn)
+everyone. In https the cookie is set on the ORIGIN hostname as `Domain`, so it
+reaches every subdomain (`songsurf.`, `jellyfin.`…) for forward_auth; Caddy
+strips it (`sans_cookie_portail` in `infra/caddy/Caddyfile.template`) before
+proxying to those services. In dev it stays host-only. Admin console = member with role `admin` + a security key (WebAuthn)
 validated in that same session: `ba_sessions.admin_verified_at`, valid 8h, gone
 with logout/expiry. First key (or lost key): one-time setup code from
 `scripts/admin-setup.mjs`; extra keys from an already validated session

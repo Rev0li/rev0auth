@@ -19,7 +19,7 @@ const { PASSED, trap } = vi.hoisted(() => {
 });
 
 vi.mock('$lib/server/db/index.js', () => ({ db: trap, migrateDb: async () => {} }));
-vi.mock('$lib/server/auth-v2.js', () => ({ auth: trap }));
+vi.mock('$lib/server/auth-v2.js', () => ({ auth: trap, cookieDomain: undefined }));
 
 type Level = 'public' | 'member' | 'adminMember' | 'admin' | 'secret';
 type Profile = 'anonyme' | 'guest' | 'member' | 'mod' | 'admin sans clé' | 'admin';
