@@ -1,28 +1,13 @@
-import { SignJWT } from 'jose';
 import { cookieDomain } from './auth-v2.js';
 
-// Secret partagé avec SongSurf : AUTH_JWT_SECRET — la même valeur que dans
-// SongSurf/.secrets et côté Rust. SONGSURF_JWT_SECRET reste accepté en fallback
-// legacy ; à retirer une fois les .env nettoyés.
-export function songsurfSecret(): string {
-    return (process.env.AUTH_JWT_SECRET ?? process.env.SONGSURF_JWT_SECRET ?? '').trim();
-}
-
+// SongSurf est derrière la porte du portail (AUTH-09) : on y entre avec la
+// session du portail, sans jeton.
 export function songsurfBaseUrl(): string {
     return (process.env.SONGSURF_URL ?? '').trim().replace(/\/+$/, '');
 }
 
 export function songsurfConfigured(): boolean {
-    return !!songsurfSecret() && !!songsurfBaseUrl();
-}
-
-export async function signSongsurfJwt(sub: string, role: string, ttlSeconds: number): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
-    return new SignJWT({ sub, role, email: '', token_type: 'access' })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt(now)
-        .setExpirationTime(now + ttlSeconds)
-        .sign(new TextEncoder().encode(songsurfSecret()));
+    return !!songsurfBaseUrl();
 }
 
 // Les appels du portail vers SongSurf passent par la porte (forward_auth) :
@@ -43,4 +28,21 @@ export function portalSessionCookies(cookieHeader: string | null, target: string
     if (host !== cookieDomain && !host.endsWith(`.${cookieDomain}`)) return [];
     return cookieHeader.split(';').map((c) => c.trim())
         .filter((c) => SESSION_COOKIE.test(c.split('=')[0]) && c.split('=')[1]);
+}
+
+// Journal des téléchargements SongSurf, demandé avec la session de l'admin.
+export async function fetchSongsurfDlLogs(
+    cookieHeader: string | null, pseudo: string, limit: number, timeoutMs: number,
+): Promise<Response> {
+    const target = `${songsurfBaseUrl()}/api/admin/dl-logs?pseudo=${encodeURIComponent(pseudo)}&limit=${limit}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        return await fetch(target, {
+            headers: { Cookie: portalSessionCookies(cookieHeader, target).join('; ') },
+            signal: ctrl.signal,
+        });
+    } finally {
+        clearTimeout(timer);
+    }
 }

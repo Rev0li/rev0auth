@@ -3,16 +3,9 @@ import type { RequestHandler } from './$types.js';
 import { auth } from '$lib/server/auth-v2.js';
 import { findUserByPseudo, usernameOf } from '$lib/server/users.js';
 import { checkRateLimit, recordFailure, clearAttempts, getIp } from '$lib/server/ratelimit.js';
-import { songsurfConfigured, songsurfBaseUrl, signSongsurfJwt } from '$lib/server/songsurf.js';
 
 // Login membre : BetterAuth vérifie pseudo + mot de passe et pose son cookie
-// de session. Même contrat JSON qu'avant (ok/message/pseudo/songsurf_url).
-
-async function buildSongsurfUrl(pseudo: string, role: string): Promise<string | null> {
-    if (!songsurfConfigured()) return null;
-    const token = await signSongsurfJwt(pseudo, role, 8 * 3600);
-    return `${songsurfBaseUrl()}?token=${token}`;
-}
+// de session, valable aussi pour les services derrière la porte (AUTH-09).
 
 async function baSignIn(username: string, password: string) {
     try {
@@ -46,14 +39,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
     clearAttempts(ip);
 
-    const songsurfUrl = user.accessSongsurf ? await buildSongsurfUrl(user.name, user.role) : null;
-
     const response = json({
         ok: true,
         state: 'ok',
         message: 'Connexion autorisée.',
         pseudo: user.name,
-        songsurf_url: songsurfUrl,
     });
     // Forward du cookie de session BetterAuth vers le navigateur
     for (const cookie of result.headers.getSetCookie()) {

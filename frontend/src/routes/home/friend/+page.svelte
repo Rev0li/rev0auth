@@ -71,8 +71,8 @@
                     <span>🎵</span><span>Songsurf</span>
                 </div>
                 <div class="svc-body">
-                    {#if data.user.accessSongsurf}
-                        <a class="btn-primary svc-launch" href="/members/songsurf/launch" target="_blank" rel="noopener">
+                    {#if data.user.accessSongsurf && data.songsurfUrl}
+                        <a class="btn-primary svc-launch" href={data.songsurfUrl} target="_blank" rel="noopener">
                             Ouvrir SongSurf →
                         </a>
                     {:else if data.user.requestSongsurf}

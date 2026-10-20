@@ -11,7 +11,7 @@ pour SongSurf.
 - **Espace membre** : profil, avatar composable (DiceBear), accès aux services
 - **Admin** (`/japprends`) : gestion des users, file d'attente d'invitations, audit, activité SongSurf
 - **Portail public** : page de login, signup sur invitation
-- **SongSurf** : handoff JWT (HS256, `AUTH_JWT_SECRET` partagé)
+- **SongSurf** : derrière la porte du portail (Caddy `forward_auth`), même session
 - **Sécurité** : CSRF (adapter-node `ORIGIN`), rate-limit login, Argon2, logs d'audit en DB
 
 ## Quick Start

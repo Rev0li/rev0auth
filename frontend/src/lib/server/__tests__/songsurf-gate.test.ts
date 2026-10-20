@@ -36,9 +36,8 @@ describe('portalSessionCookies', () => {
 });
 
 describe('GET /japprends/songsurf-logs', () => {
-    it('transmet la session de l\'admin et le JWT', async () => {
+    it('transmet la session de l\'admin, sans jeton', async () => {
         process.env.SONGSURF_URL = 'https://songsurf.rev0li.duckdns.org';
-        process.env.AUTH_JWT_SECRET = 'test-secret';
         const fetchMock = vi.fn(async () => new Response('[]', { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
         const { GET } = await import('../../../routes/japprends/songsurf-logs/+server.js');
@@ -54,8 +53,7 @@ describe('GET /japprends/songsurf-logs', () => {
         const [target, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
         expect(target).toBe(`${TARGET}?pseudo=Alice&limit=100`);
         const cookie = (init.headers as Record<string, string>).Cookie;
-        expect(cookie).toMatch(/^__Secure-better-auth\.session_token=abc\.sig; access_token=ey/);
-        expect(cookie).not.toContain('theme');
+        expect(cookie).toBe('__Secure-better-auth.session_token=abc.sig');
         vi.unstubAllGlobals();
     });
 });
