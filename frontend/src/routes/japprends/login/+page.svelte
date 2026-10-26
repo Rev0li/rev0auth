@@ -69,7 +69,8 @@
 
     async function logout() {
         await fetch('/auth/logout', { method: 'POST' });
-        await goto('/');
+        // Navigation complète : sous le nom de la console, `/` renvoie au portail
+        location.href = '/';
     }
 </script>
 

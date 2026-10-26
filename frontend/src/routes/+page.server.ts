@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
 import { safeReturnTo } from '$lib/server/forward-auth.js';
+import { consoleUrl } from '$lib/server/console-host.js';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
     // Arrivée depuis un service (/auth/verify) : sa requête n'a pas porté de
@@ -9,7 +10,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     const returnTo = safeReturnTo(url.searchParams.get('redirect'));
     if (returnTo) return { returnTo };
 
-    if (locals.adminSession)  throw redirect(302, '/japprends/dashboard');
+    if (locals.adminSession)  throw redirect(302, consoleUrl('/japprends/dashboard'));
     if (locals.memberSession) throw redirect(302, '/home/friend');
     return { returnTo: null };
 };

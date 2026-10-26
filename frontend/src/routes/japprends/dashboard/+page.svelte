@@ -67,7 +67,7 @@
         {#if active === 'members'}
             <MembersTab users={data.users} />
         {:else if active === 'invitations'}
-            <InvitationsTab />
+            <InvitationsTab signupUrl={data.signupUrl} />
         {:else if active === 'security'}
             <SecurityTab />
         {/if}

@@ -15,6 +15,7 @@ import type {
 import { db } from './db/index.js';
 import { adminPasskeys } from './db/schema.js';
 import { ba_sessions, ba_verifications } from './db/auth-schema.js';
+import { consoleWebAuthnOrigin } from './console-host.js';
 
 // Console admin = rôle admin + clé de sécurité (WebAuthn) validée dans la
 // session BetterAuth en cours. La validation est datée sur ba_sessions
@@ -29,12 +30,15 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 const RP_NAME = 'rev0auth';
 
+// La console peut avoir son propre nom (ADMIN_ORIGIN, AUTH-11) ; le RP ID
+// reste le nom du portail, domaine parent : les clés déjà enregistrées valent
+// sur les deux noms.
 function expectedOrigin(): string {
-    return process.env.ORIGIN ?? 'http://localhost:5173';
+    return consoleWebAuthnOrigin();
 }
 
 function rpID(): string {
-    return new URL(expectedOrigin()).hostname;
+    return new URL(process.env.ORIGIN ?? 'http://localhost:5173').hostname;
 }
 
 function splitTransports(value: string): AuthenticatorTransportFuture[] | undefined {
