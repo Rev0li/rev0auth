@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { PageData } from './$types.js';
-    import { untrack } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import { goto, invalidateAll } from '$app/navigation';
     import { slide } from 'svelte/transition';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
@@ -27,6 +27,17 @@
 
     // Bust du cache de l'avatar de l'en-tête après une sauvegarde
     let avatarVersion = $state(0);
+
+    // Console admin joignable seulement par le réseau privé (AUTH-11) : on le
+    // vérifie avant d'y envoyer l'admin (Caddy coupe la connexion hors tailnet).
+    let consoleReachable = $state<boolean | null>(null);
+    onMount(() => {
+        if (data.user.role !== 'admin') return;
+        const probe = new URL('/_app/version.json', new URL(data.consoleUrl, location.href));
+        fetch(probe, { mode: 'no-cors', cache: 'no-store', signal: AbortSignal.timeout(4000) })
+            .then(() => { consoleReachable = true; })
+            .catch(() => { consoleReachable = false; });
+    });
 
     async function logout() {
         await fetch('/auth/logout', { method: 'POST' });
@@ -119,7 +130,13 @@
         />
         <span class="nav-pseudo">{data.user.pseudo}</span>
         {#if data.user.role === 'admin'}
-            <a class="nav-btn" href={data.consoleUrl}>Console admin</a>
+            {#if consoleReachable === false}
+                <span class="nav-btn nav-btn-off" title="La console n'est joignable que par le réseau privé">
+                    Console : active Tailscale
+                </span>
+            {:else}
+                <a class="nav-btn" href={data.consoleUrl}>Console admin</a>
+            {/if}
         {/if}
         <ThemeToggle inline />
         <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
@@ -313,6 +330,8 @@
     }
     .nav-btn:hover { background: var(--muted); }
     .nav-btn-logout { color: var(--destructive); border-color: var(--destructive-border); }
+    .nav-btn-off { color: var(--muted-foreground); border-style: dashed; cursor: help; }
+    .nav-btn-off:hover { background: transparent; }
 
     /* ── Hero ── */
     .hero { background: var(--card); border-bottom: 1px solid var(--border); }

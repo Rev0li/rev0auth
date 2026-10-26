@@ -1,15 +1,17 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
+    import { onMount, untrack } from 'svelte';
     import { goto } from '$app/navigation';
     import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 
-    // Console admin : on est déjà connecté comme membre, la clé de sécurité
-    // ouvre la console. Sans clé enregistrée (première fois ou clé perdue) :
-    // code d'installation généré sur le serveur, puis enregistrement de la clé.
+    // Console admin. Sans session : la clé seule (avec son PIN) connecte et
+    // ouvre la console (AUTH-21). Déjà connecté comme membre : la clé valide la
+    // session. Sans clé enregistrée (première fois ou clé perdue) : code
+    // d'installation généré sur le serveur, puis enregistrement de la clé.
     let { data } = $props();
 
     // Mode de départ seulement : ensuite, c'est l'utilisateur qui bascule
-    let mode    = $state<'key' | 'setup'>(untrack(() => data.hasKeys) ? 'key' : 'setup');
+    let mode    = $state<'signin' | 'key' | 'setup'>(untrack(() =>
+        data.mode === 'signin' ? 'signin' : data.hasKeys ? 'key' : 'setup'));
     let code    = $state('');
     let keyName = $state('');
     let loading = $state(false);
@@ -32,20 +34,28 @@
         return e instanceof Error ? e.message : 'Erreur.';
     }
 
-    async function useKey() {
+    // Clé seule (sans session) ou validation de la session en cours
+    async function useKey(silent = false) {
         error = '';
         loading = true;
+        const step = mode === 'signin' ? 'signin' : 'auth';
         try {
-            const { options } = await post('/japprends/passkey/auth-options');
+            const { options } = await post(`/japprends/passkey/${step}-options`);
             const response = await startAuthentication({ optionsJSON: options });
-            await post('/japprends/passkey/auth-verify', { response });
-            await goto('/japprends/dashboard');
+            await post(`/japprends/passkey/${step}-verify`, { response });
+            await goto('/japprends/dashboard', { invalidateAll: true });
         } catch (e) {
-            error = describe(e);
+            // Lancement automatique refusé ou annulé : le bouton reste là
+            if (!silent || !(e instanceof Error && e.name === 'NotAllowedError')) error = describe(e);
         } finally {
             loading = false;
         }
     }
+
+    // La demande de clé part d'elle-même à l'ouverture de la page
+    onMount(() => {
+        if (mode !== 'setup') useKey(true);
+    });
 
     async function registerKey(event: SubmitEvent) {
         event.preventDefault();
@@ -85,17 +95,24 @@
         </div>
 
         <h1>Console admin</h1>
-        <p class="hint">Connecté en tant que <strong>{data.pseudo}</strong></p>
 
-        {#if mode === 'key'}
+        {#if mode === 'signin'}
+            <p class="hint">Touche ta clé de sécurité, puis entre son code PIN.</p>
+            <button class="btn" type="button" onclick={() => useKey()} disabled={loading}>
+                {loading ? 'En attente de la clé…' : 'Se connecter avec ma clé'}
+            </button>
+            <a class="text-btn" href={data.portalLogin}>Se connecter avec mon mot de passe</a>
+        {:else if mode === 'key'}
+            <p class="hint">Connecté en tant que <strong>{data.pseudo}</strong></p>
             <p class="hint">Branche ta clé de sécurité, puis touche-la quand elle clignote.</p>
-            <button class="btn" type="button" onclick={useKey} disabled={loading}>
+            <button class="btn" type="button" onclick={() => useKey()} disabled={loading}>
                 {loading ? 'En attente de la clé…' : 'Utiliser ma clé'}
             </button>
             <button class="text-btn" type="button" onclick={() => { mode = 'setup'; error = ''; }}>
                 Clé perdue ? Utiliser un code d'installation
             </button>
         {:else}
+            <p class="hint">Connecté en tant que <strong>{data.pseudo}</strong></p>
             <form class="fields" onsubmit={registerKey}>
                 <p class="hint">Entre le code d'installation généré sur le serveur, puis touche ta nouvelle clé.</p>
                 <input class="field" type="text" placeholder="Code d'installation" autocomplete="one-time-code"
@@ -117,7 +134,9 @@
             <p class="chip-error" role="alert">{error}</p>
         {/if}
 
-        <button class="text-btn" type="button" onclick={logout}>Se déconnecter</button>
+        {#if mode !== 'signin'}
+            <button class="text-btn" type="button" onclick={logout}>Se déconnecter</button>
+        {/if}
     </div>
 </main>
 
