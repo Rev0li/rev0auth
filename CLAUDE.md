@@ -110,11 +110,15 @@ everyone. In https the cookie is set on the ORIGIN hostname as `Domain`, so it
 reaches every subdomain (`songsurf.`, `jellyfin.`…) for forward_auth; Caddy
 strips it (`sans_cookie_portail` in `infra/caddy/Caddyfile.template`) before
 proxying to those services. In dev it stays host-only. Admin console = member with role `admin` + a security key (WebAuthn)
-validated in that same session: `ba_sessions.admin_verified_at`, valid 8h, gone
-with logout/expiry. First key (or lost key): one-time setup code from
+validated in that same session: `ba_sessions.admin_verified_at`, valid 12h, gone
+with logout/expiry. Key-only sign-in on the console host (AUTH-21,
+`/japprends/passkey/signin-*`): the key identifies the admin, user verification
+(key PIN) required, then the server-only BetterAuth endpoint
+`createAdminKeySession` opens an already validated session. First key (or lost key): one-time setup code from
 `scripts/admin-setup.mjs`; extra keys from an already validated session
-(dashboard › Sécurité). Not the BetterAuth passkey plugin: it signs in
-passwordless and creates a second session, here the key is a second factor.
+(dashboard › Sécurité). Not the BetterAuth passkey plugin: its own tables and
+flows; here the same keys serve as second factor (password session) or as
+sign-in with PIN (console host).
 
 **Route groups**:
 - Public: `/`, `/signup`, `/portal` (redirect)

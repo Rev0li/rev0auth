@@ -1,8 +1,11 @@
-import { betterAuth } from 'better-auth';
+import { betterAuth, type BetterAuthPlugin } from 'better-auth';
+import { createAuthEndpoint, APIError } from 'better-auth/api';
+import { setSessionCookie } from 'better-auth/cookies';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { verifyPassword as verifyScrypt } from 'better-auth/crypto';
 import { username } from 'better-auth/plugins';
 import argon2 from 'argon2';
+import { z } from 'zod';
 // Imports relatifs (pas $lib) : le CLI @better-auth/cli charge ce fichier hors Vite
 import { db } from './db/index.js';
 
@@ -18,6 +21,28 @@ const origin = process.env.ORIGIN ?? 'http://localhost:5173';
 // Domaine déduit d'ORIGIN ; pas en dev (http://localhost), où le cookie reste
 // lié à l'hôte.
 export const cookieDomain = origin.startsWith('https://') ? new URL(origin).hostname : undefined;
+
+// Console admin, connexion par la clé seule (AUTH-21) : une fois la clé
+// vérifiée (admin-passkey.ts), ouvre une session BetterAuth normale pour cet
+// admin et pose son cookie. SERVER_ONLY : jamais routée, appelable seulement
+// par auth.api côté serveur.
+const adminKeySession = {
+    id: 'admin-key-session',
+    endpoints: {
+        createAdminKeySession: createAuthEndpoint(
+            '/admin-key-session',
+            { method: 'POST', body: z.object({ userId: z.string() }), metadata: { SERVER_ONLY: true } },
+            async (ctx) => {
+                const user = await ctx.context.internalAdapter.findUserById(ctx.body.userId);
+                if (!user) throw new APIError('NOT_FOUND');
+                const session = await ctx.context.internalAdapter.createSession(user.id);
+                if (!session) throw new APIError('INTERNAL_SERVER_ERROR');
+                await setSessionCookie(ctx, { session, user });
+                return ctx.json({ sessionId: session.id });
+            },
+        ),
+    },
+} satisfies BetterAuthPlugin;
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, { provider: 'pg' }),
@@ -54,7 +79,7 @@ export const auth = betterAuth({
         },
     },
 
-    plugins: [username()],
+    plugins: [username(), adminKeySession],
 
     user: {
         modelName: 'ba_users',

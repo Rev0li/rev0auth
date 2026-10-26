@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 
 // Matrice route × rôle (AUTH-05). Chaque handler serveur est appelé avec les
@@ -21,7 +21,7 @@ const { PASSED, trap } = vi.hoisted(() => {
 vi.mock('$lib/server/db/index.js', () => ({ db: trap, migrateDb: async () => {} }));
 vi.mock('$lib/server/auth-v2.js', () => ({ auth: trap, cookieDomain: undefined }));
 
-type Level = 'public' | 'member' | 'adminMember' | 'admin' | 'secret' | 'own';
+type Level = 'public' | 'member' | 'consoleEntry' | 'adminMember' | 'admin' | 'secret' | 'own';
 type Profile = 'anonyme' | 'guest' | 'member' | 'mod' | 'admin sans clé' | 'admin';
 
 const PROFILES: Record<Profile, App.Locals> = {
@@ -33,11 +33,14 @@ const PROFILES: Record<Profile, App.Locals> = {
     'admin':          { memberSession: member('admin'), adminSession: { pseudo: 'Revo' } },
 };
 
-// Qui passe le contrôle, par niveau. `secret` : seul l'en-tête partagé du NAS
-// ouvre la route, aucune session ne suffit.
+// Qui passe le contrôle, par niveau. `secret` : aucune session ne suffit, seul
+// un secret ouvre la route (en-tête partagé du NAS, signature de la clé admin).
 const ALLOWED: Record<Level, Profile[]> = {
     public:      ['anonyme', 'guest', 'member', 'mod', 'admin sans clé', 'admin'],
     member:      ['guest', 'member', 'mod', 'admin sans clé', 'admin'],
+    // Entrée de la console : sans session (connexion par la clé seule, AUTH-21)
+    // ou admin ; un membre connecté non admin est refusé.
+    consoleEntry: ['anonyme', 'admin sans clé', 'admin'],
     adminMember: ['admin sans clé', 'admin'],
     admin:       ['admin'],
     secret:      [],
@@ -68,7 +71,9 @@ const MATRIX: Record<string, Entry> = {
     '/members/avatar/[pseudo] GET':    { level: 'member' },
     '/members/account DELETE':         { level: 'member' },
     // Rôle admin, clé pas encore validée (entrée dans la console)
-    '/japprends/login load':                     { level: 'adminMember' },
+    '/japprends/login load':                     { level: 'consoleEntry' },
+    '/japprends/passkey/signin-options POST':    { level: 'public' }, // la clé fait le contrôle
+    '/japprends/passkey/signin-verify POST':     { level: 'secret' }, // seule la clé ouvre
     '/japprends/passkey/auth-options POST':      { level: 'adminMember' },
     '/japprends/passkey/auth-verify POST':       { level: 'adminMember' },
     '/japprends/passkey/register-options POST':  { level: 'adminMember', body: { code: '123456' } },
@@ -165,6 +170,13 @@ beforeAll(async () => {
 });
 
 describe('droits d\'accès par route', () => {
+    // Limiteur en mémoire partagé : les échecs simulés d'un cas ne doivent pas
+    // bloquer (429) les cas suivants.
+    beforeEach(async () => {
+        const { clearAttempts } = await import('../ratelimit.js');
+        clearAttempts('10.0.0.1');
+    });
+
     it('toutes les routes serveur sont dans la matrice', () => {
         const missing = [...handlers.keys()].filter((k) => !(k in MATRIX));
         const stale   = Object.keys(MATRIX).filter((k) => !handlers.has(k));

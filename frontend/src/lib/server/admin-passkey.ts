@@ -14,7 +14,7 @@ import type {
 } from '@simplewebauthn/server';
 import { db } from './db/index.js';
 import { adminPasskeys } from './db/schema.js';
-import { ba_sessions, ba_verifications } from './db/auth-schema.js';
+import { ba_sessions, ba_users, ba_verifications } from './db/auth-schema.js';
 import { consoleWebAuthnOrigin } from './console-host.js';
 
 // Console admin = rôle admin + clé de sécurité (WebAuthn) validée dans la
@@ -24,8 +24,11 @@ import { consoleWebAuthnOrigin } from './console-host.js';
 // Première clé (ou clé perdue) : code d'installation à usage unique généré sur
 // le serveur par scripts/admin-setup.mjs. Clé supplémentaire : depuis une
 // session déjà validée.
+//
+// Connexion par la clé seule (AUTH-21) : sur le nom de la console, la clé
+// identifie l'admin, PIN de la clé exigé ; la session ouverte est validée.
 
-export const ADMIN_ELEVATION_TTL_MS = 8 * 60 * 60 * 1000;
+export const ADMIN_ELEVATION_TTL_MS = 12 * 60 * 60 * 1000;
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
 const RP_NAME = 'rev0auth';
@@ -85,13 +88,15 @@ async function consumeSetupCode(username: string): Promise<boolean> {
     return rows.length > 0;
 }
 
-// ─── Défis WebAuthn : un seul par session et par type, usage unique ─────────
+// ─── Défis WebAuthn : un seul par session (ou par connexion) et par type ────
+// Usage unique. `owner` = id de la session, ou pour la connexion par la clé
+// seule un identifiant aléatoire gardé dans un cookie le temps du défi.
 
-type ChallengeKind = 'register' | 'authenticate';
+type ChallengeKind = 'register' | 'authenticate' | 'signin';
 interface StoredChallenge { challenge: string; viaCode?: boolean }
 
-async function saveChallenge(kind: ChallengeKind, sessionId: string, data: StoredChallenge) {
-    const identifier = `webauthn-${kind}:${sessionId}`;
+async function saveChallenge(kind: ChallengeKind, owner: string, data: StoredChallenge) {
+    const identifier = `webauthn-${kind}:${owner}`;
     await db.delete(ba_verifications).where(eq(ba_verifications.identifier, identifier));
     await db.insert(ba_verifications).values({
         id: randomUUID(),
@@ -101,10 +106,10 @@ async function saveChallenge(kind: ChallengeKind, sessionId: string, data: Store
     });
 }
 
-async function takeChallenge(kind: ChallengeKind, sessionId: string): Promise<StoredChallenge | null> {
+async function takeChallenge(kind: ChallengeKind, owner: string): Promise<StoredChallenge | null> {
     const rows = await db
         .delete(ba_verifications)
-        .where(eq(ba_verifications.identifier, `webauthn-${kind}:${sessionId}`))
+        .where(eq(ba_verifications.identifier, `webauthn-${kind}:${owner}`))
         .returning();
     const row = rows[0];
     if (!row || row.expiresAt.getTime() <= Date.now()) return null;
@@ -261,6 +266,74 @@ export async function verifyAuthentication(user: AdminUser, response: Authentica
         .set({ counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() })
         .where(eq(adminPasskeys.id, passkey.id));
     return true;
+}
+
+// ─── Connexion par la clé seule (AUTH-21) ───────────────────────────────────
+
+// Clés des admins actifs : la clé présentée désigne l'admin
+async function activeAdminCredentials() {
+    return db
+        .select({ passkey: adminPasskeys, pseudo: ba_users.name })
+        .from(adminPasskeys)
+        .innerJoin(ba_users, eq(ba_users.id, adminPasskeys.userId))
+        .where(and(eq(ba_users.role, 'admin'), eq(ba_users.active, true)));
+}
+
+export const SIGNIN_CHALLENGE_TTL_S = CHALLENGE_TTL_MS / 1000;
+export const SIGNIN_COOKIE = 'admin_signin';
+
+// null si aucun admin n'a de clé ; `challengeId` va dans un cookie httpOnly
+export async function signinOptions() {
+    const credentials = await activeAdminCredentials();
+    if (credentials.length === 0) return null;
+    const options = await generateAuthenticationOptions({
+        rpID: rpID(),
+        allowCredentials: credentials.map(({ passkey: c }) => ({ id: c.credentialId, transports: splitTransports(c.transports) })),
+        userVerification: 'required',
+    });
+    const challengeId = randomUUID();
+    await saveChallenge('signin', challengeId, { challenge: options.challenge });
+    return { options, challengeId };
+}
+
+// L'admin identifié par sa clé, ou null. PIN (vérification de l'utilisateur)
+// exigé : la clé seule ne suffit pas.
+export async function verifySignin(
+    challengeId: string,
+    response: AuthenticationResponseJSON,
+): Promise<{ userId: string; pseudo: string } | null> {
+    const stored = await takeChallenge('signin', challengeId);
+    if (!stored || typeof response?.id !== 'string') return null;
+
+    const match = (await activeAdminCredentials()).find(({ passkey }) => passkey.credentialId === response.id);
+    if (!match) return null;
+    const { passkey, pseudo } = match;
+
+    let verification;
+    try {
+        verification = await verifyAuthenticationResponse({
+            response,
+            expectedChallenge: stored.challenge,
+            expectedOrigin: expectedOrigin(),
+            expectedRPID: rpID(),
+            credential: {
+                id:         passkey.credentialId,
+                publicKey:  new Uint8Array(Buffer.from(passkey.publicKey, 'base64url')),
+                counter:    passkey.counter,
+                transports: splitTransports(passkey.transports),
+            },
+            requireUserVerification: true,
+        });
+    } catch {
+        return null;
+    }
+    if (!verification.verified || !verification.authenticationInfo.userVerified) return null;
+
+    await db
+        .update(adminPasskeys)
+        .set({ counter: verification.authenticationInfo.newCounter, lastUsedAt: new Date() })
+        .where(eq(adminPasskeys.id, passkey.id));
+    return { userId: passkey.userId, pseudo };
 }
 
 // ─── Validation de la session ───────────────────────────────────────────────

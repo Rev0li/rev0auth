@@ -21,9 +21,19 @@ tailnet  ──► admin.rev0li.duckdns.org/japprends/…  → console (rôle ad
     (le NAS y pousse ses évènements, authentifiés par secret partagé) ;
   - nom de la console : la console, `/_app/*` et `/auth/logout` ; `/` mène à
     l'entrée de la console, le reste renvoie au portail public.
-- **Connexion** : comme tout le monde, sur le portail public. Sans session,
-  l'entrée de la console renvoie vers la connexion, puis revient
-  (`/?redirect=…`). La session est partagée par le domaine parent (AUTH-07).
+- **Connexion par la clé seule** (AUTH-21) : sans session, l'entrée de la
+  console demande la clé d'elle-même. La clé désigne l'admin (toutes les clés
+  des admins actifs sont proposées), **PIN de la clé exigé** (vérification de
+  l'utilisateur WebAuthn) ; une session BetterAuth normale est alors ouverte
+  et déjà validée pour la console. Le défi est lié au navigateur par un cookie
+  httpOnly de 5 min, à usage unique. Session ouverte par le plugin serveur
+  `admin-key-session` (`auth-v2.ts`, `SERVER_ONLY` : jamais routé).
+- **Connexion par mot de passe** (toujours possible) : sur le portail public,
+  puis retour à la console (`/?redirect=…`) et clé pour valider la session.
+  La session est partagée par le domaine parent (AUTH-07).
+- **Durée** : la console reste ouverte 12 h, puis redemande la clé.
+- **Bouton de l'espace membre** : vérifie que la console répond (fichier de
+  version) ; hors réseau privé, il affiche « Console : active Tailscale ».
 - **Clé de sécurité** : le RP ID reste le nom du portail (domaine parent),
   valable pour la console : les clés déjà enregistrées marchent toujours.
   L'origine WebAuthn attendue est `ADMIN_ORIGIN`.
