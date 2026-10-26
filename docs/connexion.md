@@ -1,9 +1,15 @@
 # connexion.md — Mettre un service derrière la porte du portail
 
-Les services de l'univers (SongSurf, bientôt Jellyfin) ne gèrent plus la
-connexion eux-mêmes. Caddy demande au portail, avant chaque requête, si la
+Les services de l'univers derrière la porte (aujourd'hui SongSurf) ne gèrent
+plus la connexion eux-mêmes. Caddy demande au portail, avant chaque requête, si la
 personne a le droit d'entrer (`forward_auth`). Plus de jeton à valider côté
 service. Remplace l'ancien passage de JWT (`AUTH_JWT_SECRET`), retiré en AUTH-09.
+
+**Jellyfin n'est pas derrière la porte** (décision AUTH-10, phase 1) : c'est un
+simple lien public, avec le login propre de Jellyfin, sans lien avec les comptes
+du portail. Le bouton « Ouvrir Jellyfin » du portail s'affiche quand l'admin a
+accordé l'accès (`access_jellyfin`), mais rien ne le vérifie côté Jellyfin.
+`jellyfin` reste dans `SERVICES` pour une phase suivante.
 
 ---
 
