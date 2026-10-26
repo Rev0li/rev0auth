@@ -1,9 +1,16 @@
 <script lang="ts">
     import '../app.css';
-    import { page } from '$app/state';
+    import { page, updated } from '$app/state';
+    import { beforeNavigate } from '$app/navigation';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { children } = $props();
+
+    // Après un déploiement, un onglet ouvert garderait l'ancien code des pages
+    // avec les nouvelles données : on recharge la page à la navigation suivante.
+    beforeNavigate(({ willUnload, to }) => {
+        if (updated.current && !willUnload && to?.url) location.href = to.url.href;
+    });
 
     // Ces pages portent le toggle dans leur navbar — pas de bouton flottant
     let hasNavbarToggle = $derived(
