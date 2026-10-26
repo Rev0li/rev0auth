@@ -11,6 +11,11 @@
 #   FRONTEND_UPSTREAM e.g. 127.0.0.1:4173       (SvelteKit)
 #   NAS_UPSTREAM      adresse Tailscale du NAS (SongSurf, Jellyfin, portfolio)
 #   ACME_EMAIL        e.g. you@example.com
+#
+# Console admin (AUTH-11) : `admin.{$WEB_DOMAIN}`, même appli, servie
+# seulement aux adresses Tailscale. Le nom public pointe vers l'IP publique :
+# les appareils du tailnet le résolvent vers l'IP Tailscale du VPS (DNS
+# partagé de Tailscale → petit serveur DNS du VPS, voir docs/console-admin.md).
 
 {
     email {$ACME_EMAIL:admin@example.com}
@@ -63,9 +68,36 @@ import /etc/caddy/secrets/songsurf-preuve.caddy
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
     }
 
+    # Console admin : introuvable ici (l'appli fait de même). Seule exception,
+    # le NAS qui pousse les évènements SongSurf (secret partagé).
+    @console {
+        path /japprends /japprends/*
+        not path /japprends/api/songsurf-events
+    }
+    respond @console 404
+
     handle {
         reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
     }
+}
+
+# ── Console admin (réseau privé seulement) ────────────────────────────────────
+# Certificat par le challenge HTTP, traité par Caddy avant ce bloc : le nom
+# reste public, seules les requêtes venues de Tailscale (IPv4 100.64.0.0/10,
+# IPv6 fd7a:115c:a1e0::/48) passent.
+admin.{$WEB_DOMAIN} {
+    @hors_tailnet not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48
+    abort @hors_tailnet
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+
+    # Host d'origine transmis tel quel : l'appli reconnaît le nom de la console
+    reverse_proxy {$FRONTEND_UPSTREAM:127.0.0.1:4173}
 }
 
 # ── Services du NAS ───────────────────────────────────────────────────────────
