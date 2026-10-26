@@ -1,36 +1,8 @@
 <script lang="ts">
     import type { PageData } from './$types.js';
-    import { invalidateAll } from '$app/navigation';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { data }: { data: PageData } = $props();
-
-    // Demandes d'accès services (conditions : star GitHub / reco LinkedIn)
-    let githubInput   = $state('');
-    let linkedinInput = $state('');
-    let svcLoading    = $state('');
-    let svcError      = $state('');
-
-    async function requestService(service: 'songsurf' | 'jellyfin') {
-        svcError = '';
-        const payload = service === 'songsurf'
-            ? { service, github_username: githubInput.trim() }
-            : { service, linkedin_name: linkedinInput.trim() };
-        svcLoading = service;
-        try {
-            const r = await fetch('/members/access/request', {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            if (!r.ok) {
-                const d = await r.json();
-                svcError = d.message ?? 'Erreur.';
-                return;
-            }
-            invalidateAll();
-        } finally { svcLoading = ''; }
-    }
 </script>
 
 <!-- ── Navbar ── -->
@@ -71,25 +43,12 @@
                     <span>🎵</span><span>Songsurf</span>
                 </div>
                 <div class="svc-body">
-                    {#if data.user.accessSongsurf && data.songsurfUrl}
+                    {#if data.songsurfUrl}
                         <a class="btn-primary svc-launch" href={data.songsurfUrl} target="_blank" rel="noopener">
                             Ouvrir SongSurf →
                         </a>
-                    {:else if data.user.requestSongsurf}
-                        <p class="meta">Demande en attente…</p>
                     {:else}
-                        <ol class="svc-steps">
-                            <li>Mets une étoile au repo
-                                <a href="https://github.com/Rev0li/SongSurf" target="_blank" rel="noopener">⭐ SongSurf</a>
-                            </li>
-                            <li>Renseigne ton pseudo GitHub :</li>
-                        </ol>
-                        <input class="svc-input" bind:value={githubInput} placeholder="ton_pseudo_github" />
-                        <button
-                            class="btn-secondary"
-                            onclick={() => requestService('songsurf')}
-                            disabled={svcLoading === 'songsurf' || !githubInput.trim()}
-                        >{svcLoading === 'songsurf' ? '…' : 'Envoyer la demande'}</button>
+                        <p class="meta">Service indisponible pour le moment.</p>
                     {/if}
                 </div>
             </div>
@@ -99,31 +58,13 @@
                     <span>🎬</span><span>Jellyfin</span>
                 </div>
                 <div class="svc-body">
-                    {#if data.user.accessJellyfin}
-                        <a class="btn-primary svc-launch" href="https://jellyfin.rev0li.duckdns.org" target="_blank" rel="noopener">
-                            Ouvrir Jellyfin →
-                        </a>
-                    {:else if data.user.requestJellyfin}
-                        <p class="meta">Demande en attente…</p>
-                    {:else}
-                        <ol class="svc-steps">
-                            <li>Laisse une recommandation sur
-                                <a href="https://linkedin.com/in/oliver-kientzler" target="_blank" rel="noopener">LinkedIn</a>
-                            </li>
-                            <li>Renseigne ton nom LinkedIn :</li>
-                        </ol>
-                        <input class="svc-input" bind:value={linkedinInput} placeholder="ton_profil_linkedin" />
-                        <button
-                            class="btn-secondary"
-                            onclick={() => requestService('jellyfin')}
-                            disabled={svcLoading === 'jellyfin' || !linkedinInput.trim()}
-                        >{svcLoading === 'jellyfin' ? '…' : 'Envoyer la demande'}</button>
-                    {/if}
+                    <a class="btn-primary svc-launch" href="https://jellyfin.rev0li.duckdns.org" target="_blank" rel="noopener">
+                        Ouvrir Jellyfin →
+                    </a>
                 </div>
             </div>
 
         </div>
-        {#if svcError}<p class="chip-error" style="margin-top:0.75rem">{svcError}</p>{/if}
     </div>
 </section>
 
@@ -213,20 +154,6 @@
     .svc-songsurf { background: linear-gradient(135deg, #E8B7C4, #DCA2B5); }
     .svc-jellyfin  { background: linear-gradient(135deg, #6EDAD3, #4EC9C1); }
     .svc-body { padding: 1rem; }
-    .svc-steps {
-        font-size: 0.8125rem; color: var(--muted-foreground);
-        margin: 0 0 0.75rem; padding-left: 1.1rem;
-        display: flex; flex-direction: column; gap: 4px;
-    }
-    .svc-steps a { color: var(--primary-hover); font-weight: 600; text-decoration: none; }
-    .svc-steps a:hover { text-decoration: underline; }
-    .svc-input {
-        width: 100%; margin-bottom: 0.625rem;
-        padding: 7px 10px; font-size: 0.8125rem;
-        border: 1px solid var(--border); border-radius: var(--radius-md);
-        background: var(--background); color: var(--foreground);
-    }
-    .svc-input:focus { outline: none; border-color: var(--primary); }
     .svc-launch {
         display: inline-flex; align-items: center; justify-content: center;
         margin-top: 0.625rem; text-decoration: none;

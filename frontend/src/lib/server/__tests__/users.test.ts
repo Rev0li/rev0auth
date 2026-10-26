@@ -17,8 +17,7 @@ describe('modèle utilisateur', () => {
             id: 'u1', name: 'Revo', email: 'revo@local.invalid', emailVerified: false, image: null,
             createdAt: new Date('2026-05-01T10:00:00Z'), updatedAt: new Date(),
             username: 'revo', displayUsername: 'Revo', role: 'admin',
-            active: true, approved: true, bio: '', accessJellyfin: true, accessSongsurf: false,
-            requestJellyfin: false, requestSongsurf: true, githubUsername: 'rev0li', linkedinName: null,
+            active: true, approved: true, bio: '',
         } satisfies User;
         const view = adminView(user);
         expect(view.pseudo).toBe('Revo');

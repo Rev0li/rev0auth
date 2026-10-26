@@ -66,12 +66,6 @@ export const auth = betterAuth({
             active:          { type: 'boolean', defaultValue: true,     input: false },
             approved:        { type: 'boolean', defaultValue: false,    input: false },
             bio:             { type: 'string',  defaultValue: '',       input: false },
-            accessJellyfin:  { type: 'boolean', defaultValue: false,    input: false },
-            accessSongsurf:  { type: 'boolean', defaultValue: false,    input: false },
-            requestJellyfin: { type: 'boolean', defaultValue: false,    input: false },
-            requestSongsurf: { type: 'boolean', defaultValue: false,    input: false },
-            githubUsername:  { type: 'string',  required: false,        input: false },
-            linkedinName:    { type: 'string',  required: false,        input: false },
         },
     },
     session: {

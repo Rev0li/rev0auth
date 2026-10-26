@@ -14,10 +14,6 @@ export const load: PageServerLoad = async ({ locals }) => {
         user: {
             pseudo:          user.name,
             role:            user.role,
-            accessJellyfin:  user.accessJellyfin,
-            accessSongsurf:  user.accessSongsurf,
-            requestJellyfin: user.requestJellyfin,
-            requestSongsurf: user.requestSongsurf,
         },
         songsurfUrl: songsurfBaseUrl() || null,
         consoleUrl:  consoleUrl('/japprends/login'),

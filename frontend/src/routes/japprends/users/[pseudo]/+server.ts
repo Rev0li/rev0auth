@@ -7,8 +7,8 @@ function requireAdmin({ locals }: { locals: App.Locals }) {
     if (!locals.adminSession) throw error(401, 'Non autorisé.');
 }
 
-const BOOLEAN_FIELDS = ['active', 'approved', 'accessJellyfin', 'accessSongsurf', 'requestJellyfin', 'requestSongsurf'] as const;
-const TEXT_FIELDS = ['bio', 'githubUsername', 'linkedinName'] as const;
+const BOOLEAN_FIELDS = ['active', 'approved'] as const;
+const TEXT_FIELDS = ['bio'] as const;
 
 // Seuls les champs métier listés ici sont modifiables, avec leur type
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
