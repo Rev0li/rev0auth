@@ -8,7 +8,6 @@ function requireAdmin({ locals }: { locals: App.Locals }) {
 }
 
 const BOOLEAN_FIELDS = ['active', 'approved'] as const;
-const TEXT_FIELDS = ['bio'] as const;
 
 // Seuls les champs métier listés ici sont modifiables, avec leur type
 export const PUT: RequestHandler = async ({ request, locals, params }) => {
@@ -25,14 +24,6 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
         if (!(field in body)) continue;
         if (typeof body[field] !== 'boolean') return json({ ok: false, message: `${field} invalide.` }, { status: 400 });
         patch[field] = body[field];
-    }
-    for (const field of TEXT_FIELDS) {
-        if (!(field in body)) continue;
-        const value = body[field];
-        if (value !== null && (typeof value !== 'string' || value.length > 500)) {
-            return json({ ok: false, message: `${field} invalide.` }, { status: 400 });
-        }
-        patch[field] = value;
     }
     if (Object.keys(patch).length === 0) return json({ ok: false, message: 'Aucun champ modifiable.' }, { status: 400 });
 

@@ -62,8 +62,6 @@ const MATRIX: Record<string, Entry> = {
     '/auth/verify GET':                { level: 'own' },
     // Espace membre
     '/home/friend load':               { level: 'member' },
-    '/members/profile load':           { level: 'member' },
-    '/members/profile/data PUT':       { level: 'member', body: { bio: 'x' } },
     '/members/password PUT':           { level: 'member' },
     '/members/avatar POST':            { level: 'member' },
     '/members/avatar DELETE':          { level: 'member' },

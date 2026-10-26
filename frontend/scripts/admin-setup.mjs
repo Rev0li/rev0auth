@@ -76,7 +76,7 @@ try {
     });
 
     console.log(`\nCompte « ${member?.name ?? username} » : rôle admin.`);
-    if (tempPassword) console.log(`Mot de passe temporaire : ${tempPassword}   (à changer dans ton profil)`);
+    if (tempPassword) console.log(`Mot de passe temporaire : ${tempPassword}   (à changer dans ton espace, « Mon compte »)`);
     console.log(`Code d'installation   : ${code.match(/.{4}/g).join('-')}   (valable ${SETUP_CODE_TTL_MIN} min, usage unique)`);
     console.log('\n1. Connecte-toi normalement avec ton pseudo et ton mot de passe.');
     console.log('2. Ouvre « Console admin », entre ce code, puis touche ta clé de sécurité.\n');

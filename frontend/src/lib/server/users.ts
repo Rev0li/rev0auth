@@ -10,7 +10,7 @@ import { userAvatars } from './db/schema.js';
 // Mot de passe : credential BetterAuth dans ba_accounts (hash Argon2).
 
 export type User = typeof ba_users.$inferSelect;
-type UserPatch = Partial<Pick<User, 'role' | 'active' | 'approved' | 'bio'>>;
+type UserPatch = Partial<Pick<User, 'role' | 'active' | 'approved'>>;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const ROLES = ['guest', 'member', 'mod', 'admin'] as const;
