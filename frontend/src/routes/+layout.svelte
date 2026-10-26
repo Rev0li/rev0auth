@@ -15,7 +15,6 @@
     // Ces pages portent le toggle dans leur navbar — pas de bouton flottant
     let hasNavbarToggle = $derived(
         page.url.pathname.startsWith('/home/friend') ||
-        page.url.pathname.startsWith('/members/profile') ||
         page.url.pathname.startsWith('/japprends/dashboard')
     );
 </script>

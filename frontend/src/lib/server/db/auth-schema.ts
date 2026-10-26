@@ -18,7 +18,6 @@ export const ba_users = pgTable("ba_users", {
   // Champs métier (ex-web_users), déclarés en additionalFields dans auth-v2.ts
   active: boolean("active").default(true).notNull(),
   approved: boolean("approved").default(false).notNull(),
-  bio: text("bio").default("").notNull(),
 });
 
 export const ba_sessions = pgTable(

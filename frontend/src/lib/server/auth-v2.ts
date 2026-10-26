@@ -65,7 +65,6 @@ export const auth = betterAuth({
             role:            { type: 'string',  defaultValue: 'member', input: false },
             active:          { type: 'boolean', defaultValue: true,     input: false },
             approved:        { type: 'boolean', defaultValue: false,    input: false },
-            bio:             { type: 'string',  defaultValue: '',       input: false },
         },
     },
     session: {

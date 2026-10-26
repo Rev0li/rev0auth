@@ -94,7 +94,9 @@ lib/server/
 routes/
   +page.svelte             — member login (POST /auth/password-check)
   signup/                  — invite-based signup
-  home/friend/, members/*  — member zone
+  home/friend/             — member space, one page (AUTH-20): services, then
+                             account tiles (password, avatar, account deletion)
+  members/*                — its endpoints (password, avatar, account)
   japprends/*              — admin (login = security key, dashboard, audit,
                              songsurf pages, passkey/* endpoints)
   portal/+server.ts        — 301 → / (legacy watcher login URL)
@@ -133,7 +135,7 @@ passwordless and creates a second session, here the key is a second factor.
 ## Key Design Notes
 
 - One user model: `ba_users` = BetterAuth identity + business fields (active,
-  approved, bio), declared as
+  approved), declared as
   `additionalFields` (`input: false`) so `getSession` returns them. Pseudo:
   `username` = LOWER(pseudo) (login, unique), `name`/`displayUsername` = exact
   pseudo. Password = credential row in `ba_accounts`. Avatars in `user_avatars`

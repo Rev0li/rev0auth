@@ -57,6 +57,13 @@
       "when": 1793040183181,
       "tag": "0007_drop_service_access",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793042853194,
+      "tag": "0008_drop_bio",
+      "breakpoints": true
     }
   ]
 }
