@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Complément de routes-access.test.ts : de la session BetterAuth aux `locals`
 // que les routes contrôlent (AUTH-05).
@@ -18,7 +18,7 @@ const COOKIE = '__Secure-better-auth.session_token=abc';
 
 async function localsFor(cookie: string | null): Promise<App.Locals> {
     const headers = new Headers(cookie ? { cookie } : {});
-    const event = { request: new Request('http://localhost/', { headers }), locals: {} } as never;
+    const event = { request: new Request('http://localhost/', { headers }), url: new URL('http://localhost/'), locals: {} } as never;
     await handle({ event, resolve: async () => new Response() });
     return (event as { locals: App.Locals }).locals;
 }
@@ -80,5 +80,44 @@ describe('hooks.server — sessions', () => {
         getSession.mockResolvedValue(session({ role: 'admin', active: false }));
         isSessionElevated.mockResolvedValue(true);
         expect(await localsFor(COOKIE)).toEqual({ memberSession: null, adminSession: null });
+    });
+});
+
+describe('hooks.server — console sous son propre nom (AUTH-11)', () => {
+    beforeEach(() => {
+        process.env.ORIGIN = 'https://rev0li.duckdns.org';
+        process.env.ADMIN_ORIGIN = 'https://admin.rev0li.duckdns.org';
+    });
+    afterEach(() => { delete process.env.ADMIN_ORIGIN; });
+
+    async function respond(host: string, path: string): Promise<{ res: Response; resolved: boolean }> {
+        const event = {
+            request: new Request(`https://rev0li.duckdns.org${path}`, { headers: { host } }),
+            url: new URL(`https://rev0li.duckdns.org${path}`),
+            locals: {},
+        } as never;
+        let resolved = false;
+        const res = await handle({ event, resolve: async () => { resolved = true; return new Response('ok'); } });
+        return { res, resolved };
+    }
+
+    it('portail public : console introuvable, sans lire la session', async () => {
+        const { res, resolved } = await respond('rev0li.duckdns.org', '/japprends/login');
+        expect(res.status).toBe(404);
+        expect(resolved).toBe(false);
+        expect(getSession).not.toHaveBeenCalled();
+    });
+
+    it('nom de la console : la console est servie', async () => {
+        const { res, resolved } = await respond('admin.rev0li.duckdns.org', '/japprends/login');
+        expect(res.status).toBe(200);
+        expect(resolved).toBe(true);
+    });
+
+    it('nom de la console : le reste renvoie au portail', async () => {
+        const { res, resolved } = await respond('admin.rev0li.duckdns.org', '/home/friend');
+        expect(res.status).toBe(302);
+        expect(res.headers.get('location')).toBe('https://rev0li.duckdns.org/home/friend');
+        expect(resolved).toBe(false);
     });
 });

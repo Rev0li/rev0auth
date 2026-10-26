@@ -23,6 +23,8 @@ export const auth = betterAuth({
     database: drizzleAdapter(db, { provider: 'pg' }),
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: origin,
+    // Console sous son propre nom (AUTH-11) : déconnexion appelée depuis ce nom
+    trustedOrigins: process.env.ADMIN_ORIGIN ? [process.env.ADMIN_ORIGIN] : [],
 
     emailAndPassword: {
         enabled: true,

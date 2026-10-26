@@ -25,10 +25,11 @@
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ pseudo: key, password: pwd }),
             });
-            const data = await r.json();
-            if (!data.ok) { error = data.message; return; }
+            // `res`, pas `data` : ce nom masquerait les données de la page (returnTo)
+            const res = await r.json();
+            if (!res.ok) { error = res.message; return; }
 
-            localStorage.setItem('logged_pseudo', data.pseudo ?? key);
+            localStorage.setItem('logged_pseudo', res.pseudo ?? key);
             // Retour au service qui a demandé la connexion (adresse vérifiée
             // côté serveur), sinon l'espace membre.
             if (data.returnTo) window.location.assign(data.returnTo);

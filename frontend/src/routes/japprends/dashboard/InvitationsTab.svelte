@@ -1,6 +1,8 @@
 <script lang="ts">
     type Invite = { id: number; code: string; note: string; createdAt: number; expiresAt: number; usedBy: string | null; usedAt: number | null; };
 
+    let { signupUrl }: { signupUrl: string } = $props();
+
     let invites = $state<Invite[]>([]);
     let loading = $state(true);
     let note = $state('');
@@ -41,7 +43,7 @@
     }
 
     async function copy(inv: Invite) {
-        const url = `${location.origin}/signup?invite=${inv.code}`;
+        const url = `${signupUrl}?invite=${inv.code}`;
         await navigator.clipboard.writeText(url);
         copied = inv.id;
         setTimeout(() => { if (copied === inv.id) copied = null; }, 2000);

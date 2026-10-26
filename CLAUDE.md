@@ -51,7 +51,10 @@ Copy `.env.example` to `.env`. Required variables:
 - `DATABASE_URL` — PostgreSQL connection string
 - `PORT` — frontend port (4173 in prod compose, 5173 in dev)
 - `ORIGIN` — public origin for the SvelteKit frontend (default https://rev0li.duckdns.org in compose);
-  also the WebAuthn origin, its hostname is the RP ID of the admin security keys
+  its hostname is the RP ID of the admin security keys
+- `ADMIN_ORIGIN` — origin of the admin console (AUTH-11, e.g. https://admin.rev0li.duckdns.org),
+  a subdomain of ORIGIN served by the same app, reachable through Tailscale only
+  (Caddy); also the WebAuthn origin. Empty (dev) = console under ORIGIN's `/japprends`
 - `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table, displayed on `/japprends/songsurf-activity`.
 
 ## Architecture
@@ -80,6 +83,8 @@ lib/server/
   admin-passkey.ts         — admin security keys (WebAuthn, @simplewebauthn),
                              setup codes, session elevation
   songsurf.ts              — SongSurf address + admin calls through the gate
+  console-host.ts          — which host shows what: console only on ADMIN_ORIGIN
+                             (404 on the public portal), absolute console/portal URLs
   forward-auth.ts          — service gate rules (access per service, safe
                              return URL) for /auth/verify
   audit.ts / ratelimit.ts / songsurf-events.ts
@@ -116,6 +121,11 @@ passwordless and creates a second session, here the key is a second factor.
   subdomain: 204 + `X-User-Id/Name/Role` if the member has access (admin: all),
   302 to `/?redirect=<url>` for a navigation without session, 401 for API
   calls, 403 without access (`lib/server/forward-auth.ts`)
+- Admin console host (AUTH-11): with `ADMIN_ORIGIN` set, every `/japprends/*`
+  is 404 on the public portal (except `/japprends/api/songsurf-events`, the NAS
+  push) and served only on the console host; there, `/` → `/japprends/login`,
+  other paths → the public portal (`hooks.server.ts` + `console-host.ts`; Caddy
+  blocks the same on its side). Links to the console go through `consoleUrl()`.
 - Admin role, key not yet validated: `/japprends/login`, `/japprends/passkey/{auth,register}-*`
 - Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`

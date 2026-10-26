@@ -145,7 +145,8 @@ async function outcome(handler: Handler, event: unknown): Promise<'allowed' | 'r
         if (e === PASSED) return 'allowed';
         if (isHttpError(e)) return e.status === 401 || e.status === 403 ? 'refused' : 'allowed';
         if (isRedirect(e)) {
-            return (e.status === 302 || e.status === 303) && LOGIN_PAGES.includes(e.location)
+            // Absolue quand la connexion est sur le portail public (AUTH-11)
+            return (e.status === 302 || e.status === 303) && LOGIN_PAGES.includes(new URL(e.location, 'http://localhost').pathname)
                 ? 'refused' : 'allowed';
         }
         throw e;
