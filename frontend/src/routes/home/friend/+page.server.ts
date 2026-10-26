@@ -13,10 +13,6 @@ export const load: PageServerLoad = async ({ locals }) => {
         user: {
             pseudo:          user.name,
             role:            user.role,
-            accessJellyfin:  user.accessJellyfin,
-            accessSongsurf:  user.accessSongsurf,
-            requestJellyfin: user.requestJellyfin,
-            requestSongsurf: user.requestSongsurf,
         },
         songsurfUrl: songsurfBaseUrl() || null,
         members: all.filter((u) => u.active).map((u) => ({ pseudo: u.name, role: u.role, bio: u.bio })),

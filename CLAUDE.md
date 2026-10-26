@@ -113,9 +113,9 @@ passwordless and creates a second session, here the key is a second factor.
 - Public: `/`, `/signup`, `/portal` (redirect)
 - Service gate: `/auth/verify?service=songsurf|jellyfin`, called by Caddy
   `forward_auth` (snippet `porte_portail`) before each request to a service
-  subdomain: 204 + `X-User-Id/Name/Role` if the member has access (admin: all),
-  302 to `/?redirect=<url>` for a navigation without session, 401 for API
-  calls, 403 without access (`lib/server/forward-auth.ts`)
+  subdomain: 204 + `X-User-Id/Name/Role` for any member (invite-only, every
+  member gets every service, AUTH-18), 302 to `/?redirect=<url>` for a
+  navigation without session, 401 for API calls (`lib/server/forward-auth.ts`)
 - Admin role, key not yet validated: `/japprends/login`, `/japprends/passkey/{auth,register}-*`
 - Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`
@@ -123,7 +123,7 @@ passwordless and creates a second session, here the key is a second factor.
 ## Key Design Notes
 
 - One user model: `ba_users` = BetterAuth identity + business fields (active,
-  approved, bio, access_*/request_*, github/linkedin), declared as
+  approved, bio), declared as
   `additionalFields` (`input: false`) so `getSession` returns them. Pseudo:
   `username` = LOWER(pseudo) (login, unique), `name`/`displayUsername` = exact
   pseudo. Password = credential row in `ba_accounts`. Avatars in `user_avatars`

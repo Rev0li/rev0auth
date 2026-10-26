@@ -19,12 +19,6 @@ export const ba_users = pgTable("ba_users", {
   active: boolean("active").default(true).notNull(),
   approved: boolean("approved").default(false).notNull(),
   bio: text("bio").default("").notNull(),
-  accessJellyfin: boolean("access_jellyfin").default(false).notNull(),
-  accessSongsurf: boolean("access_songsurf").default(false).notNull(),
-  requestJellyfin: boolean("request_jellyfin").default(false).notNull(),
-  requestSongsurf: boolean("request_songsurf").default(false).notNull(),
-  githubUsername: text("github_username"),
-  linkedinName: text("linkedin_name"),
 });
 
 export const ba_sessions = pgTable(

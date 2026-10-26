@@ -14,8 +14,7 @@ navigateur ──► Caddy ──► GET /auth/verify?service=<nom>  (portail, a
                  │
                  ├─ 204 + X-User-Id / X-User-Name / X-User-Role ──► service
                  ├─ 302 vers la connexion du portail (navigation sans session)
-                 ├─ 401 (appel d'API sans session)
-                 └─ 403 (session sans accès au service)
+                 └─ 401 (appel d'API sans session)
 ```
 
 - La session est celle du portail : un cookie posé sur le domaine parent,
@@ -24,8 +23,8 @@ navigateur ──► Caddy ──► GET /auth/verify?service=<nom>  (portail, a
 - Les `X-User-*` envoyés par le client sont effacés avant la vérification.
 - Le service est fixé dans la config Caddy (`?service=`), jamais déduit de la
   requête. Liste dans `frontend/src/lib/server/forward-auth.ts` (`SERVICES`).
-- Accès : rôle `admin` → tous les services ; sinon l'accès accordé dans la
-  console (`access_<service>`).
+- Accès : tout membre connecté a accès à tous les services (AUTH-18) : on
+  n'entre que sur invitation, il n'y a plus d'accès à accorder par service.
 
 ---
 
@@ -47,8 +46,8 @@ Preuve absente ou fausse → requête anonyme.
 
 ## Ajouter un service
 
-1. Portail : ajouter le nom dans `SERVICES` (`forward-auth.ts`) et la colonne
-   d'accès correspondante, avec ses tests (`forward-auth.test.ts`).
+1. Portail : ajouter le nom dans `SERVICES` (`forward-auth.ts`), avec ses
+   tests (`forward-auth.test.ts`).
 2. Secret de preuve : `openssl rand -hex 32`, posé dans l'environnement du
    service et dans un fichier privé du VPS (`/etc/caddy/secrets/…`, root:caddy,
    640) qui définit un snippet `header_up X-Proxy-Token "…"`. Pas de variable

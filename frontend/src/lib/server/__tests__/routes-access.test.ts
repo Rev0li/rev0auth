@@ -69,7 +69,6 @@ const MATRIX: Record<string, Entry> = {
     '/members/avatar DELETE':          { level: 'member' },
     '/members/avatar/[pseudo] GET':    { level: 'member' },
     '/members/account DELETE':         { level: 'member' },
-    '/members/access/request POST':    { level: 'member' },
     // Rôle admin, clé pas encore validée (entrée dans la console)
     '/japprends/login load':                     { level: 'adminMember' },
     '/japprends/passkey/auth-options POST':      { level: 'adminMember' },
@@ -113,7 +112,7 @@ function routeOf(file: string): string {
 }
 
 function member(role: string): NonNullable<App.Locals['memberSession']> {
-    return { pseudo: 'Alice', role, userId: 'u1', sessionId: 's1', access: { songsurf: false, jellyfin: false } };
+    return { pseudo: 'Alice', role, userId: 'u1', sessionId: 's1' };
 }
 
 function buildEvent(route: string, method: string, locals: App.Locals, body: unknown) {

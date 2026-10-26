@@ -11,13 +11,6 @@ export function isService(value: string | null): value is Service {
     return SERVICES.includes(value as Service);
 }
 
-type Member = NonNullable<App.Locals['memberSession']>;
-
-// L'admin a accès à tout ; les autres selon l'accès accordé dans la console.
-export function canAccess(member: Member, service: Service): boolean {
-    return member.role === 'admin' || member.access[service];
-}
-
 // Adresse de retour après connexion : https, sur le domaine du portail ou un
 // de ses sous-domaines. Tout le reste est refusé (pas de redirection ouverte).
 export function safeReturnTo(raw: string | null): string | null {

@@ -50,6 +50,13 @@
       "when": 1792439571301,
       "tag": "0006_drop_web_users",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793040183181,
+      "tag": "0007_drop_service_access",
+      "breakpoints": true
     }
   ]
 }

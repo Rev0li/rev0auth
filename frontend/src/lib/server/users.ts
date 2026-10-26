@@ -10,9 +10,7 @@ import { userAvatars } from './db/schema.js';
 // Mot de passe : credential BetterAuth dans ba_accounts (hash Argon2).
 
 export type User = typeof ba_users.$inferSelect;
-type UserPatch = Partial<Pick<User,
-    'role' | 'active' | 'approved' | 'bio' | 'accessJellyfin' | 'accessSongsurf' |
-    'requestJellyfin' | 'requestSongsurf' | 'githubUsername' | 'linkedinName'>>;
+type UserPatch = Partial<Pick<User, 'role' | 'active' | 'approved' | 'bio'>>;
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export const ROLES = ['guest', 'member', 'mod', 'admin'] as const;
@@ -44,12 +42,6 @@ export function adminView(u: User) {
         active:          u.active,
         approved:        u.approved,
         createdAt:       Math.floor(u.createdAt.getTime() / 1000),
-        accessJellyfin:  u.accessJellyfin,
-        accessSongsurf:  u.accessSongsurf,
-        requestJellyfin: u.requestJellyfin,
-        requestSongsurf: u.requestSongsurf,
-        githubUsername:  u.githubUsername,
-        linkedinName:    u.linkedinName,
     };
 }
 

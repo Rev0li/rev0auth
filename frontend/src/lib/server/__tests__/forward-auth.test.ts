@@ -8,13 +8,8 @@ process.env.ORIGIN = 'https://rev0li.duckdns.org';
 const { safeReturnTo, requestedUrl } = await import('../forward-auth.js');
 const { GET } = await import('../../../routes/auth/verify/+server.js');
 
-type Access = { songsurf: boolean; jellyfin: boolean };
-
-function member(role: string, access: Partial<Access> = {}): App.Locals['memberSession'] {
-    return {
-        pseudo: 'Alice', role, userId: 'u1', sessionId: 's1',
-        access: { songsurf: false, jellyfin: false, ...access },
-    };
+function member(role: string): App.Locals['memberSession'] {
+    return { pseudo: 'Alice', role, userId: 'u1', sessionId: 's1' };
 }
 
 // Requête telle que Caddy la transmet : en-têtes du navigateur + X-Forwarded-*
@@ -90,14 +85,8 @@ describe('GET /auth/verify', () => {
         expect((await verify('songsurf', null, { 'x-forwarded-method': 'POST' })).status).toBe(401);
     });
 
-    it.each(['guest', 'member', 'mod'])('%s sans accès → 403, sans en-tête d\'identité', async (role) => {
-        const res = await verify('songsurf', member(role, { jellyfin: true }));
-        expect(res.status).toBe(403);
-        expect(res.headers.get('x-user-id')).toBeNull();
-    });
-
-    it('membre avec accès → 204 + identité pour le service', async () => {
-        const res = await verify('songsurf', member('member', { songsurf: true }));
+    it('membre → 204 + identité pour le service', async () => {
+        const res = await verify('songsurf', member('member'));
         expect(res.status).toBe(204);
         expect(res.headers.get('x-user-id')).toBe('u1');
         expect(res.headers.get('x-user-name')).toBe('Alice');
@@ -105,13 +94,9 @@ describe('GET /auth/verify', () => {
         expect(res.headers.get('cache-control')).toBe('no-store');
     });
 
-    it('l\'accès est propre à chaque service', async () => {
-        expect((await verify('jellyfin', member('member', { songsurf: true }))).status).toBe(403);
-        expect((await verify('jellyfin', member('member', { jellyfin: true }))).status).toBe(204);
-    });
-
-    it('admin → accès à tous les services', async () => {
-        expect((await verify('songsurf', member('admin'))).status).toBe(204);
-        expect((await verify('jellyfin', member('admin'))).status).toBe(204);
+    // AUTH-18 : tout membre est arrivé par invitation, plus d'accès par service
+    it.each(['guest', 'member', 'mod', 'admin'])('%s → accès à tous les services', async (role) => {
+        expect((await verify('songsurf', member(role))).status).toBe(204);
+        expect((await verify('jellyfin', member(role))).status).toBe(204);
     });
 });
