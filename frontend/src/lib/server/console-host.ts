@@ -18,6 +18,12 @@ function consoleOrigin(): string | null {
     return process.env.ADMIN_ORIGIN || null;
 }
 
+// Requête arrivée par le nom de la console ?
+export function isConsoleHost(host: string | null): boolean {
+    const console_ = consoleOrigin();
+    return !!console_ && host === new URL(console_).host;
+}
+
 export function isConsolePath(pathname: string): boolean {
     return pathname === '/japprends' || pathname.startsWith('/japprends/');
 }
@@ -55,9 +61,10 @@ export function gateRequest(host: string | null, pathname: string, search: strin
             : { kind: 'pass' };
     }
 
-    // Nom de la console : la console, ses fichiers et la déconnexion ; la
-    // racine mène à l'entrée de la console, le reste au portail public.
-    if (isConsolePath(pathname) || pathname.startsWith('/_app/') || pathname === '/auth/logout') {
+    // Nom de la console : la console, ses fichiers, la déconnexion et le
+    // battement de présence ; la racine mène à l'entrée de la console, le
+    // reste au portail public.
+    if (isConsolePath(pathname) || pathname.startsWith('/_app/') || pathname === '/auth/logout' || pathname === '/auth/ping') {
         return { kind: 'pass' };
     }
     if (pathname === '/') return { kind: 'redirect', location: consoleUrl('/japprends/login') };

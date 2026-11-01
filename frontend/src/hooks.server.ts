@@ -2,9 +2,21 @@ import type { Handle } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth-v2.js';
 import { migrateDb } from '$lib/server/db/index.js';
 import { isSessionElevated } from '$lib/server/admin-passkey.js';
-import { gateRequest } from '$lib/server/console-host.js';
+import { gateRequest, isConsoleHost, isConsolePath } from '$lib/server/console-host.js';
+import { isService } from '$lib/server/forward-auth.js';
+import { touch } from '$lib/server/presence.js';
 
 await migrateDb();
+
+// Où est le membre (présence, Activité › Journal) : service passé par la
+// porte (Caddy appelle /auth/verify avant chaque requête), console, ou portail.
+function placeOf(url: URL, host: string | null): string {
+    if (url.pathname === '/auth/verify') {
+        const service = url.searchParams.get('service');
+        return isService(service) ? service : 'service';
+    }
+    return isConsoleHost(host) || isConsolePath(url.pathname) ? 'console' : 'portail';
+}
 
 export const handle: Handle = async ({ event, resolve }) => {
     // Console sous son propre nom (AUTH-11) : invisible depuis le portail public
@@ -37,6 +49,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             if (user.role === 'admin' && await isSessionElevated(session.id)) {
                 event.locals.adminSession = { pseudo: user.name };
             }
+            touch(user.id, user.name, user.role, placeOf(event.url, event.request.headers.get('host')));
         }
     }
 

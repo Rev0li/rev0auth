@@ -56,8 +56,8 @@ describe('console-host — console sous son propre nom', () => {
         expect(gateRequest('evil.example', '/japprends/login', '')).toEqual({ kind: 'not-found' });
     });
 
-    it('nom de la console : console, fichiers du site et déconnexion', () => {
-        for (const path of ['/japprends/login', '/japprends/dashboard', '/_app/immutable/x.js', '/auth/logout']) {
+    it('nom de la console : console, fichiers du site, déconnexion et battement de présence', () => {
+        for (const path of ['/japprends/login', '/japprends/dashboard', '/_app/immutable/x.js', '/auth/logout', '/auth/ping']) {
             expect(gateRequest(CONSOLE, path, '')).toEqual({ kind: 'pass' });
         }
     });

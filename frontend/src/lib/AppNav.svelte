@@ -1,8 +1,20 @@
 <script lang="ts">
     // Barre du haut commune à l'espace membre et à la console : mêmes places
     // pour l'avatar, le pseudo, la bascule d'espace, le thème et la déconnexion.
+    import { onMount } from 'svelte';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
     import SpaceSwitch from '$lib/SpaceSwitch.svelte';
+
+    // Présence (Activité › Journal) : un battement par minute tant que
+    // l'onglet est visible, pour qu'une page ouverte compte comme « en ligne ».
+    onMount(() => {
+        const ping = () => {
+            if (document.visibilityState === 'visible') fetch('/auth/ping', { method: 'POST' }).catch(() => {});
+        };
+        const timer = setInterval(ping, 60_000);
+        document.addEventListener('visibilitychange', ping);
+        return () => { clearInterval(timer); document.removeEventListener('visibilitychange', ping); };
+    });
 
     let { pseudo, avatarSrc, badge = null, space = null, onLogout }: {
         pseudo: string;

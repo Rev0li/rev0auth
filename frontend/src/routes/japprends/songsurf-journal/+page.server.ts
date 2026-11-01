@@ -2,9 +2,10 @@ import { redirect } from '@sveltejs/kit';
 import { and, desc, inArray, ne } from 'drizzle-orm';
 import { db } from '$lib/server/db/index.js';
 import { songsurfEvents } from '$lib/server/db/schema.js';
+import { presence } from '$lib/server/presence.js';
 import type { PageServerLoad } from './$types.js';
 
-// Activité › Journal : connexions à SongSurf et évènements techniques
+// Activité › Journal : qui est en ligne (présence en mémoire), connexions à SongSurf et évènements techniques
 // (échecs, exports ZIP, démarrage/arrêt du conteneur) poussés par le NAS.
 // Les téléchargements réussis sont sur Activité › SongSurf.
 const LOGIN_TYPES = ['login_success', 'login_rejected'];
@@ -25,5 +26,5 @@ export const load: PageServerLoad = async ({ locals }) => {
             .orderBy(desc(songsurfEvents.receivedAt), desc(songsurfEvents.id))
             .limit(200),
     ]);
-    return { logins, others };
+    return { logins, others, presence: presence(), now: Math.floor(Date.now() / 1000) };
 };
