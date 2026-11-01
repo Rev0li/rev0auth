@@ -3,8 +3,7 @@
     import { untrack } from 'svelte';
     import { goto, invalidateAll } from '$app/navigation';
     import { slide } from 'svelte/transition';
-    import ThemeToggle from '$lib/ThemeToggle.svelte';
-    import SpaceSwitch from '$lib/SpaceSwitch.svelte';
+    import AppNav from '$lib/AppNav.svelte';
     import {
         BG_COLORS, FACE_COUNT,
         faceSeeds, decodeAvatarFilename,
@@ -109,23 +108,14 @@
 </script>
 
 <!-- ── Navbar ── -->
-<nav class="navbar">
-    <span class="navbar-brand">rev0auth</span>
-    <div class="navbar-right">
-        <img
-            src="/members/avatar/{data.user.pseudo}?v={avatarVersion}"
-            alt="Avatar"
-            class="nav-avatar"
-            onerror={(e) => (e.currentTarget as HTMLImageElement).style.display = 'none'}
-        />
-        <span class="nav-pseudo">{data.user.pseudo}</span>
-        {#if data.user.role === 'admin'}
-            <SpaceSwitch current="member" memberUrl="/home/friend" consoleUrl={data.consoleUrl} />
-        {/if}
-        <ThemeToggle inline />
-        <button class="nav-btn nav-btn-logout" onclick={logout}>Déconnexion</button>
-    </div>
-</nav>
+<AppNav
+    pseudo={data.user.pseudo}
+    avatarSrc="/members/avatar/{data.user.pseudo}?v={avatarVersion}"
+    space={data.user.role === 'admin'
+        ? { current: 'member', memberUrl: '/home/friend', consoleUrl: data.consoleUrl }
+        : null}
+    onLogout={logout}
+/>
 
 <!-- ── Hero ── -->
 <section class="hero">
@@ -277,44 +267,6 @@
 </section>
 
 <style>
-    /* ── Navbar ── */
-    .navbar {
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 1.5rem;
-        height: 56px;
-        background: var(--card);
-        border-bottom: 1px solid var(--border);
-        box-shadow: var(--shadow-soft);
-    }
-    .navbar-brand { font-weight: 700; font-size: 1rem; letter-spacing: -0.01em; }
-    .navbar-right { display: flex; align-items: center; gap: 10px; }
-    .nav-avatar {
-        width: 28px; height: 28px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 1px solid var(--border);
-    }
-    .nav-pseudo { font-size: 0.875rem; font-weight: 600; }
-    .nav-btn {
-        height: 30px; padding: 0 12px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-full);
-        background: transparent;
-        font: 500 0.8125rem/1 var(--font-sans);
-        color: var(--foreground);
-        text-decoration: none;
-        display: inline-flex; align-items: center;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .nav-btn:hover { background: var(--muted); }
-    .nav-btn-logout { color: var(--destructive); border-color: var(--destructive-border); }
-
     /* ── Hero ── */
     .hero { background: var(--card); border-bottom: 1px solid var(--border); }
     .hero-inner { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 2.5rem; }

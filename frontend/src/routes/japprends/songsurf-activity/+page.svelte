@@ -124,7 +124,6 @@
                 {/each}
             </select>
             <a href="/japprends/songsurf-logs">Logs bruts (pull)</a>
-            <a href="/japprends/dashboard">← Dashboard</a>
         </div>
     </header>
 
