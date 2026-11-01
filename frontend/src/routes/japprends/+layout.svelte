@@ -41,15 +41,13 @@
         badge="admin"
         space={{ current: 'console', memberUrl: data.shell.memberUrl, consoleUrl: '/japprends/dashboard' }}
         onLogout={logout}
-    />
-
-    <nav class="tabs" aria-label="Sections de la console">
-        {#each TABS as t (t.id)}
-            <a class="tab" class:active={active === t.id} aria-current={active === t.id ? 'page' : undefined} href={t.href}>
-                {t.label}
-            </a>
-        {/each}
-    </nav>
+    >
+        {#snippet tabs()}
+            {#each TABS as t (t.id)}
+                <a aria-current={active === t.id ? 'page' : undefined} href={t.href}>{t.label}</a>
+            {/each}
+        {/snippet}
+    </AppNav>
 
     {#if inActivity}
         <nav class="subtabs" aria-label="Activité">
@@ -64,27 +62,12 @@
 {@render children()}
 
 <style>
-    .tabs {
-        display: flex; overflow-x: auto;
-        padding: 0 1rem;
-        background: var(--card);
-        border-bottom: 1px solid var(--border);
-    }
-    .tab {
-        padding: 0.75rem 1rem;
-        border-bottom: 2px solid transparent;
-        font: 500 0.875rem/1 var(--font-sans);
-        color: var(--muted-foreground);
-        text-decoration: none; white-space: nowrap;
-        transition: color 0.15s, border-color 0.15s;
-    }
-    .tab:hover { color: var(--foreground); }
-    .tab.active { color: var(--foreground); border-bottom-color: var(--primary); }
-
+    /* Sous-onglets d'Activité : des pastilles en haut de la page, pas une
+       deuxième barre (AUTH-28) */
     .subtabs {
         display: flex; gap: 6px; overflow-x: auto;
-        padding: 0.625rem 1.5rem;
-        border-bottom: 1px solid var(--border);
+        max-width: 1100px; margin: 0 auto;
+        padding: 1.25rem 1rem 0;
     }
     .subtab {
         height: 28px; padding: 0 12px;
