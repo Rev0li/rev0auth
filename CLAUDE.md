@@ -168,7 +168,12 @@ sign-in with PIN (console host).
   `/api/auth/*` route and direct sign-up is disabled — accounts are created
   server-side only (invite signup, `scripts/admin-setup.mjs`); the console adds
   people by invitation only (Membres tab, AUTH-12: members and pending invites
-  as cards, invite create/delete audited, an admin cannot delete themselves).
+  as cards, invite create/delete audited). Role change from the member sheet
+  (AUTH-27): Membre / Modérateur / Admin via `PUT /japprends/users/[pseudo]`,
+  audited; admin needs a confirmation (immediate in gated services, console
+  only once a security key is registered). An admin can neither change their
+  own role/active flag nor delete their own account (409), so one admin always
+  remains. `mod` has no extra rights yet (future whiteboard).
 - Member identity = BetterAuth `user.id` (`locals.memberSession.userId`); the
   pseudo shown is `user.name`, set server-side only (no route lets a client
   change it). Only an active account gets a member session.
