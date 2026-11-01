@@ -4,12 +4,31 @@
     import { goto, invalidateAll } from '$app/navigation';
     import { slide } from 'svelte/transition';
     import AppNav from '$lib/AppNav.svelte';
+    import songsurfShot from '$lib/assets/services/songsurf.webp';
     import {
         BG_COLORS, FACE_COUNT,
         faceSeeds, decodeAvatarFilename,
     } from '$lib/avatar-options.js';
 
     let { data }: { data: PageData } = $props();
+
+    // ── Services (AUTH-26) : une carte par service, capture en haut ──
+    // Captures sans info perso (pseudo masqué, bibliothèque floutée) : une
+    // image du site est lisible par son adresse. Sans capture : bandeau coloré.
+    type Service = { id: string; icon: string; name: string; desc: string; note?: string; url: string | null; shot: string | null };
+    let SERVICES = $derived<Service[]>([
+        {
+            id: 'songsurf', icon: '🎵', name: 'SongSurf',
+            desc: 'Colle un lien YouTube Music, récupère ta musique en MP3, bien rangée.',
+            url: data.songsurfUrl, shot: songsurfShot,
+        },
+        {
+            id: 'jellyfin', icon: '🎬', name: 'Jellyfin',
+            desc: 'Films, séries et musique, à regarder en streaming.',
+            note: 'Il a ses propres identifiants, demande-les à l’admin.',
+            url: 'https://jellyfin.rev0li.duckdns.org', shot: null,
+        },
+    ]);
 
     // ── Mon compte : tuiles façon menu de jeu, une seule ouverte à la fois ──
     type Tile = 'password' | 'avatar' | 'delete';
@@ -130,33 +149,36 @@
     <div class="section-inner">
         <h2 class="section-heading">Services</h2>
         <div class="services-grid">
-
-            <div class="svc-card">
-                <div class="svc-banner svc-songsurf">
-                    <span>🎵</span><span>Songsurf</span>
-                </div>
-                <div class="svc-body">
-                    {#if data.songsurfUrl}
-                        <a class="btn-primary svc-launch" href={data.songsurfUrl} target="_blank" rel="noopener">
-                            Ouvrir SongSurf →
-                        </a>
-                    {:else}
-                        <p class="meta">Service indisponible pour le moment.</p>
-                    {/if}
-                </div>
-            </div>
-
-            <div class="svc-card">
-                <div class="svc-banner svc-jellyfin">
-                    <span>🎬</span><span>Jellyfin</span>
-                </div>
-                <div class="svc-body">
-                    <a class="btn-primary svc-launch" href="https://jellyfin.rev0li.duckdns.org" target="_blank" rel="noopener">
-                        Ouvrir Jellyfin →
-                    </a>
-                </div>
-            </div>
-
+            {#each SERVICES as s (s.id)}
+                <!-- Toute la carte est le lien ; le « bouton » n'est qu'un repère visuel -->
+                <svelte:element
+                    this={s.url ? 'a' : 'div'}
+                    class="svc-card"
+                    class:svc-off={!s.url}
+                    href={s.url ?? undefined}
+                    target={s.url ? '_blank' : undefined}
+                    rel={s.url ? 'noopener' : undefined}
+                    aria-label={s.url ? `Ouvrir ${s.name}` : undefined}
+                >
+                    <div class="svc-shot svc-{s.id}">
+                        {#if s.shot}
+                            <img src={s.shot} alt="Aperçu de {s.name}" width="800" height="500" loading="lazy" />
+                        {:else}
+                            <span class="svc-shot-icon" aria-hidden="true">{s.icon}</span>
+                        {/if}
+                    </div>
+                    <div class="svc-body">
+                        <h3 class="svc-name"><span aria-hidden="true">{s.icon}</span> {s.name}</h3>
+                        <p class="svc-desc">{s.desc}</p>
+                        {#if s.note}<p class="svc-note">{s.note}</p>{/if}
+                        {#if s.url}
+                            <span class="btn-primary svc-launch">Ouvrir {s.name} →</span>
+                        {:else}
+                            <p class="svc-note">Service indisponible pour le moment.</p>
+                        {/if}
+                    </div>
+                </svelte:element>
+            {/each}
         </div>
     </div>
 </section>
@@ -285,20 +307,36 @@
     }
 
     /* ── Services ── */
-    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-    .svc-card { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--card); }
-    .svc-banner {
-        display: flex; align-items: center; gap: 8px;
-        padding: 12px 16px; font-weight: 600; font-size: 0.9375rem;
-        color: var(--card);
+    .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; }
+    .svc-card {
+        display: flex; flex-direction: column;
+        border: 1px solid var(--border); border-radius: var(--radius-lg);
+        overflow: hidden; background: var(--card);
+        color: var(--foreground); text-decoration: none;
+        transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
     }
+    a.svc-card:hover, a.svc-card:focus-visible {
+        border-color: var(--primary); transform: translateY(-3px);
+        box-shadow: var(--shadow-hover); outline: none;
+    }
+    .svc-off { opacity: 0.6; }
+
+    /* Capture 16:10 ; la couleur du service sert de fond (et de repli sans capture) */
+    .svc-shot {
+        aspect-ratio: 16 / 10; overflow: hidden;
+        display: flex; align-items: center; justify-content: center;
+        border-bottom: 1px solid var(--border);
+    }
+    .svc-shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+    .svc-shot-icon { font-size: 3rem; }
     .svc-songsurf { background: linear-gradient(135deg, #E8B7C4, #DCA2B5); }
     .svc-jellyfin  { background: linear-gradient(135deg, #6EDAD3, #4EC9C1); }
-    .svc-body { padding: 1rem; }
-    .svc-launch {
-        display: inline-flex; align-items: center; justify-content: center;
-        margin-top: 0.625rem; text-decoration: none;
-    }
+
+    .svc-body { display: flex; flex-direction: column; gap: 0.4rem; padding: 1rem 1.125rem 1.25rem; flex: 1; }
+    .svc-name { margin: 0; font-size: 1.0625rem; font-weight: 700; }
+    .svc-desc { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.45; }
+    .svc-note { margin: 0; font-size: 0.8125rem; color: var(--muted-foreground); }
+    .svc-launch { margin-top: auto; align-self: stretch; }  /* boutons alignés en bas */
 
     /* ── Mon compte : tuiles façon menu de jeu ── */
     .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
