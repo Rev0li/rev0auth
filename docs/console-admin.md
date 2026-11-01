@@ -32,9 +32,12 @@ tailnet  ──► admin.rev0li.duckdns.org/japprends/…  → console (rôle ad
   puis retour à la console (`/?redirect=…`) et clé pour valider la session.
   La session est partagée par le domaine parent (AUTH-07).
 - **Durée** : la console reste ouverte 12 h, puis redemande la clé.
-- **Bascule « Mon espace | Console »** (`lib/SpaceSwitch.svelte`) : dans la
-  barre de l'espace membre (admins seulement) et dans celle de la console, le
-  côté actif surligné, l'autre en lien. Plus de test de joignabilité : le
+- **Barre commune** (`lib/AppNav.svelte`) : même barre pour l'espace membre et
+  la console, avec la bascule « Mon espace | Console » (`lib/SpaceSwitch.svelte`,
+  admins seulement) au même endroit, le côté actif surligné, l'autre en lien.
+- **Cadre de la console** (`routes/japprends/+layout.svelte`) : barre + onglets
+  Membres, Invitations, Sécurité (ancres du dashboard) et Activité, avec ses
+  sous-onglets (SongSurf : activité + logs bruts). Absent de la page d'entrée. Plus de test de joignabilité : le
   navigateur bloque les requêtes d'une page publique vers une adresse
   Tailscale (Local Network Access), le test disait toujours « hors tailnet ».
   Hors réseau privé, le lien Console échoue simplement (connexion coupée).

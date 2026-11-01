@@ -98,7 +98,9 @@ routes/
                              account tiles (password, avatar, account deletion)
   members/*                — its endpoints (password, avatar, account)
   japprends/*              — admin (login = security key, dashboard, audit,
-                             songsurf pages, passkey/* endpoints)
+                             songsurf pages, passkey/* endpoints); +layout =
+                             console shell (AppNav + tabs, sub-tabs under
+                             Activité), hidden on /japprends/login
   portal/+server.ts        — 301 → / (legacy watcher login URL)
 scripts/
   admin-setup.mjs          — admin role + one-time setup code (creates the
