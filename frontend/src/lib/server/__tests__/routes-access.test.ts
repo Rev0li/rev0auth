@@ -84,6 +84,8 @@ const MATRIX: Record<string, Entry> = {
     '/japprends/audit load':                     { level: 'admin' },
     '/japprends/audit/data GET':                 { level: 'admin' },
     '/japprends/songsurf-activity load':         { level: 'admin' },
+    '/japprends/songsurf-journal load':          { level: 'admin' },
+    '/japprends/songsurf-activity/import POST':  { level: 'admin' },
     '/japprends/songsurf-logs load':             { level: 'admin' },
     '/japprends/songsurf-logs GET':              { level: 'admin' },
     '/japprends/passkey GET':                    { level: 'admin' },

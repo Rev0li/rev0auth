@@ -14,8 +14,9 @@
     ] as const;
 
     const ACTIVITY_SUBTABS = [
-        { id: 'songsurf', label: 'SongSurf', href: '/japprends/songsurf-activity',
-          paths: ['/japprends/songsurf-activity', '/japprends/songsurf-logs'] },
+        { id: 'songsurf', label: 'SongSurf',   href: '/japprends/songsurf-activity', paths: ['/japprends/songsurf-activity'] },
+        { id: 'journal',  label: 'Journal',    href: '/japprends/songsurf-journal',  paths: ['/japprends/songsurf-journal'] },
+        { id: 'logs',     label: 'Logs bruts', href: '/japprends/songsurf-logs',     paths: ['/japprends/songsurf-logs'] },
     ] as const;
 
     let path = $derived(page.url.pathname);
