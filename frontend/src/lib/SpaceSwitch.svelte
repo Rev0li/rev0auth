@@ -77,7 +77,8 @@
         background: var(--muted);
         isolation: isolate;
     }
-    /* Pastille sous le côté actif ; elle glisse vers l'autre au survol */
+    /* Pastille sous le côté actif ; elle ne glisse qu'au changement d'espace
+       (AUTH-30 : plus de début de course au survol) */
     .thumb {
         position: absolute;
         z-index: -1;
@@ -90,11 +91,6 @@
         view-transition-name: space-thumb;
     }
     .on-console .thumb { transform: translateX(100%); }
-    .switch:not(.on-console):has(a.seg:hover) .thumb { transform: translateX(12%); }
-    .on-console:has(a.seg:hover) .thumb { transform: translateX(88%); }
-    /* Départ vers l'autre site : la pastille va au bout, survol ou pas */
-    .switch.leaving.on-console .thumb { transform: translateX(100%); }
-    .switch.leaving:not(.on-console) .thumb { transform: none; }
 
     .seg {
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
