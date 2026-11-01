@@ -59,6 +59,7 @@ const MATRIX: Record<string, Entry> = {
     '/signup POST':                    { level: 'public' },
     '/auth/password-check POST':       { level: 'public' },
     '/auth/logout POST':               { level: 'public' },
+    '/auth/ping POST':                 { level: 'member' },
     '/avatars/[seed] GET':             { level: 'public' },
     '/members/dashboard load':         { level: 'public' }, // redirection permanente
     // Porte des services (Caddy forward_auth) : cf. forward-auth.test.ts
@@ -86,8 +87,6 @@ const MATRIX: Record<string, Entry> = {
     '/japprends/songsurf-activity load':         { level: 'admin' },
     '/japprends/songsurf-journal load':          { level: 'admin' },
     '/japprends/songsurf-activity/import POST':  { level: 'admin' },
-    '/japprends/songsurf-logs load':             { level: 'admin' },
-    '/japprends/songsurf-logs GET':              { level: 'admin' },
     '/japprends/passkey GET':                    { level: 'admin' },
     '/japprends/passkey/[id] DELETE':            { level: 'admin' },
     '/japprends/users GET':                      { level: 'admin' },

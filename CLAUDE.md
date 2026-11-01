@@ -63,8 +63,8 @@ Copy `.env.example` to `.env`. Required variables:
 
 No more JWT handoff: SongSurf sits behind the portal gate (Caddy forward_auth →
 `/auth/verify?service=songsurf`), so the member and admin buttons are plain links
-to `SONGSURF_URL`. The admin pages that read SongSurf's download log
-(`/japprends/songsurf-logs`, `/japprends/songsurf-activity`) call it server-side
+to `SONGSURF_URL`. The history import that reads SongSurf's download log
+(`/japprends/songsurf-activity/import`) calls it server-side
 with the admin's own session cookie (`fetchSongsurfDlLogs` in `songsurf.ts`,
 session cookie only, https on the portal domain only).
 `/japprends/songsurf-activity` = per-member taste profiles (artists ranked,
@@ -75,7 +75,12 @@ History from before the NAS push existed is imported once by the admin button
 (`POST /japprends/songsurf-activity/import` → SongSurf `dl-logs?limit=all`,
 rows marked `source = 'songsurf-log'`, only before the first pushed event, no
 duplicates on rerun: `lib/server/songsurf-import.ts`). Logins and technical
-events: `/japprends/songsurf-journal`.
+events: `/japprends/songsurf-journal`, which also shows **who is online**:
+`lib/server/presence.ts`, in memory only (reset on deploy), touched by
+`hooks.server.ts` on every request of a member session (place = gated service
+for `/auth/verify`, `console`, or `portail`) plus a 60 s heartbeat from
+`AppNav` (`POST /auth/ping`, also served on the console host); online = active
+in the last 5 min.
 
 ### Frontend (`frontend/src/`)
 
