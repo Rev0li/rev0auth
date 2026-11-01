@@ -91,7 +91,6 @@ const MATRIX: Record<string, Entry> = {
     '/japprends/passkey GET':                    { level: 'admin' },
     '/japprends/passkey/[id] DELETE':            { level: 'admin' },
     '/japprends/users GET':                      { level: 'admin' },
-    '/japprends/users POST':                     { level: 'admin' },
     '/japprends/users/[pseudo] PUT':             { level: 'admin' },
     '/japprends/users/[pseudo] DELETE':          { level: 'admin' },
     '/japprends/users/[pseudo]/password POST':   { level: 'admin' },
@@ -99,10 +98,6 @@ const MATRIX: Record<string, Entry> = {
     '/japprends/invites GET':                    { level: 'admin' },
     '/japprends/invites POST':                   { level: 'admin' },
     '/japprends/invites/[id] DELETE':            { level: 'admin' },
-    '/japprends/signup-requests GET':            { level: 'admin' },
-    '/japprends/signup-requests POST':           { level: 'admin' },
-    '/japprends/signup-requests/[id]/approve POST': { level: 'admin' },
-    '/japprends/signup-requests/[id]/reject POST':  { level: 'admin' },
     // Machine à machine
     '/japprends/api/songsurf-events POST':       { level: 'secret' },
 };

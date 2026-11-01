@@ -4,11 +4,10 @@
 
     let { data, children } = $props();
 
-    // Onglets de la console. Membres / Invitations / Sécurité vivent sur le
+    // Onglets de la console. Membres (invitations comprises) / Sécurité vivent sur le
     // dashboard (ancre) ; Activité a ses sous-onglets, chacun sa page.
     const TABS = [
         { id: 'members',     label: 'Membres',     href: '/japprends/dashboard#members' },
-        { id: 'invitations', label: 'Invitations', href: '/japprends/dashboard#invitations' },
         { id: 'security',    label: 'Sécurité',    href: '/japprends/dashboard#security' },
         { id: 'activity',    label: 'Activité',    href: '/japprends/songsurf-activity' },
     ] as const;

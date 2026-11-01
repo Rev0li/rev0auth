@@ -161,7 +161,9 @@ sign-in with PIN (console host).
   `auth-v2.ts`; scrypt fallback for legacy hashes).
 - BetterAuth is only called server-side (`auth.api.*`): there is no public
   `/api/auth/*` route and direct sign-up is disabled — accounts are created
-  server-side only (invite signup, admin).
+  server-side only (invite signup, `scripts/admin-setup.mjs`); the console adds
+  people by invitation only (Membres tab, AUTH-12: members and pending invites
+  as cards, invite create/delete audited, an admin cannot delete themselves).
 - Member identity = BetterAuth `user.id` (`locals.memberSession.userId`); the
   pseudo shown is `user.name`, set server-side only (no route lets a client
   change it). Only an active account gets a member session.

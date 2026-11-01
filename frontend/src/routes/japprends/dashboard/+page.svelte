@@ -1,14 +1,13 @@
 <script lang="ts">
-    import { page }       from '$app/state';
-    import MembersTab     from './MembersTab.svelte';
-    import InvitationsTab from './InvitationsTab.svelte';
-    import SecurityTab    from './SecurityTab.svelte';
+    import { page }    from '$app/state';
+    import MembersTab  from './MembersTab.svelte';
+    import SecurityTab from './SecurityTab.svelte';
 
     // Barre et onglets dans japprends/+layout.svelte : l'onglet ouvert suit
-    // l'ancre de l'adresse (#members, #invitations, #security).
+    // l'ancre de l'adresse (#members, #security). Les invitations vivent dans
+    // Membres (AUTH-12) : l'ancienne ancre #invitations y mène aussi.
     let { data } = $props();
-    const TABS = ['members', 'invitations', 'security'];
-    let active = $derived(TABS.includes(page.url.hash.slice(1)) ? page.url.hash.slice(1) : 'members');
+    let active = $derived(page.url.hash === '#security' ? 'security' : 'members');
 </script>
 
 <svelte:head>
@@ -16,12 +15,16 @@
 </svelte:head>
 
 <main class="dash-content">
-    {#if active === 'members'}
-        <MembersTab users={data.users} />
-    {:else if active === 'invitations'}
-        <InvitationsTab signupUrl={data.signupUrl} />
-    {:else if active === 'security'}
+    {#if active === 'security'}
         <SecurityTab />
+    {:else}
+        <MembersTab
+            users={data.users}
+            invites={data.invites}
+            me={data.shell?.pseudo ?? ''}
+            signupUrl={data.signupUrl}
+            avatarBase={data.avatarBase}
+        />
     {/if}
 </main>
 
