@@ -31,8 +31,9 @@ export function portalSessionCookies(cookieHeader: string | null, target: string
 }
 
 // Journal des téléchargements SongSurf, demandé avec la session de l'admin.
+// `limit: 'all'` = historique complet (fiches par membre).
 export async function fetchSongsurfDlLogs(
-    cookieHeader: string | null, pseudo: string, limit: number, timeoutMs: number,
+    cookieHeader: string | null, pseudo: string, limit: number | 'all', timeoutMs: number,
 ): Promise<Response> {
     const target = `${songsurfBaseUrl()}/api/admin/dl-logs?pseudo=${encodeURIComponent(pseudo)}&limit=${limit}`;
     const ctrl = new AbortController();

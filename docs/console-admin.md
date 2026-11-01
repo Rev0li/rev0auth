@@ -37,7 +37,9 @@ tailnet  ──► admin.rev0li.duckdns.org/japprends/…  → console (rôle ad
   admins seulement) au même endroit, le côté actif surligné, l'autre en lien.
 - **Cadre de la console** (`routes/japprends/+layout.svelte`) : barre + onglets
   Membres, Invitations, Sécurité (ancres du dashboard) et Activité, avec ses
-  sous-onglets (SongSurf : activité + logs bruts). Absent de la page d'entrée. Plus de test de joignabilité : le
+  sous-onglets SongSurf (fiches de goûts par membre, sur l'historique stocké
+  dans la base du portail : lisible NAS éteint), Journal (connexions,
+  évènements techniques) et Logs bruts (lecture directe du NAS). Absent de la page d'entrée. Plus de test de joignabilité : le
   navigateur bloque les requêtes d'une page publique vers une adresse
   Tailscale (Local Network Access), le test disait toujours « hors tailnet ».
   Hors réseau privé, le lien Console échoue simplement (connexion coupée).

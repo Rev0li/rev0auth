@@ -29,7 +29,6 @@
 <main class="songsurf-logs">
     <header>
         <h1>SongSurf — logs de téléchargement</h1>
-        <a href="/japprends/songsurf-activity">← Activité SongSurf</a>
     </header>
 
     <form onsubmit={(e) => { e.preventDefault(); fetchLogs(); }} class="filters">
@@ -66,8 +65,6 @@
         border-bottom: 1px solid var(--border);
     }
     h1 { margin: 0; font-size: 1.4rem; font-weight: 700; }
-    header a { color: var(--primary-hover); text-decoration: none; font-size: .8125rem; font-weight: 500; }
-    header a:hover { text-decoration: underline; }
 
     .filters { display: flex; gap: 1rem; align-items: end; margin-bottom: 1rem; flex-wrap: wrap; }
     .filters label {

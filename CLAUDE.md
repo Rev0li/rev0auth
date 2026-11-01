@@ -55,7 +55,7 @@ Copy `.env.example` to `.env`. Required variables:
 - `ADMIN_ORIGIN` — origin of the admin console (AUTH-11, e.g. https://admin.rev0li.duckdns.org),
   a subdomain of ORIGIN served by the same app, reachable through Tailscale only
   (Caddy); also the WebAuthn origin. Empty (dev) = console under ORIGIN's `/japprends`
-- `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table, displayed on `/japprends/songsurf-activity`.
+- `SONGSURF_EVENTS_SECRET` — shared secret authenticating activity events pushed by the NAS to `POST /japprends/api/songsurf-events` (SvelteKit frontend). Must be byte-identical to `SongSurf/SongSurf/.secrets`. Events land in the `songsurf_events` table, displayed on `/japprends/songsurf-journal` (downloads feed `/japprends/songsurf-activity`).
 
 ## Architecture
 
@@ -67,6 +67,15 @@ to `SONGSURF_URL`. The admin pages that read SongSurf's download log
 (`/japprends/songsurf-logs`, `/japprends/songsurf-activity`) call it server-side
 with the admin's own session cookie (`fetchSongsurfDlLogs` in `songsurf.ts`,
 session cookie only, https on the portal domain only).
+`/japprends/songsurf-activity` = per-member taste profiles (artists ranked,
+albums, latest albums), built by the pure `lib/songsurf-taste.ts` from the
+`download_success` rows **stored in the portal DB** (`lib/server/songsurf-history.ts`):
+readable even when the NAS / Watcher / SongSurf are down, never a live pull.
+History from before the NAS push existed is imported once by the admin button
+(`POST /japprends/songsurf-activity/import` → SongSurf `dl-logs?limit=all`,
+rows marked `source = 'songsurf-log'`, only before the first pushed event, no
+duplicates on rerun: `lib/server/songsurf-import.ts`). Logins and technical
+events: `/japprends/songsurf-journal`.
 
 ### Frontend (`frontend/src/`)
 

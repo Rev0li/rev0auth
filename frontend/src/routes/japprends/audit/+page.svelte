@@ -70,7 +70,6 @@
     .actions { display: flex; gap: .5rem; align-items: center; }
     .actions input { padding: .4rem .6rem; border: 1px solid #ccc; border-radius: 4px; min-width: 220px; }
     .actions button { padding: .4rem .8rem; cursor: pointer; }
-    .actions a { font-size: .9rem; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #eee; }
     th { background: #f7f7f7; font-weight: 600; }
