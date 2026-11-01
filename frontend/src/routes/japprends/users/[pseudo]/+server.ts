@@ -41,6 +41,10 @@ export const DELETE: RequestHandler = async ({ locals, params }) => {
     requireAdmin({ locals });
     const user = await findUserByPseudo(params.pseudo);
     if (!user) return json({ ok: false, message: 'Utilisateur introuvable.' });
+    // Se supprimer soi-même fermerait la console à son propre admin
+    if (user.name === locals.adminSession!.pseudo) {
+        return json({ ok: false, message: 'Impossible de supprimer ton propre compte.' }, { status: 409 });
+    }
 
     await deleteUser(user.id); // sessions, mot de passe, clés admin, avatar en cascade
     await writeAudit('delete_user', locals.adminSession!.pseudo, user.name, 'user and all data deleted');
