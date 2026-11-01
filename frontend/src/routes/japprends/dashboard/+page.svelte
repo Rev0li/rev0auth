@@ -4,6 +4,7 @@
     import InvitationsTab from './InvitationsTab.svelte';
     import SecurityTab    from './SecurityTab.svelte';
     import ThemeToggle    from '$lib/ThemeToggle.svelte';
+    import SpaceSwitch    from '$lib/SpaceSwitch.svelte';
 
     const TABS = ['members', 'invitations', 'security'] as const;
     type Tab = typeof TABS[number];
@@ -40,6 +41,7 @@
 <div class="dashboard">
     <header class="dash-header">
         <span class="dash-brand">rev0auth <span class="dash-role">admin</span></span>
+        <SpaceSwitch current="console" memberUrl={data.memberUrl} consoleUrl="/japprends/dashboard" />
         {#if data.songsurfUrl}
             <a class="btn-songsurf" href={data.songsurfUrl} target="_blank" rel="noopener">
                 SongSurf ↗

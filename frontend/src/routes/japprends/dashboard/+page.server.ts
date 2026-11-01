@@ -13,5 +13,7 @@ export const load: PageServerLoad = async ({ locals }) => {
         songsurfUrl: songsurfBaseUrl() || null,
         // Liens d'invitation sur le portail public, pas sur le nom de la console
         signupUrl:   portalUrl('/signup'),
+        // Retour à l'espace membre : sur le portail public (même session)
+        memberUrl:   portalUrl('/home/friend'),
     };
 };
