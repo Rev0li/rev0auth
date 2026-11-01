@@ -1,7 +1,7 @@
 <script lang="ts">
     // Barre du haut commune à l'espace membre et à la console : mêmes places
     // pour l'avatar, le pseudo, la bascule d'espace, le thème et la déconnexion.
-    import { onMount } from 'svelte';
+    import { onMount, type Snippet } from 'svelte';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
     import SpaceSwitch from '$lib/SpaceSwitch.svelte';
 
@@ -16,18 +16,24 @@
         return () => { clearInterval(timer); document.removeEventListener('visibilitychange', ping); };
     });
 
-    let { pseudo, avatarSrc, badge = null, space = null, onLogout }: {
+    let { pseudo, avatarSrc, badge = null, space = null, tabs, onLogout }: {
         pseudo: string;
         avatarSrc: string;
         badge?: string | null;
         // Bascule « Mon espace | Console », admins seulement
         space?: { current: 'member' | 'console'; memberUrl: string; consoleUrl: string } | null;
+        // Onglets de la page (console, AUTH-28) : dans la barre, après le logo ;
+        // sur téléphone, sur une deuxième ligne de la même barre.
+        tabs?: Snippet;
         onLogout: () => void;
     } = $props();
 </script>
 
-<nav class="navbar">
+<nav class="navbar" class:has-tabs={!!tabs}>
     <span class="navbar-brand">rev0auth{#if badge}<span class="navbar-badge">{badge}</span>{/if}</span>
+    {#if tabs}
+        <div class="navbar-tabs">{@render tabs()}</div>
+    {/if}
     <div class="navbar-right">
         <img
             src={avatarSrc}
@@ -68,6 +74,27 @@
         vertical-align: middle;
     }
     .navbar-right { display: flex; align-items: center; gap: 10px; }
+
+    /* Onglets : collés au logo, soulignés en bas de la barre */
+    .navbar.has-tabs { justify-content: flex-start; }
+    .navbar.has-tabs .navbar-right { margin-left: auto; }
+    .navbar-tabs {
+        align-self: stretch;
+        display: flex; align-items: stretch;
+        margin-left: 1rem;
+        overflow-x: auto; scrollbar-width: none;
+    }
+    .navbar-tabs :global(a) {
+        display: flex; align-items: center;
+        padding: 0 0.875rem;
+        border-bottom: 2px solid transparent;
+        font: 500 0.875rem/1 var(--font-sans);
+        color: var(--muted-foreground);
+        text-decoration: none; white-space: nowrap;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .navbar-tabs :global(a:hover) { color: var(--foreground); }
+    .navbar-tabs :global(a[aria-current='page']) { color: var(--foreground); border-bottom-color: var(--primary); }
     .nav-avatar {
         width: 28px; height: 28px;
         border-radius: 50%;
@@ -91,5 +118,10 @@
     @media (max-width: 640px) {
         .navbar { padding: 0 0.75rem; }
         .nav-avatar, .nav-pseudo { display: none; }
+
+        /* Une seule barre, deux lignes : logo + boutons, puis les onglets */
+        .navbar.has-tabs { flex-wrap: wrap; height: auto; row-gap: 0; padding-top: 0.75rem; }
+        .navbar.has-tabs .navbar-tabs { order: 3; flex-basis: 100%; margin: 0.5rem -0.75rem 0; padding: 0 0.25rem; }
+        .navbar-tabs :global(a) { padding: 0.75rem 0.75rem; }
     }
 </style>

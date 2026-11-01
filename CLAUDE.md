@@ -113,8 +113,9 @@ routes/
   members/*                — its endpoints (password, avatar, account)
   japprends/*              — admin (login = security key, dashboard, audit,
                              songsurf pages, passkey/* endpoints); +layout =
-                             console shell (AppNav + tabs, sub-tabs under
-                             Activité), hidden on /japprends/login
+                             console shell (one bar: AppNav with the tabs in its
+                             `tabs` snippet, AUTH-28; Activité sub-tabs as pills
+                             atop the page), hidden on /japprends/login
   portal/+server.ts        — 301 → / (legacy watcher login URL)
 scripts/
   admin-setup.mjs          — admin role + one-time setup code (creates the
