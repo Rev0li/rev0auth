@@ -40,6 +40,18 @@
     let deleteBusy = $state(false);
     let deleteErr = $state('');
 
+    // ── Rôle (AUTH-27) : Modérateur n'a pas encore de droits propres (futur
+    // tableau blanc). Admin demande une confirmation : effet immédiat dans les
+    // services derrière la porte, console seulement après une clé enregistrée.
+    const ROLE_CHOICES = [
+        { id: 'member', label: 'Membre' },
+        { id: 'mod',    label: 'Modérateur' },
+        { id: 'admin',  label: 'Admin' },
+    ] as const;
+    let confirmAdmin = $state(false);
+    let roleBusy = $state(false);
+    let roleMsg = $state('');
+
     const avatar = (pseudo: string) => `${avatarBase}${encodeURIComponent(pseudo)}`;
     const linkOf = (inv: Invite) => `${signupUrl}?invite=${inv.code}`;
 
@@ -98,7 +110,34 @@
         selected = u;
         pwdOpen = false; newPwd = ''; pwdMsg = '';
         confirmDelete = false; deleteErr = '';
+        confirmAdmin = false; roleMsg = '';
         dialog?.showModal();
+    }
+
+    function pickRole(role: string) {
+        if (!selected || role === selected.role || roleBusy) return;
+        roleMsg = '';
+        if (role === 'admin') { confirmAdmin = true; return; }
+        setRole(role);
+    }
+
+    async function setRole(role: string) {
+        if (!selected) return;
+        roleBusy = true; roleMsg = '';
+        try {
+            const r = await fetch(`/japprends/users/${encodeURIComponent(selected.pseudo)}`, {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ role }),
+            });
+            const d = await r.json();
+            if (!d.ok) { roleMsg = d.message ?? 'Erreur.'; return; }
+            selected = { ...selected, role };
+            confirmAdmin = false;
+            const label = ROLE_CHOICES.find(c => c.id === role)?.label.toLowerCase() ?? role;
+            roleMsg = `✓ ${selected.pseudo} est maintenant ${label}.`;
+            await invalidateAll();
+        } finally { roleBusy = false; }
     }
 
     async function resetPassword() {
@@ -202,6 +241,43 @@
         </div>
 
         <section>
+            <h4>Rôle</h4>
+            {#if selected.pseudo === me}
+                <p class="meta">C’est toi : ton rôle ne se change pas d’ici.</p>
+            {:else}
+                <div class="segmented" role="radiogroup" aria-label="Rôle de {selected.pseudo}">
+                    {#each ROLE_CHOICES as c (c.id)}
+                        {@const on = (confirmAdmin ? 'admin' : selected.role) === c.id}
+                        <button
+                            type="button" role="radio" aria-checked={on}
+                            class:on disabled={roleBusy}
+                            onclick={() => pickRole(c.id)}
+                        >{c.label}</button>
+                    {/each}
+                </div>
+                {#if confirmAdmin}
+                    <div class="confirm-box">
+                        <p>Donner le rôle <strong>admin</strong> à {selected.pseudo} ?</p>
+                        <ul>
+                            <li>Tout de suite : pouvoirs admin dans SongSurf (pas de quota, voit les téléchargements de tous).</li>
+                            <li>La console lui reste fermée tant que tu ne lui as pas enregistré une clé de sécurité (code à générer sur le serveur).</li>
+                        </ul>
+                        <div class="row">
+                            <button class="btn-primary" disabled={roleBusy} onclick={() => setRole('admin')}>
+                                {roleBusy ? '…' : `Oui, ${selected.pseudo} devient admin`}
+                            </button>
+                            <button class="btn" onclick={() => { confirmAdmin = false; }}>Annuler</button>
+                        </div>
+                    </div>
+                {/if}
+                {#if selected.role === 'mod' && !confirmAdmin}
+                    <p class="meta">Modérateur : mêmes accès qu’un membre pour l’instant (droits à venir avec le tableau blanc).</p>
+                {/if}
+            {/if}
+            {#if roleMsg}<p class="feedback" role="status">{roleMsg}</p>{/if}
+        </section>
+
+        <section class="spaced">
             <h4>Mot de passe</h4>
             {#if pwdOpen}
                 <form class="row" onsubmit={(e) => { e.preventDefault(); resetPassword(); }}>
@@ -353,6 +429,32 @@
         letter-spacing: 0.05em; color: var(--muted-foreground);
     }
     .sheet .row { width: 100%; }
+    .sheet section.spaced { margin-top: 1.5rem; }
+
+    /* Choix du rôle : trois boutons collés, celui en cours plein */
+    .segmented {
+        display: inline-flex; border: 1px solid var(--border);
+        border-radius: var(--radius-md); overflow: hidden;
+    }
+    .segmented button {
+        font: 500 0.875rem/1 var(--font-sans); padding: 9px 16px;
+        background: var(--card); color: var(--foreground);
+        border: none; border-right: 1px solid var(--border); cursor: pointer;
+    }
+    .segmented button:last-child { border-right: none; }
+    .segmented button:hover:not(.on) { background: var(--muted); }
+    .segmented button.on { background: var(--primary); color: var(--primary-foreground); }
+    .segmented button:disabled { cursor: wait; }
+
+    .confirm-box {
+        width: 100%; padding: 0.875rem 1rem;
+        border: 1px solid var(--primary); border-radius: var(--radius-md);
+        background: var(--muted);
+        display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .confirm-box p { margin: 0; font-size: 0.875rem; }
+    .confirm-box ul { margin: 0; padding-left: 1.1rem; font-size: 0.8125rem; color: var(--muted-foreground); line-height: 1.45; }
+
     .danger-zone { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .danger-zone p { margin: 0; font-size: 0.875rem; }
 </style>

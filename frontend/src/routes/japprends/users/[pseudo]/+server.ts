@@ -29,6 +29,11 @@ export const PUT: RequestHandler = async ({ request, locals, params }) => {
 
     const user = await findUserByPseudo(params.pseudo);
     if (!user) return json({ ok: false, message: 'Utilisateur introuvable.' }, { status: 404 });
+    // Changer son propre rôle (ou se désactiver) fermerait la console à son
+    // propre admin ; c'est aussi ce qui garantit qu'il reste toujours un admin.
+    if (('role' in patch || 'active' in patch) && user.name === locals.adminSession!.pseudo) {
+        return json({ ok: false, message: 'Impossible de modifier ton propre rôle.' }, { status: 409 });
+    }
 
     await updateUser(user.id, patch);
     if ('role' in patch || 'active' in patch) {
