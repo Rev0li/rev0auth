@@ -28,6 +28,18 @@ export function isConsolePath(pathname: string): boolean {
     return pathname === '/japprends' || pathname.startsWith('/japprends/');
 }
 
+// Espace membre (page + ses routes). Aussi servi sous le nom de la console
+// (AUTH-29) : l'admin passe de l'un à l'autre sans changer de site, donc sans
+// rechargement et avec une transition. Les membres restent sur le portail.
+export function isMemberSpacePath(pathname: string): boolean {
+    return pathname === '/home/friend' || pathname.startsWith('/home/friend/') || pathname.startsWith('/members/');
+}
+
+// Lien vers la console depuis l'espace membre : relatif quand on y est déjà
+export function consoleEntryUrl(host: string | null): string {
+    return isConsoleHost(host) ? '/japprends/dashboard' : consoleUrl('/japprends/login');
+}
+
 // Adresse d'une page de la console, absolue dès qu'elle a son propre nom
 export function consoleUrl(path: string): string {
     return `${consoleOrigin() ?? ''}${path}`;
@@ -61,10 +73,13 @@ export function gateRequest(host: string | null, pathname: string, search: strin
             : { kind: 'pass' };
     }
 
-    // Nom de la console : la console, ses fichiers, la déconnexion et le
-    // battement de présence ; la racine mène à l'entrée de la console, le
-    // reste au portail public.
-    if (isConsolePath(pathname) || pathname.startsWith('/_app/') || pathname === '/auth/logout' || pathname === '/auth/ping') {
+    // Nom de la console : la console, l'espace membre (AUTH-29), leurs
+    // fichiers, la déconnexion et le battement de présence ; la racine mène à
+    // l'entrée de la console, le reste au portail public.
+    if (
+        isConsolePath(pathname) || isMemberSpacePath(pathname) || pathname.startsWith('/_app/') ||
+        pathname === '/auth/logout' || pathname === '/auth/ping'
+    ) {
         return { kind: 'pass' };
     }
     if (pathname === '/') return { kind: 'redirect', location: consoleUrl('/japprends/login') };

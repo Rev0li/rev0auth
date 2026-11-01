@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state';
     import AppNav from '$lib/AppNav.svelte';
+    import { goto } from '$app/navigation';
 
     let { data, children } = $props();
 
@@ -28,6 +29,17 @@
         return null;
     });
 
+    // Membres ↔ Sécurité ne changent que l'ancre : SvelteKit ne passe pas par
+    // onNavigate, donc on lance la transition ici (AUTH-29). Le layout racine
+    // ignore les navigations d'ancre seule, pour ne pas en lancer deux.
+    function switchTab(e: MouseEvent, href: string) {
+        const to = new URL(href, page.url);
+        if (to.pathname !== page.url.pathname || to.hash === page.url.hash) return;
+        if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        e.preventDefault();
+        document.startViewTransition(() => goto(href));
+    }
+
     async function logout() {
         await fetch('/auth/logout', { method: 'POST' });
         location.href = '/';
@@ -44,7 +56,7 @@
     >
         {#snippet tabs()}
             {#each TABS as t (t.id)}
-                <a aria-current={active === t.id ? 'page' : undefined} href={t.href}>{t.label}</a>
+                <a aria-current={active === t.id ? 'page' : undefined} href={t.href} onclick={(e) => switchTab(e, t.href)}>{t.label}</a>
             {/each}
         {/snippet}
     </AppNav>

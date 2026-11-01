@@ -2,7 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { auth } from '$lib/server/auth-v2.js';
 import { migrateDb } from '$lib/server/db/index.js';
 import { isSessionElevated } from '$lib/server/admin-passkey.js';
-import { gateRequest, isConsoleHost, isConsolePath } from '$lib/server/console-host.js';
+import { gateRequest, isConsoleHost, isConsolePath, isMemberSpacePath } from '$lib/server/console-host.js';
 import { isService } from '$lib/server/forward-auth.js';
 import { touch } from '$lib/server/presence.js';
 
@@ -10,12 +10,20 @@ await migrateDb();
 
 // Où est le membre (présence, Activité › Journal) : service passé par la
 // porte (Caddy appelle /auth/verify avant chaque requête), console, ou portail.
-function placeOf(url: URL, host: string | null): string {
+function placeOf(url: URL, host: string | null, referer: string | null): string {
     if (url.pathname === '/auth/verify') {
         const service = url.searchParams.get('service');
         return isService(service) ? service : 'service';
     }
-    return isConsoleHost(host) || isConsolePath(url.pathname) ? 'console' : 'portail';
+    // Battement de présence : compte pour la page qui l'envoie (même site,
+    // donc Referer complet). L'espace membre est aussi servi sous le nom de
+    // la console (AUTH-29) : c'est le chemin qui tranche, pas le nom.
+    let path = url.pathname;
+    if (path === '/auth/ping' && referer) {
+        try { path = new URL(referer).pathname; } catch { /* Referer illisible : on garde /auth/ping */ }
+    }
+    return isConsolePath(path) || (isConsoleHost(host) && !isMemberSpacePath(path))
+        ? 'console' : 'portail';
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -49,7 +57,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             if (user.role === 'admin' && await isSessionElevated(session.id)) {
                 event.locals.adminSession = { pseudo: user.name };
             }
-            touch(user.id, user.name, user.role, placeOf(event.url, event.request.headers.get('host')));
+            touch(user.id, user.name, user.role, placeOf(event.url, event.request.headers.get('host'), event.request.headers.get('referer')));
         }
     }
 

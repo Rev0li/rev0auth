@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { gateRequest, consoleUrl, portalUrl, consoleWebAuthnOrigin, SONGSURF_EVENTS_PATH } from '../console-host.js';
+import { gateRequest, consoleUrl, consoleEntryUrl, portalUrl, consoleWebAuthnOrigin, SONGSURF_EVENTS_PATH } from '../console-host.js';
 
 // Console sous son propre nom (AUTH-11) : qui voit quoi selon l'hôte demandé.
 
@@ -66,9 +66,21 @@ describe('console-host — console sous son propre nom', () => {
         expect(gateRequest(CONSOLE, '/', '')).toEqual({ kind: 'redirect', location: `https://${CONSOLE}/japprends/login` });
     });
 
+    it('nom de la console : l’espace membre y est aussi servi (AUTH-29)', () => {
+        for (const path of ['/home/friend', '/members/password', '/members/avatar/revo', '/members/account']) {
+            expect(gateRequest(CONSOLE, path, '')).toEqual({ kind: 'pass' });
+        }
+    });
+
     it('nom de la console : le reste renvoie au portail public', () => {
-        expect(gateRequest(CONSOLE, '/home/friend', '?x=1')).toEqual({ kind: 'redirect', location: `https://${PORTAL}/home/friend?x=1` });
+        expect(gateRequest(CONSOLE, '/signup', '?invite=x')).toEqual({ kind: 'redirect', location: `https://${PORTAL}/signup?invite=x` });
+        expect(gateRequest(CONSOLE, '/home/friendX', '')).toEqual({ kind: 'redirect', location: `https://${PORTAL}/home/friendX` });
         expect(gateRequest(CONSOLE, '/auth/verify', '?service=songsurf')).toEqual({ kind: 'redirect', location: `https://${PORTAL}/auth/verify?service=songsurf` });
+    });
+
+    it('lien vers la console depuis l’espace membre : relatif seulement sur son nom', () => {
+        expect(consoleEntryUrl(CONSOLE)).toBe('/japprends/dashboard');
+        expect(consoleEntryUrl(PORTAL)).toBe(`https://${CONSOLE}/japprends/login`);
     });
 
     it('adresses absolues ; WebAuthn sur le nom de la console', () => {
