@@ -5,6 +5,7 @@
     import { slide } from 'svelte/transition';
     import AppNav from '$lib/AppNav.svelte';
     import songsurfShot from '$lib/assets/services/songsurf.webp';
+    import jellyfinShot from '$lib/assets/services/jellyfin.webp';
     import {
         BG_COLORS, FACE_COUNT,
         faceSeeds, decodeAvatarFilename,
@@ -26,7 +27,7 @@
             id: 'jellyfin', icon: '🎬', name: 'Jellyfin',
             desc: 'Films, séries et musique, à regarder en streaming.',
             note: 'Il a ses propres identifiants, demande-les à l’admin.',
-            url: 'https://jellyfin.rev0li.duckdns.org', shot: null,
+            url: 'https://jellyfin.rev0li.duckdns.org', shot: jellyfinShot,
         },
     ]);
 
