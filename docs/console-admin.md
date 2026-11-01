@@ -32,8 +32,12 @@ tailnet  ──► admin.rev0li.duckdns.org/japprends/…  → console (rôle ad
   puis retour à la console (`/?redirect=…`) et clé pour valider la session.
   La session est partagée par le domaine parent (AUTH-07).
 - **Durée** : la console reste ouverte 12 h, puis redemande la clé.
-- **Bouton de l'espace membre** : vérifie que la console répond (fichier de
-  version) ; hors réseau privé, il affiche « Console : active Tailscale ».
+- **Bascule « Mon espace | Console »** (`lib/SpaceSwitch.svelte`) : dans la
+  barre de l'espace membre (admins seulement) et dans celle de la console, le
+  côté actif surligné, l'autre en lien. Plus de test de joignabilité : le
+  navigateur bloque les requêtes d'une page publique vers une adresse
+  Tailscale (Local Network Access), le test disait toujours « hors tailnet ».
+  Hors réseau privé, le lien Console échoue simplement (connexion coupée).
 - **Clé de sécurité** : le RP ID reste le nom du portail (domaine parent),
   valable pour la console : les clés déjà enregistrées marchent toujours.
   L'origine WebAuthn attendue est `ADMIN_ORIGIN`.
