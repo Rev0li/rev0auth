@@ -178,3 +178,29 @@ label {
     transition: color 0.15s;
 }
 .link:hover { color: var(--foreground); }
+
+/* ── Transitions entre pages (AUTH-29) ─────────────────────────────────────
+   Même site : transition native (onNavigate dans routes/+layout.svelte). La
+   barre du haut et la pastille « Mon espace | Console » ont leur propre nom :
+   la barre reste en place, la pastille glisse, seul le contenu se fond.
+   Autre site (portail public ↔ nom de la console) : la page s'efface au
+   départ (html.page-leaving, posé par SpaceSwitch) et le contenu apparaît en
+   fondu au premier chargement (html sans .navigated). */
+.navbar { view-transition-name: navbar; }
+
+@media (prefers-reduced-motion: no-preference) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation-duration: 0.22s; }
+    ::view-transition-group(space-thumb) { animation-duration: 0.28s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+
+    @keyframes page-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: none; }
+    }
+    html:not(.navigated) .navbar ~ * { animation: page-in 0.3s ease-out both; }
+
+    html.page-leaving .navbar ~ * {
+        opacity: 0; transform: translateY(-6px);
+        transition: opacity 0.2s ease-in, transform 0.2s ease-in;
+    }
+}

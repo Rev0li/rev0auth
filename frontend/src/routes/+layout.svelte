@@ -1,7 +1,7 @@
 <script lang="ts">
     import '../app.css';
     import { page, updated } from '$app/state';
-    import { beforeNavigate } from '$app/navigation';
+    import { beforeNavigate, onNavigate } from '$app/navigation';
     import ThemeToggle from '$lib/ThemeToggle.svelte';
 
     let { children } = $props();
@@ -10,6 +10,22 @@
     // avec les nouvelles données : on recharge la page à la navigation suivante.
     beforeNavigate(({ willUnload, to }) => {
         if (updated.current && !willUnload && to?.url) location.href = to.url.href;
+    });
+
+    // Transition native entre pages du même site (AUTH-29) : fondu du contenu,
+    // barre fixe, pastille de la bascule qui glisse (noms dans app.css).
+    // `navigated` coupe l'apparition en fondu du premier chargement.
+    onNavigate((navigation) => {
+        document.documentElement.classList.add('navigated');
+        if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        // Ancre seule (onglets de la console) : transition lancée par le lien
+        if (navigation.from?.url.pathname === navigation.to?.url.pathname) return;
+        return new Promise((resolve) => {
+            document.startViewTransition(async () => {
+                resolve();
+                await navigation.complete;
+            });
+        });
     });
 
     // Ces pages portent le toggle dans leur navbar — pas de bouton flottant

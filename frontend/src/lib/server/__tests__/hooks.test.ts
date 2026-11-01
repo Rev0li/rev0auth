@@ -114,9 +114,14 @@ describe('hooks.server — console sous son propre nom (AUTH-11)', () => {
     });
 
     it('nom de la console : le reste renvoie au portail', async () => {
-        const { res, resolved } = await respond('admin.rev0li.duckdns.org', '/home/friend');
+        const { res, resolved } = await respond('admin.rev0li.duckdns.org', '/signup');
         expect(res.status).toBe(302);
-        expect(res.headers.get('location')).toBe('https://rev0li.duckdns.org/home/friend');
+        expect(res.headers.get('location')).toBe('https://rev0li.duckdns.org/signup');
         expect(resolved).toBe(false);
+    });
+
+    it('nom de la console : l’espace membre y est aussi servi (AUTH-29)', async () => {
+        const { resolved } = await respond('admin.rev0li.duckdns.org', '/home/friend');
+        expect(resolved).toBe(true);
     });
 });

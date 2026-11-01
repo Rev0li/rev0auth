@@ -8,8 +8,9 @@ export const load: LayoutServerLoad = async ({ locals }) => ({
     shell: locals.adminSession
         ? {
             pseudo: locals.adminSession.pseudo,
-            // Retour à l'espace membre : sur le portail public (même session)
-            memberUrl: portalUrl('/home/friend'),
+            // Retour à l'espace membre : servi aussi sous le nom de la console
+            // (AUTH-29), donc lien relatif = même site, sans rechargement
+            memberUrl: '/home/friend',
             avatarUrl: portalUrl(`/members/avatar/${encodeURIComponent(locals.adminSession.pseudo)}`),
         }
         : null,

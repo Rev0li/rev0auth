@@ -147,8 +147,16 @@ sign-in with PIN (console host).
 - Admin console host (AUTH-11): with `ADMIN_ORIGIN` set, every `/japprends/*`
   is 404 on the public portal (except `/japprends/api/songsurf-events`, the NAS
   push) and served only on the console host; there, `/` → `/japprends/login`,
-  other paths → the public portal (`hooks.server.ts` + `console-host.ts`; Caddy
-  blocks the same on its side). Links to the console go through `consoleUrl()`.
+  the member space (`/home/friend`, `/members/*`) is served too (AUTH-29: the
+  admin switches spaces without leaving the site), other paths → the public
+  portal (`hooks.server.ts` + `console-host.ts`; Caddy blocks the same on its
+  side). Links to the console go through `consoleUrl()` / `consoleEntryUrl()`.
+- Page transitions (AUTH-29): same-site navigations use the View Transitions
+  API (`onNavigate` in `routes/+layout.svelte`; console hash tabs in
+  `japprends/+layout.svelte`), the top bar and the space-switch thumb keep their
+  own `view-transition-name`. Public portal → console (other site): the page
+  fades out (`html.page-leaving`, `SpaceSwitch`) and fades in on load (`app.css`).
+  All off with `prefers-reduced-motion`.
 - Admin role, key not yet validated: `/japprends/login`, `/japprends/passkey/{auth,register}-*`
 - Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`
