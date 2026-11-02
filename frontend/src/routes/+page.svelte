@@ -127,11 +127,11 @@
         font-size: 1.625rem;
         font-weight: 700;
         letter-spacing: -0.02em;
-        color: var(--foreground);
+        color: var(--rv-ink);
     }
     .portal-tagline {
         font-size: 0.8125rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
     }
 
     .field {
@@ -142,7 +142,7 @@
     .field label {
         font-size: 0.875rem;
         font-weight: 500;
-        color: var(--foreground);
+        color: var(--rv-ink);
     }
 
     .invite-hint {
@@ -151,24 +151,24 @@
         padding: 0;
         background: none;
         border: none;
-        font: 500 0.8125rem/1 var(--font-sans);
-        color: var(--muted-foreground);
+        font: 500 0.8125rem/1 var(--rv-font-sans);
+        color: var(--rv-muted);
         text-align: center;
         cursor: pointer;
         transition: color 0.15s;
     }
-    .invite-hint:hover { color: var(--foreground); }
+    .invite-hint:hover { color: var(--rv-ink); }
 
     .invite-info {
         display: flex;
         align-items: flex-start;
         gap: 8px;
         padding: 10px 12px;
-        background: var(--muted);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
+        background: var(--rv-panel);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm);
         font-size: 0.875rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         line-height: 1.5;
     }
     .invite-info-icon {

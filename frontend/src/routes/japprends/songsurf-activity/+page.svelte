@@ -180,55 +180,55 @@
 <style>
     .taste { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 
-    .empty { color: var(--muted-foreground); padding: 2rem; text-align: center; }
+    .empty { color: var(--rv-muted); padding: 2rem; text-align: center; }
 
     /* ── Membres ── */
     .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
     .chip {
         display: inline-flex; align-items: center; gap: 6px;
         height: 34px; padding: 0 12px 0 10px;
-        border: 1px solid var(--border); border-radius: 999px;
-        background: var(--card); color: var(--foreground);
-        font: 600 .8125rem/1 var(--font-sans); cursor: pointer;
+        border: 1px solid var(--rv-line); border-radius: 999px;
+        background: var(--rv-surface); color: var(--rv-ink);
+        font: 600 .8125rem/1 var(--rv-font-sans); cursor: pointer;
         transition: border-color .15s, transform .15s;
     }
-    .chip:hover { border-color: var(--primary); transform: translateY(-1px); }
-    .chip.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); background: var(--muted); }
+    .chip:hover { border-color: var(--rv-turq-ink); transform: translateY(-1px); }
+    .chip.on { border-color: var(--rv-turq-ink); box-shadow: 0 0 0 1px var(--rv-turq-ink); background: var(--rv-panel); }
     .chip-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
-    .chip-n { font-weight: 500; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+    .chip-n { font-weight: 500; color: var(--rv-muted); font-variant-numeric: tabular-nums; }
 
     /* ── En-tête ── */
     .head { margin-bottom: 1.25rem; }
     h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; }
-    .stats { margin: .25rem 0 0; color: var(--muted-foreground); font-size: .875rem; }
+    .stats { margin: .25rem 0 0; color: var(--rv-muted); font-size: .875rem; }
 
     section {
-        background: var(--card); border: 1px solid var(--border);
-        border-radius: var(--radius-lg); padding: 1rem 1.25rem 1.25rem;
+        background: var(--rv-surface); border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-window); padding: 1rem 1.25rem 1.25rem;
         margin-bottom: 1rem;
     }
     h2 {
         margin: 0 0 .875rem; font-size: .8125rem; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .06em; color: var(--muted-foreground);
+        text-transform: uppercase; letter-spacing: .06em; color: var(--rv-muted);
     }
 
     /* ── Derniers albums ── */
     .albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .75rem; }
     .album {
         display: flex; gap: .75rem; align-items: center; min-width: 0;
-        padding: .625rem; border: 1px solid var(--border); border-radius: var(--radius-md);
+        padding: .625rem; border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm);
     }
     .album-art {
-        width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--radius-sm);
+        width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--rv-radius-sm);
         display: grid; place-items: center;
-        font-weight: 700; font-size: 1.25rem; color: var(--card);
-        background: linear-gradient(135deg, #E8B7C4, #6EDAD3);
+        font-weight: 700; font-size: 1.25rem; color: var(--rv-surface);
+        background: linear-gradient(135deg, var(--rv-rose), var(--rv-turq));
     }
     .album-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .album-name, .album-artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .album-name { font-weight: 600; font-size: .9rem; }
     .album-artist { font-size: .8125rem; }
-    .album-meta { font-size: .75rem; color: var(--muted-foreground); }
+    .album-meta { font-size: .75rem; color: var(--rv-muted); }
 
     /* ── Artistes ── */
     .artists-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .5rem; }
@@ -236,55 +236,55 @@
     .filter { max-width: 240px; height: 32px; font-size: .8125rem; }
 
     .artists { list-style: none; margin: 0; padding: 0; }
-    .artists > li + li { border-top: 1px solid var(--border); }
+    .artists > li + li { border-top: 1px solid var(--rv-line); }
     summary {
         display: grid; grid-template-columns: 14px minmax(0, 1fr) minmax(80px, 2fr) 3ch;
         align-items: center; gap: .75rem;
         padding: .55rem .4rem; cursor: pointer; list-style: none;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
     }
     summary::-webkit-details-marker { display: none; }
-    summary:hover { background: var(--muted); }
-    .chevron { font-size: .7rem; color: var(--muted-foreground); transition: transform .15s; }
+    summary:hover { background: var(--rv-panel); }
+    .chevron { font-size: .7rem; color: var(--rv-muted); transition: transform .15s; }
     details[open] .chevron { transform: rotate(90deg); }
     .artist-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bar { height: 8px; border-radius: 99px; background: var(--muted); overflow: hidden; }
-    .bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
-    .artist-n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted-foreground); font-size: .8125rem; }
+    .bar { height: 8px; border-radius: 99px; background: var(--rv-panel); overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: inherit; background: var(--rv-turq); }
+    .artist-n { text-align: right; font-variant-numeric: tabular-nums; color: var(--rv-muted); font-size: .8125rem; }
 
     .artist-albums { list-style: none; margin: 0 0 .5rem; padding: 0 0 0 1.9rem; }
     .artist-albums li {
         display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
         padding: .3rem .4rem; font-size: .85rem;
     }
-    .al-single { font-style: italic; color: var(--muted-foreground); }
-    .al-meta { color: var(--muted-foreground); font-size: .75rem; white-space: nowrap; }
+    .al-single { font-style: italic; color: var(--rv-muted); }
+    .al-meta { color: var(--rv-muted); font-size: .75rem; white-space: nowrap; }
 
     .more {
         display: block; margin: .75rem auto 0; height: 32px; padding: 0 14px;
-        border: 1px solid var(--border); border-radius: 999px;
-        background: transparent; color: var(--foreground);
-        font: 500 .8125rem/1 var(--font-sans); cursor: pointer;
+        border: 1px solid var(--rv-line); border-radius: 999px;
+        background: transparent; color: var(--rv-ink);
+        font: 500 .8125rem/1 var(--rv-font-sans); cursor: pointer;
     }
-    .more:hover { border-color: var(--primary); }
+    .more:hover { border-color: var(--rv-turq-ink); }
 
     /* ── Historique stocké ── */
     .store {
-        margin-top: 2rem; padding-top: 1rem; border-top: 1px dashed var(--border);
+        margin-top: 2rem; padding-top: 1rem; border-top: 1px dashed var(--rv-line);
         display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
-        font-size: .8125rem; color: var(--muted-foreground);
+        font-size: .8125rem; color: var(--rv-muted);
     }
     .store p { margin: 0; }
     .import {
         height: 30px; padding: 0 12px;
-        border: 1px solid var(--border); border-radius: 999px;
-        background: transparent; color: var(--foreground);
-        font: 500 .8125rem/1 var(--font-sans); cursor: pointer;
+        border: 1px solid var(--rv-line); border-radius: 999px;
+        background: transparent; color: var(--rv-ink);
+        font: 500 .8125rem/1 var(--rv-font-sans); cursor: pointer;
     }
-    .import:hover:not(:disabled) { border-color: var(--primary); }
+    .import:hover:not(:disabled) { border-color: var(--rv-turq-ink); }
     .import:disabled { opacity: .6; cursor: default; }
-    .import-msg { color: var(--destructive); }
-    .import-msg.ok { color: #3a9e6a; }
+    .import-msg { color: var(--rv-danger-ink); }
+    .import-msg.ok { color: var(--rv-success-ink); }
 
     @media (max-width: 560px) {
         summary { grid-template-columns: 14px minmax(0, 1fr) 3ch; }

@@ -45,21 +45,21 @@
 <style>
 	.inp {
 		width: 100%;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-md);
+		border: 1px solid var(--rv-line);
+		border-radius: var(--rv-radius-sm);
 		padding: 8px 12px;
 		font: inherit;
 		font-size: 0.9375rem;
-		background: var(--muted);
-		color: var(--foreground);
+		background: var(--rv-panel);
+		color: var(--rv-ink);
 		outline: none;
 		transition: border-color 0.15s, box-shadow 0.15s;
 	}
 	.inp:focus {
-		border-color: var(--primary);
-		box-shadow: 0 0 0 3px var(--ring);
-		background: var(--card);
+		border-color: var(--rv-turq-ink);
+		box-shadow: 0 0 0 3px var(--rv-turq-soft);
+		background: var(--rv-surface);
 	}
 	.inp:disabled { opacity: 0.5; cursor: not-allowed; }
-	.inp::placeholder { color: var(--muted-foreground); }
+	.inp::placeholder { color: var(--rv-muted); }
 </style>

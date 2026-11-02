@@ -40,10 +40,10 @@
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		font-family: var(--font-sans);
+		font-family: var(--rv-font-sans);
 		font-weight: 600;
 		border: 1px solid transparent;
-		border-radius: var(--radius-full);
+		border-radius: var(--rv-radius-control);
 		cursor: pointer;
 		white-space: nowrap;
 		text-decoration: none;
@@ -60,35 +60,34 @@
 
 	/* Variants */
 	.btn--primary {
-		color: var(--primary-foreground);
-		background: var(--primary);
-		box-shadow: var(--shadow-soft);
+		color: var(--rv-on-accent);
+		background: var(--rv-turq);
+		box-shadow: none;
 	}
 	.btn--primary:hover {
-		background: var(--primary-hover);
-		box-shadow: var(--shadow-hover);
+		box-shadow: var(--rv-shadow-gel);
 		transform: scale(1.02);
 	}
 
 	.btn--secondary {
-		color: var(--foreground);
-		background: var(--card);
-		border-color: var(--border);
+		color: var(--rv-ink);
+		background: var(--rv-surface);
+		border-color: var(--rv-line);
 	}
 	.btn--secondary:hover {
-		background: var(--muted);
-		box-shadow: var(--shadow-soft);
+		background: var(--rv-panel);
+		box-shadow: none;
 	}
 
 	.btn--ghost {
-		color: var(--foreground);
+		color: var(--rv-ink);
 		background: transparent;
 	}
-	.btn--ghost:hover { background: var(--overlay); }
+	.btn--ghost:hover { background: var(--rv-line); }
 
 	.btn--destructive {
 		color: white;
-		background: var(--destructive);
+		background: var(--rv-danger);
 	}
 	.btn--destructive:hover { opacity: 0.88; }
 </style>

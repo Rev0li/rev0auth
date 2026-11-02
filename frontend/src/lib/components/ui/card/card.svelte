@@ -16,9 +16,9 @@
 
 <style>
 	.card-root {
-		background: var(--card);
-		border: 1px solid var(--border);
-		border-radius: var(--radius-xl);
-		box-shadow: var(--shadow-soft);
+		background: var(--rv-surface);
+		border: 1px solid var(--rv-line);
+		border-radius: var(--rv-radius-window);
+		box-shadow: none;
 	}
 </style>

@@ -68,13 +68,13 @@
     header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
     h1 { margin: 0; font-size: 1.4rem; }
     .actions { display: flex; gap: .5rem; align-items: center; }
-    .actions input { padding: .4rem .6rem; border: 1px solid #ccc; border-radius: 4px; min-width: 220px; }
+    .actions input { padding: .4rem .6rem; border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm); min-width: 220px; }
     .actions button { padding: .4rem .8rem; cursor: pointer; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #eee; }
-    th { background: #f7f7f7; font-weight: 600; }
-    .ts { white-space: nowrap; color: #666; font-variant-numeric: tabular-nums; }
-    .action { font-family: monospace; color: #0066cc; }
-    .detail { color: #666; }
-    .empty { color: #888; padding: 2rem; text-align: center; }
+    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--rv-line); }
+    th { background: var(--rv-panel); font-weight: 600; }
+    .ts { white-space: nowrap; color: var(--rv-muted); font-variant-numeric: tabular-nums; }
+    .action { font-family: var(--rv-font-mono); color: var(--rv-turq-ink); }
+    .detail { color: var(--rv-muted); }
+    .empty { color: var(--rv-muted); padding: 2rem; text-align: center; }
 </style>

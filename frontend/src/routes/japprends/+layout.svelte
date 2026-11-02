@@ -84,11 +84,11 @@
     .subtab {
         height: 28px; padding: 0 12px;
         display: inline-flex; align-items: center;
-        border: 1px solid var(--border); border-radius: var(--radius-full, 999px);
-        font: 500 0.8125rem/1 var(--font-sans);
-        color: var(--muted-foreground); text-decoration: none; white-space: nowrap;
+        border: 1px solid var(--rv-line); border-radius: var(--rv-radius-control, 999px);
+        font: 500 0.8125rem/1 var(--rv-font-sans);
+        color: var(--rv-muted); text-decoration: none; white-space: nowrap;
         transition: color 0.15s, border-color 0.15s, background 0.15s;
     }
-    .subtab:hover { color: var(--foreground); border-color: var(--primary); }
-    .subtab.active { color: var(--foreground); background: var(--card); border-color: var(--primary); }
+    .subtab:hover { color: var(--rv-ink); border-color: var(--rv-turq-ink); }
+    .subtab.active { color: var(--rv-ink); background: var(--rv-surface); border-color: var(--rv-turq-ink); }
 </style>
