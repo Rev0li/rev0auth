@@ -315,50 +315,50 @@
 
     .tab-header { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     .tab-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .sub { font-size: 0.875rem; color: var(--muted-foreground); }
+    .sub { font-size: 0.875rem; color: var(--rv-muted); }
     .count {
         display: inline-flex; align-items: center; justify-content: center;
-        background: var(--muted); border-radius: 99px;
+        background: var(--rv-panel); border-radius: 99px;
         font-size: 0.75rem; font-weight: 500; padding: 1px 7px;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
     }
     .tab-header .btn-primary { margin-left: auto; }
 
     .btn-primary {
-        background: var(--primary); color: var(--primary-foreground);
-        border: none; border-radius: var(--radius-md); padding: 8px 16px;
-        font: 500 0.875rem/1 var(--font-sans); cursor: pointer; white-space: nowrap;
+        background: var(--rv-turq); color: var(--rv-on-accent);
+        border: none; border-radius: var(--rv-radius-sm); padding: 8px 16px;
+        font: 500 0.875rem/1 var(--rv-font-sans); cursor: pointer; white-space: nowrap;
     }
-    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:hover { box-shadow: var(--rv-shadow-gel); }
     .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn {
-        font: 500 0.8125rem/1 var(--font-sans); border: 1px solid var(--border);
-        background: var(--card); border-radius: var(--radius-sm);
-        padding: 7px 12px; cursor: pointer; color: var(--foreground); white-space: nowrap;
+        font: 500 0.8125rem/1 var(--rv-font-sans); border: 1px solid var(--rv-line);
+        background: var(--rv-surface); border-radius: var(--rv-radius-sm);
+        padding: 7px 12px; cursor: pointer; color: var(--rv-ink); white-space: nowrap;
     }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn.danger { background: var(--destructive-bg); border-color: var(--destructive-border); color: var(--destructive); }
+    .btn.danger { background: var(--rv-danger-soft); border-color: var(--rv-danger); color: var(--rv-danger-ink); }
     .btn-link {
         background: none; border: none; padding: 2px 4px; cursor: pointer;
-        font: 400 0.8125rem/1.2 var(--font-sans); color: var(--muted-foreground);
+        font: 400 0.8125rem/1.2 var(--rv-font-sans); color: var(--rv-muted);
         text-decoration: underline; text-underline-offset: 2px;
     }
-    .btn-link:hover { color: var(--foreground); }
-    .btn-link.danger { color: var(--destructive); }
+    .btn-link:hover { color: var(--rv-ink); }
+    .btn-link.danger { color: var(--rv-danger-ink); }
     .btn-link:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .invite-form {
         display: flex; flex-direction: column; gap: 0.5rem;
-        padding: 1rem; background: var(--muted);
-        border: 1px solid var(--border); border-radius: var(--radius-md);
+        padding: 1rem; background: var(--rv-panel);
+        border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm);
     }
     .invite-form label { font-size: 0.875rem; font-weight: 500; }
-    .hint { font-weight: 400; color: var(--muted-foreground); }
+    .hint { font-weight: 400; color: var(--rv-muted); }
     .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
     .row input { flex: 1; min-width: 160px; }
 
-    .feedback { margin: 0; font-size: 0.875rem; color: var(--muted-foreground); }
-    .err { margin: 0; font-size: 0.8125rem; color: var(--destructive); }
+    .feedback { margin: 0; font-size: 0.875rem; color: var(--rv-muted); }
+    .err { margin: 0; font-size: 0.8125rem; color: var(--rv-danger-ink); }
 
     /* ── Cartes ── */
     .grid {
@@ -368,22 +368,22 @@
     .card {
         display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
         padding: 1.25rem 0.75rem 1rem;
-        border: 1px solid var(--border); border-radius: var(--radius-md);
-        background: var(--card); color: var(--foreground);
+        border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm);
+        background: var(--rv-surface); color: var(--rv-ink);
         font: inherit; text-align: center;
     }
     .card.member { cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
-    .card.member:hover, .card.member:focus-visible { border-color: var(--primary); transform: translateY(-2px); }
+    .card.member:hover, .card.member:focus-visible { border-color: var(--rv-turq-ink); transform: translateY(-2px); }
     .card.invite { border-style: dashed; background: transparent; }
 
     .avatar {
         width: 64px; height: 64px; border-radius: 50%;
-        background: var(--muted); margin-bottom: 0.4rem; object-fit: cover;
+        background: var(--rv-panel); margin-bottom: 0.4rem; object-fit: cover;
     }
     .avatar.big { width: 72px; height: 72px; margin: 0; }
     .envelope {
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.6rem; color: var(--muted-foreground);
+        font-size: 1.6rem; color: var(--rv-muted);
     }
     .pseudo {
         font-weight: 600; font-size: 0.9375rem;
@@ -391,34 +391,34 @@
     }
     .role {
         font-size: 0.6875rem; font-weight: 600; border-radius: 99px; padding: 2px 8px;
-        background: var(--muted); color: var(--muted-foreground);
+        background: var(--rv-panel); color: var(--rv-muted);
     }
-    .role.admin { background: var(--primary); color: var(--primary-foreground); }
-    .role.pending { background: transparent; border: 1px dashed var(--border); }
-    .meta { font-size: 0.75rem; color: var(--muted-foreground); }
+    .role.admin { background: var(--rv-turq); color: var(--rv-on-accent); }
+    .role.pending { background: transparent; border: 1px dashed var(--rv-line); }
+    .meta { font-size: 0.75rem; color: var(--rv-muted); }
 
     .btn-copy {
         margin-top: 0.5rem; width: 100%;
-        background: var(--primary); color: var(--primary-foreground);
-        border: none; border-radius: var(--radius-sm); padding: 7px 10px;
-        font: 500 0.8125rem/1 var(--font-sans); cursor: pointer;
+        background: var(--rv-turq); color: var(--rv-on-accent);
+        border: none; border-radius: var(--rv-radius-sm); padding: 7px 10px;
+        font: 500 0.8125rem/1 var(--rv-font-sans); cursor: pointer;
     }
-    .btn-copy:hover { background: var(--primary-hover); }
+    .btn-copy:hover { box-shadow: var(--rv-shadow-gel); }
 
-    .expired { margin: 0; font-size: 0.8125rem; color: var(--muted-foreground); text-align: center; }
+    .expired { margin: 0; font-size: 0.8125rem; color: var(--rv-muted); text-align: center; }
 
     /* ── Fiche ── */
     .sheet {
         width: min(420px, calc(100vw - 2rem));
-        border: 1px solid var(--border); border-radius: var(--radius-md);
-        background: var(--card); color: var(--foreground);
+        border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm);
+        background: var(--rv-surface); color: var(--rv-ink);
         padding: 1.5rem; position: relative;
     }
-    .sheet::backdrop { background: rgb(0 0 0 / 0.45); }
+    .sheet::backdrop { background: color-mix(in oklab, var(--rv-band) 45%, transparent); }
     .close {
         position: absolute; top: 0.75rem; right: 0.75rem;
         background: none; border: none; cursor: pointer;
-        color: var(--muted-foreground); font-size: 0.875rem; padding: 4px 8px;
+        color: var(--rv-muted); font-size: 0.875rem; padding: 4px 8px;
     }
     .sheet-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
     .sheet-head h3 { margin: 0; font-size: 1.125rem; }
@@ -426,35 +426,35 @@
     .sheet section { display: flex; flex-direction: column; gap: 0.6rem; align-items: flex-start; }
     .sheet h4 {
         margin: 0; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.05em; color: var(--muted-foreground);
+        letter-spacing: 0.05em; color: var(--rv-muted);
     }
     .sheet .row { width: 100%; }
     .sheet section.spaced { margin-top: 1.5rem; }
 
     /* Choix du rôle : trois boutons collés, celui en cours plein */
     .segmented {
-        display: inline-flex; border: 1px solid var(--border);
-        border-radius: var(--radius-md); overflow: hidden;
+        display: inline-flex; border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm); overflow: hidden;
     }
     .segmented button {
-        font: 500 0.875rem/1 var(--font-sans); padding: 9px 16px;
-        background: var(--card); color: var(--foreground);
-        border: none; border-right: 1px solid var(--border); cursor: pointer;
+        font: 500 0.875rem/1 var(--rv-font-sans); padding: 9px 16px;
+        background: var(--rv-surface); color: var(--rv-ink);
+        border: none; border-right: 1px solid var(--rv-line); cursor: pointer;
     }
     .segmented button:last-child { border-right: none; }
-    .segmented button:hover:not(.on) { background: var(--muted); }
-    .segmented button.on { background: var(--primary); color: var(--primary-foreground); }
+    .segmented button:hover:not(.on) { background: var(--rv-panel); }
+    .segmented button.on { background: var(--rv-turq); color: var(--rv-on-accent); }
     .segmented button:disabled { cursor: wait; }
 
     .confirm-box {
         width: 100%; padding: 0.875rem 1rem;
-        border: 1px solid var(--primary); border-radius: var(--radius-md);
-        background: var(--muted);
+        border: 1px solid var(--rv-turq-ink); border-radius: var(--rv-radius-sm);
+        background: var(--rv-panel);
         display: flex; flex-direction: column; gap: 0.5rem;
     }
     .confirm-box p { margin: 0; font-size: 0.875rem; }
-    .confirm-box ul { margin: 0; padding-left: 1.1rem; font-size: 0.8125rem; color: var(--muted-foreground); line-height: 1.45; }
+    .confirm-box ul { margin: 0; padding-left: 1.1rem; font-size: 0.8125rem; color: var(--rv-muted); line-height: 1.45; }
 
-    .danger-zone { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .danger-zone { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--rv-line); }
     .danger-zone p { margin: 0; font-size: 0.875rem; }
 </style>

@@ -1,37 +1,20 @@
-/* ===== MyCss design tokens (CDN) ===== */
-@import url('https://cdn.jsdelivr.net/gh/Rev0li/MyCss@main/dist/tokens.css');
-
-/* ===== Project-specific overrides ===== */
-:root {
-    /* Radius scale — align with existing page components */
-    --radius-sm:   0.5rem;
-    --radius-lg:   1.125rem;
-    --radius-xl:   var(--radius-lg, 1.75rem); /* alias → shadcn-svelte compat */
-
-    /* Hover state (not in MyCss base) */
-    --primary-hover: #DCA2B5;
-
-    /* Semantic state backgrounds */
-    --success-bg:          rgba(101, 180, 138, 0.12);
-    --success-border:      rgba(101, 180, 138, 0.35);
-    --destructive-bg:      rgba(217, 107, 107, 0.12);
-    --destructive-border:  rgba(217, 107, 107, 0.35);
-}
-
-/* Dark overrides inherit everything from MyCss .dark — add missing project tokens */
-.dark {
-    --primary-hover: #DCA2B5;
-}
+/* ===== MyCss rv-tokens v1 (CDN, version figée) =====
+   Seule source des couleurs, polices, rayons et ombres du portail : les
+   composants n'utilisent que des tokens --rv-*. SongSurf, une fois intégré au
+   portail, reprendra les mêmes composants sans couche de traduction.
+   Thème : clair par défaut, sombre via data-theme="dark" sur <html> (posé par
+   app.html avant le rendu, basculé par ThemeToggle). */
+@import url('https://cdn.jsdelivr.net/gh/Rev0li/MyCss@v1.0.0/dist/rv-tokens.css');
 
 /* ===== Reset ===== */
 *, *::before, *::after { box-sizing: border-box; }
 button { color: inherit; }
 body {
-    font-family: var(--font-sans);
+    font-family: var(--rv-font-sans);
     font-size: 0.9375rem;
     line-height: 1.5;
-    color: var(--foreground);
-    background: var(--background);
+    color: var(--rv-ink);
+    background: var(--rv-bg);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     margin: 0;
@@ -39,10 +22,10 @@ body {
 
 /* ===== Card ===== */
 .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-soft);
+    background: var(--rv-surface);
+    border: 1px solid var(--rv-line);
+    border-radius: var(--rv-radius-window);
+    box-shadow: none;
 }
 
 /* ===== Forms ===== */
@@ -50,22 +33,22 @@ input:not([type="file"]),
 textarea,
 select {
     width: 100%;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--rv-line);
+    border-radius: var(--rv-radius-sm);
     padding: 8px 12px;
     font: inherit;
     font-size: 0.9375rem;
-    background: var(--muted);
-    color: var(--foreground);
+    background: var(--rv-panel);
+    color: var(--rv-ink);
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 input:not([type="file"]):focus,
 textarea:focus,
 select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--ring);
-    background: var(--card);
+    border-color: var(--rv-turq-ink);
+    box-shadow: 0 0 0 3px var(--rv-turq-soft);
+    background: var(--rv-surface);
 }
 textarea { min-height: 80px; resize: vertical; }
 select { cursor: pointer; }
@@ -86,20 +69,20 @@ label {
     gap: 6px;
     height: 40px;
     padding: 0 22px;
-    font: 600 0.9375rem/1 var(--font-sans);
-    color: var(--primary-foreground);
-    background: var(--primary);
+    font: 600 0.9375rem/1 var(--rv-font-sans);
+    color: var(--rv-on-accent);
+    background: var(--rv-turq);
     border: 1px solid transparent;
-    border-radius: var(--radius-full);
+    border-radius: var(--rv-radius-control);
     cursor: pointer;
     white-space: nowrap;
     text-decoration: none;
     transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
-    box-shadow: var(--shadow-soft);
+    box-shadow: none;
 }
 .btn-primary:hover {
-    background: var(--primary-hover);
-    box-shadow: var(--shadow-hover);
+    background: var(--rv-turq);
+    box-shadow: var(--rv-shadow-gel);
     transform: scale(1.02);
 }
 .btn-primary:active { transform: scale(0.98); }
@@ -109,8 +92,8 @@ label {
     width: 100%;
     height: 40px;
     border: none;
-    border-radius: var(--radius-full);
-    font: 600 0.9375rem/1 var(--font-sans);
+    border-radius: var(--rv-radius-control);
+    font: 600 0.9375rem/1 var(--rv-font-sans);
     cursor: pointer;
     transition: background 0.15s, box-shadow 0.15s;
 }
@@ -121,38 +104,38 @@ label {
     gap: 5px;
     height: 32px;
     padding: 0 14px;
-    font: 500 0.8125rem/1 var(--font-sans);
-    color: var(--foreground);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-full);
+    font: 500 0.8125rem/1 var(--rv-font-sans);
+    color: var(--rv-ink);
+    background: var(--rv-surface);
+    border: 1px solid var(--rv-line);
+    border-radius: var(--rv-radius-control);
     cursor: pointer;
     white-space: nowrap;
     text-decoration: none;
     transition: background 0.15s, box-shadow 0.12s;
 }
 .btn-secondary:hover {
-    background: var(--muted);
-    box-shadow: var(--shadow-soft);
+    background: var(--rv-panel);
+    box-shadow: none;
 }
-.btn-secondary.grant   { color: var(--success);     border-color: var(--success-border); }
-.btn-secondary.revoke  { color: var(--destructive);  border-color: var(--destructive-border); }
+.btn-secondary.grant   { color: var(--rv-success-ink);     border-color: var(--rv-success); }
+.btn-secondary.revoke  { color: var(--rv-danger-ink);  border-color: var(--rv-danger); }
 
 /* ===== State chips ===== */
 .chip-ok {
     display: block;
-    background: var(--success-bg);
-    border: 1px solid var(--success-border);
-    color: var(--success);
-    border-radius: var(--radius-md);
+    background: var(--rv-success-soft);
+    border: 1px solid var(--rv-success);
+    color: var(--rv-success-ink);
+    border-radius: var(--rv-radius-sm);
     padding: 6px 10px;
 }
 .chip-error {
     display: block;
-    background: var(--destructive-bg);
-    border: 1px solid var(--destructive-border);
-    color: var(--destructive);
-    border-radius: var(--radius-md);
+    background: var(--rv-danger-soft);
+    border: 1px solid var(--rv-danger);
+    color: var(--rv-danger-ink);
+    border-radius: var(--rv-radius-sm);
     padding: 6px 10px;
 }
 
@@ -164,7 +147,7 @@ label {
 }
 
 /* ===== Typography helpers ===== */
-.meta { color: var(--muted-foreground); font-size: 0.875rem; }
+.meta { color: var(--rv-muted); font-size: 0.875rem; }
 
 /* ===== Nav link ===== */
 .link {
@@ -173,11 +156,11 @@ label {
     text-align: center;
     text-decoration: none;
     font-size: 0.875rem;
-    color: var(--muted-foreground);
+    color: var(--rv-muted);
     font-weight: 500;
     transition: color 0.15s;
 }
-.link:hover { color: var(--foreground); }
+.link:hover { color: var(--rv-ink); }
 
 /* ── Transitions entre pages (AUTH-29) ─────────────────────────────────────
    Même site : transition native (onNavigate dans routes/+layout.svelte). La

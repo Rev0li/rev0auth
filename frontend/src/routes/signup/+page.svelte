@@ -146,9 +146,9 @@
     .portal-card {
         width: 100%;
         max-width: 480px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
+        background: var(--rv-surface);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm);
         padding: 2rem;
         display: flex;
         flex-direction: column;
@@ -161,21 +161,21 @@
         font-size: 1.5rem;
         font-weight: 700;
         letter-spacing: -0.02em;
-        color: var(--foreground);
+        color: var(--rv-ink);
     }
     .portal-tagline {
         display: block;
         font-size: 0.85rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         margin-top: 2px;
     }
 
     .warn-pseudo {
         font-size: 0.82rem;
-        color: var(--muted-foreground);
-        background: var(--muted);
+        color: var(--rv-warning-ink);
+        background: var(--rv-warning-soft);
         padding: 8px 12px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
         margin: 0;
     }
 
@@ -187,29 +187,29 @@
     .field label {
         font-size: 0.875rem;
         font-weight: 500;
-        color: var(--foreground);
+        color: var(--rv-ink);
     }
     .field input {
         width: 100%;
         padding: 0.5rem 0.75rem;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        background: var(--background);
-        color: var(--foreground);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm);
+        background: var(--rv-bg);
+        color: var(--rv-ink);
         font-size: 0.875rem;
         outline: none;
         box-sizing: border-box;
     }
-    .field input:focus { border-color: var(--ring); }
+    .field input:focus { border-color: var(--rv-turq-ink); }
 
     .avatar-section { display: flex; flex-direction: column; gap: 0.5rem; }
     .avatar-label {
         font-size: 0.875rem;
         font-weight: 500;
-        color: var(--foreground);
+        color: var(--rv-ink);
         margin: 0;
     }
-    .optional { color: var(--muted-foreground); font-weight: 400; }
+    .optional { color: var(--rv-muted); font-weight: 400; }
 
     .avatar-grid {
         display: flex;
@@ -223,18 +223,18 @@
         align-items: center;
         gap: 4px;
         background: none;
-        border: 2px solid var(--border);
-        border-radius: var(--radius);
+        border: 2px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm);
         padding: 6px;
         cursor: pointer;
         transition: border-color 0.15s, box-shadow 0.15s;
         width: 72px;
     }
     .avatar-btn img { width: 48px; height: 48px; border-radius: 50%; }
-    .avatar-btn:hover { border-color: var(--ring); }
+    .avatar-btn:hover { border-color: var(--rv-turq-ink); }
     .avatar-btn.selected {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 2px var(--primary);
+        border-color: var(--rv-turq-ink);
+        box-shadow: 0 0 0 2px var(--rv-turq-ink);
     }
 
     .chip-error {
@@ -242,17 +242,17 @@
         color: hsl(0 72% 51%);
         background: hsl(0 72% 51% / 0.1);
         padding: 6px 10px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
         margin: 0;
     }
 
     .btn-primary {
         width: 100%;
         padding: 0.6rem 1rem;
-        background: var(--primary);
-        color: var(--primary-foreground);
+        background: var(--rv-turq);
+        color: var(--rv-on-accent);
         border: none;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
         font-size: 0.9rem;
         font-weight: 500;
         cursor: pointer;
@@ -264,14 +264,14 @@
     .back-link {
         text-align: center;
         font-size: 0.83rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         text-decoration: none;
     }
-    .back-link:hover { color: var(--foreground); }
+    .back-link:hover { color: var(--rv-ink); }
 
     .invite-error {
         text-align: center;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         font-size: 0.9rem;
         display: flex;
         flex-direction: column;

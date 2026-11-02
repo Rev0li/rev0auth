@@ -152,9 +152,9 @@
     .card {
         width: 100%;
         max-width: 360px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
+        background: var(--rv-surface);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-window);
         padding: 2rem;
         display: flex;
         flex-direction: column;
@@ -168,8 +168,8 @@
         font-weight: 600;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        background: var(--muted);
-        color: var(--muted-foreground);
+        background: var(--rv-panel);
+        color: var(--rv-muted);
         padding: 3px 10px;
         border-radius: 999px;
     }
@@ -178,7 +178,7 @@
         font-size: 1.25rem;
         font-weight: 700;
         margin: 0;
-        color: var(--foreground);
+        color: var(--rv-ink);
     }
 
     .fields {
@@ -190,21 +190,21 @@
     .field {
         width: 100%;
         padding: 0.6rem 0.75rem;
-        background: var(--background);
-        color: var(--foreground);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
+        background: var(--rv-bg);
+        color: var(--rv-ink);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm);
         font-size: 0.875rem;
     }
-    .field:focus { outline: none; border-color: var(--primary); }
+    .field:focus { outline: none; border-color: var(--rv-turq-ink); }
 
     .btn {
         width: 100%;
         padding: 0.6rem 1rem;
-        background: var(--primary);
-        color: var(--primary-foreground);
+        background: var(--rv-turq);
+        color: var(--rv-on-accent);
         border: none;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
         font-size: 0.875rem;
         font-weight: 600;
         cursor: pointer;
@@ -215,7 +215,7 @@
     .hint {
         margin: 0;
         font-size: 0.875rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
     }
 
     .text-btn {
@@ -223,10 +223,10 @@
         border: none;
         padding: 0;
         font-size: 0.8125rem;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         text-decoration: underline;
         text-underline-offset: 3px;
         cursor: pointer;
     }
-    .text-btn:hover { color: var(--foreground); }
+    .text-btn:hover { color: var(--rv-ink); }
 </style>

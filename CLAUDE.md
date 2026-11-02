@@ -161,6 +161,20 @@ sign-in with PIN (console host).
 - Admin-protected (role + validated key): every other `/japprends/*`
 - Member-protected: `/home/friend`, `/members/*`
 
+## Styles (AUTH-14)
+
+- Single source: MyCss `rv-tokens` v1, imported pinned in `frontend/src/app.css`
+  (`@v1.0.0/dist/rv-tokens.css`). Components use **only** `--rv-*` tokens: no
+  hex colors, no project aliases (the old shadcn-style names `--primary`,
+  `--muted-foreground`… are gone). Fill = `--rv-turq` / `--rv-danger`…, text
+  in a color = the `-ink` variant, text on a fill = `--rv-on-accent`.
+- Theme: light by default, dark via `data-theme="dark"` on `<html>` (set before
+  paint by `app.html`, toggled by `ThemeToggle`, saved in localStorage). Not the
+  `sobre` mode (light only).
+- Fonts: Schibsted Grotesk + JetBrains Mono (Google Fonts, `routes/+layout.svelte`).
+- SongSurf will later be merged into the portal: `lib/components/ui/*` depend on
+  rv-tokens only so it can reuse them as-is.
+
 ## Key Design Notes
 
 - One user model: `ba_users` = BetterAuth identity + business fields (active,

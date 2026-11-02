@@ -72,9 +72,9 @@
         display: inline-grid;
         grid-template-columns: 1fr 1fr;
         padding: 3px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-full, 999px);
-        background: var(--muted);
+        border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-control, 999px);
+        background: var(--rv-panel);
         isolation: isolate;
     }
     /* Pastille sous le côté actif ; elle ne glisse qu'au changement d'espace
@@ -85,8 +85,8 @@
         top: 3px; bottom: 3px; left: 3px;
         width: calc(50% - 3px);
         border-radius: inherit;
-        background: var(--card);
-        box-shadow: var(--shadow-soft), 0 0 0 1px var(--primary);
+        background: var(--rv-surface);
+        box-shadow: 0 0 0 1px var(--rv-turq-ink);
         transition: transform 0.25s cubic-bezier(.2, .8, .2, 1);
         view-transition-name: space-thumb;
     }
@@ -96,22 +96,22 @@
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
         height: 28px; padding: 0 14px;
         border-radius: inherit;
-        font: 600 0.8125rem/1 var(--font-sans);
+        font: 600 0.8125rem/1 var(--rv-font-sans);
         white-space: nowrap;
-        color: var(--muted-foreground);
+        color: var(--rv-muted);
         text-decoration: none;
         transition: color 0.15s;
     }
-    .seg.active { color: var(--foreground); cursor: default; }
-    a.seg:hover, a.seg:focus-visible { color: var(--primary-hover); outline: none; }
-    a.seg:focus-visible { box-shadow: 0 0 0 2px var(--primary); }
+    .seg.active { color: var(--rv-ink); cursor: default; }
+    a.seg:hover, a.seg:focus-visible { color: var(--rv-turq-ink); outline: none; }
+    a.seg:focus-visible { box-shadow: 0 0 0 2px var(--rv-turq-ink); }
 
     svg {
         width: 14px; height: 14px; flex-shrink: 0;
         fill: none; stroke: currentColor; stroke-width: 2;
         stroke-linecap: round; stroke-linejoin: round;
     }
-    .seg.active svg { color: var(--primary-hover); }
+    .seg.active svg { color: var(--rv-turq-ink); }
 
     @media (max-width: 520px) {
         .seg { padding: 0 10px; }

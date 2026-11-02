@@ -117,43 +117,43 @@
 
     .add-form {
         display: flex; gap: 0.5rem; flex-wrap: wrap;
-        padding: 0.75rem; background: var(--muted);
-        border: 1px solid var(--border); border-radius: var(--radius-md);
+        padding: 0.75rem; background: var(--rv-panel);
+        border: 1px solid var(--rv-line); border-radius: var(--rv-radius-sm);
     }
     .add-form input { flex: 1; min-width: 160px; }
     .btn-add {
-        background: var(--primary); color: var(--primary-foreground);
-        border: none; border-radius: var(--radius-md); padding: 8px 16px;
-        font: 500 0.875rem/1 var(--font-sans); cursor: pointer; white-space: nowrap;
+        background: var(--rv-turq); color: var(--rv-on-accent);
+        border: none; border-radius: var(--rv-radius-sm); padding: 8px 16px;
+        font: 500 0.875rem/1 var(--rv-font-sans); cursor: pointer; white-space: nowrap;
     }
     .btn-add:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .error { margin: 0; font-size: 0.875rem; color: var(--destructive); }
-    .hint { margin: 0; font-size: 0.8125rem; color: var(--muted-foreground); }
-    .loading { color: var(--muted-foreground); font-size: 0.875rem; text-align: center; margin: 2rem 0; }
+    .error { margin: 0; font-size: 0.875rem; color: var(--rv-danger-ink); }
+    .hint { margin: 0; font-size: 0.8125rem; color: var(--rv-muted); }
+    .loading { color: var(--rv-muted); font-size: 0.875rem; text-align: center; margin: 2rem 0; }
 
     .key-list { display: flex; flex-direction: column; gap: 0.5rem; }
     .key-row {
         display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;
-        padding: 0.75rem 1rem; border: 1px solid var(--border);
-        border-radius: var(--radius-md); background: var(--card);
+        padding: 0.75rem 1rem; border: 1px solid var(--rv-line);
+        border-radius: var(--rv-radius-sm); background: var(--rv-surface);
     }
     .key-main { display: flex; flex-direction: column; gap: 2px; }
     .key-name { font-weight: 600; font-size: 0.875rem; }
-    .key-meta { font-size: 0.8125rem; color: var(--muted-foreground); }
+    .key-meta { font-size: 0.8125rem; color: var(--rv-muted); }
 
     .key-actions { display: flex; align-items: center; gap: 0.4rem; }
     .btn-del {
-        background: none; border: none; color: var(--muted-foreground);
+        background: none; border: none; color: var(--rv-muted);
         cursor: pointer; font-size: 0.75rem; padding: 4px 8px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--rv-radius-sm);
     }
-    .btn-del:hover { background: var(--destructive-bg); color: var(--destructive); }
+    .btn-del:hover { background: var(--rv-danger-soft); color: var(--rv-danger-ink); }
     .btn-confirm, .btn-cancel {
-        font: 500 0.8125rem/1 var(--font-sans);
-        border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer;
+        font: 500 0.8125rem/1 var(--rv-font-sans);
+        border-radius: var(--rv-radius-sm); padding: 4px 10px; cursor: pointer;
     }
-    .btn-confirm { background: var(--destructive); color: #fff; border: 1px solid var(--destructive); }
+    .btn-confirm { background: var(--rv-danger); color: var(--rv-on-accent); border: 1px solid var(--rv-danger-ink); }
     .btn-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-cancel { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); }
+    .btn-cancel { background: var(--rv-panel); color: var(--rv-ink); border: 1px solid var(--rv-line); }
 </style>
