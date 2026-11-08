@@ -61,7 +61,11 @@ Preuve absente ou fausse → requête anonyme.
 3. Caddy : sur le bloc du sous-domaine, `import porte_portail <nom>` puis le
    `reverse_proxy` avec `import sans_cookie_portail` et le snippet de preuve.
    Exempter le preflight CORS (`OPTIONS`) si une extension ou un autre site
-   appelle le service. Modèle : `infra/caddy/Caddyfile.template`, bloc `songsurf.`.
+   appelle le service, et les icônes + le manifeste si le service s'installe
+   sur l'écran d'accueil : le téléphone les récupère sans la session (AUTH-31).
+   Chemins exacts, `GET`/`HEAD` seulement, transmis par `songsurf_anonyme` :
+   ni preuve ni `X-User-*`, le service n'y voit qu'un anonyme.
+   Modèle : `infra/caddy/Caddyfile.template`, bloc `songsurf.`.
 4. Service : lire l'identité dans les en-têtes, vérifier la preuve, ne plus
    rediriger vers une page de connexion (Caddy s'en charge). Déconnexion =
    renvoyer vers le portail.

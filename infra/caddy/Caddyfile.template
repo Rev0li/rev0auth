@@ -57,6 +57,16 @@
 # lancé avec --environ et écrirait le secret dans le journal.
 import /etc/caddy/secrets/songsurf-preuve.caddy
 
+# Vers SongSurf en anonyme : ni identité ni preuve (exceptions à la porte du
+# bloc songsurf., voir plus bas).
+(songsurf_anonyme) {
+    reverse_proxy {$NAS_UPSTREAM}:9000 {
+        import sans_cookie_portail
+        header_up -X-User-*
+        header_up -X-Proxy-Token
+    }
+}
+
 # ── Portail (SvelteKit) ───────────────────────────────────────────────────────
 {$WEB_DOMAIN} {
     encode zstd gzip
@@ -102,15 +112,25 @@ admin.{$WEB_DOMAIN} {
 
 # ── Services du NAS ───────────────────────────────────────────────────────────
 songsurf.{$WEB_DOMAIN} {
-    # Preflight CORS de l'extension : sans cookie, il passe sans la porte.
-    # Sans preuve, le Watcher ignore toute identité ; il n'y répond que CORS.
+    # Deux exceptions à la porte, transmises SANS preuve et sans X-User-* :
+    # SongSurf n'y voit qu'un anonyme (comme un appareil du réseau local) et
+    # ne peut rien ouvrir d'autre que ces réponses publiques.
+    #  - preflight CORS de l'extension : envoyé sans cookie, SongSurf n'y
+    #    répond que CORS ;
+    #  - icônes et manifeste de l'écran d'accueil (AUTH-31) : le téléphone les
+    #    récupère sans la session (iOS, ou le serveur qui fabrique l'icône sur
+    #    Android). Chemins exacts, lecture seule.
     @preflight method OPTIONS
     handle @preflight {
-        reverse_proxy {$NAS_UPSTREAM}:9000 {
-            import sans_cookie_portail
-            header_up -X-User-*
-            header_up -X-Proxy-Token
-        }
+        import songsurf_anonyme
+    }
+
+    @icones {
+        method GET HEAD
+        path /manifest.json /favicon.svg /apple-touch-icon.png /icon-192.png /icon-512.png /icon-maskable-512.png
+    }
+    handle @icones {
+        import songsurf_anonyme
     }
 
     handle {
